@@ -42,7 +42,7 @@ bt:
   maxUploadSlots: 8           # 同时上传连接数上限
   enableUPnP: true            # UPnP / NAT-PMP 端口映射
   listenPort: 0               # 0 = 随机端口
-  listenHost: ""              # 空 = 库默认（所有接口）；生产请配合防火墙
+  listenHost: ""              # 空 = 库默认（所有接口）；填 IP 字面量时按地址族关闭另一族监听
 ed2k:
   obfuscation: true
   secureIdent: true

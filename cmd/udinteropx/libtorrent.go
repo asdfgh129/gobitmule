@@ -2,13 +2,18 @@ package main
 
 // Real libtorrent (2.x) cross-client cases for the WBS 11 external harness.
 //
-// Unlike the in-process L3 fixtures, these cases seed with a genuinely
+// Unlike the in-process L3 fixtures, BX-03 / BX-04 seed with a genuinely
 // independent BitTorrent engine (the python-libtorrent binding; libtorrent is
 // named by BT-03) and download with this project's real bttransport. They are
-// still LOOPBACK, ONE-WAY (seeder -> ud) supplementary evidence: BT-03 requires
-// bidirectional sessions (ud seeding is explicitly out of scope per ADR-0004),
-// and the L4 lab also needs packet capture, a gigabit LAN and chihaya /
-// opentracker binaries. They must never be counted toward release_gate_met.
+// still LOOPBACK, ONE-WAY (seeder -> ud) supplementary evidence.
+//
+// 2026-11-14 timepoint note: ADR-0021 path A has since IMPLEMENTED bounded ud
+// seeding, and BX-06 now exercises the reverse direction (ud -> libtorrent
+// leecher). Neither direction executes the L4 matrix: BT-03 still requires a
+// bidirectional qBittorrent / Transmission / libtorrent session with packet
+// capture, an isolated gigabit LAN and chihaya / opentracker binaries. The
+// suite v1 registry still fixes BT-02 / BT-11 as UNSUPPORTED. These cases must
+// never be counted toward release_gate_met.
 
 import (
 	"bufio"
@@ -143,7 +148,10 @@ func runLibtorrentCases() []verdict {
 	if _, err := os.Stat(script); err != nil {
 		return ltUnavailable("seeder script unavailable: " + err.Error())
 	}
-	return []verdict{runLibtorrentCase(false), runLibtorrentCase(true)}
+	return []verdict{
+		runWithLoopbackRetry(func() verdict { return runLibtorrentCase(false) }),
+		runWithLoopbackRetry(func() verdict { return runLibtorrentCase(true) }),
+	}
 }
 
 func ltCaseMeta(magnet bool) (string, string, int) {

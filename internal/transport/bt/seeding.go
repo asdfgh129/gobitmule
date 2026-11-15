@@ -19,6 +19,7 @@ package bttransport
 
 import (
 	"context"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -132,6 +133,18 @@ func applySeedingPolicy(cfg *torrent.ClientConfig, r *core.Resource, p SeedingPo
 		}
 		if p.ListenHost != "" {
 			host := p.ListenHost
+			if ip := net.ParseIP(host); ip != nil {
+				// anacrolix binds one socket per address family and uses the
+				// SAME ListenHost value for tcp4/tcp6/udp4/udp6. An IPv4
+				// literal is not bindable on a tcp6 socket (NewClient fails
+				// with "no suitable address found"), so restrict the client to
+				// the family the operator actually configured.
+				if ip.To4() != nil {
+					cfg.DisableIPv6 = true
+				} else {
+					cfg.DisableIPv4 = true
+				}
+			}
 			cfg.ListenHost = func(string) string { return host }
 		}
 		return

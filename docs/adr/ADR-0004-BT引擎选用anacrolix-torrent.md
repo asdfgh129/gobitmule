@@ -99,6 +99,11 @@ HTTP/HTTPS 与 BEP 15 UDP tracker fixture（BEP 23 compact 6B/18B、passkey、�
   `libtorrent 2.1.1` 的 `BX-03` / `BX-04` 单向回环证据（python 绑定为本机外部工具，
   非项目依赖、不进 SBOM、CI 不跑），连同 aria2-next 的 `BX-01` / `BX-02` 共 4/4 PASS。
   libtorrent 点名于 `BT-03`，但该判据要求双向（我方做种明确不做），故**不计入 L4**。
+  **2026-11-15 时点口径（路径 A 落地后追加，原文为 2026-11-13 时点值、保留不改）**：
+  ADR-0021 已按路径 A 补齐受限做种实现，外部证据扩为 `BX-01..BX-06` 6/6 PASS，其中
+  `BX-05` / `BX-06` 首次以真实 aria2-next / libtorrent leecher 验证我方做种半向；
+  但每条仍是单向回环补充证据，`BT-01..BT-14` 仍 0/14、`BT-02` / `BT-11` 仍
+  `UNSUPPORTED`、`release_gate_met=false`，**不计入 L4**，也不改变本 ADR 决策范围。
 - **新发现的阻塞**：`BT-02` / `BT-11` 因决策中的 `Seed=false` 恒 `UNSUPPORTED`，
   `BT-03` 双向半向不可达，因此「BT-01..BT-14 全矩阵通过方可发布 P1」在现有产品边界下
   **形式不可满足**。三条处置路径（修订判据豁免 / 修订本 ADR 扩大产品范围实现做种 /

@@ -103,11 +103,15 @@ gates-strict:
 interop:
 	$(GO) run ./cmd/udinterop --out $(DIST)
 
-# Optional real third-party client harness (BX-01..BX-04). Requires locally
+# Optional real third-party client harness (BX-01..BX-06). Requires locally
 # installed aria2-next and/or the python-libtorrent binding; set
-# UD_ARIA2_NEXT, UD_LIBTORRENT_PYTHONPATH, UD_LIBTORRENT_SEEDER as needed.
-# Missing engines emit explicit SKIPPED / UNSUPPORTED records. CI never runs
-# this target; run `make interop` afterwards to merge dist/interop_external.json.
+# UD_ARIA2_NEXT, UD_LIBTORRENT_PYTHONPATH, UD_LIBTORRENT_SEEDER /
+# UD_LIBTORRENT_LEECHER as needed. BX-01..BX-04 cover "third-party seeds ->
+# ud downloads"; BX-05 / BX-06 cover the ADR-0021 path A direction "ud seeds
+# -> third-party downloads". All six are one-way loopback SUPPLEMENTARY
+# evidence, never L4 PASS results. Missing engines emit explicit SKIPPED /
+# UNSUPPORTED records. CI never runs this target; run `make interop`
+# afterwards to merge dist/interop_external.json.
 interop-external:
 	$(GO) run ./cmd/udinteropx
 

@@ -93,6 +93,9 @@ func TestClientConfigAppliesSeedingPolicy(t *testing.T) {
 	if got := cfg.ListenHost("tcp"); got != "127.0.0.1" {
 		t.Fatalf("listen host = %q", got)
 	}
+	if !cfg.DisableIPv6 {
+		t.Fatal("an IPv4 listenHost must disable IPv6 sockets (tcp6 cannot bind 127.0.0.1)")
+	}
 	if cfg.NoDefaultPortForwarding {
 		t.Fatal("enableUPnP=true must allow the library's UPnP / NAT-PMP forwarding")
 	}
@@ -101,6 +104,36 @@ func TestClientConfigAppliesSeedingPolicy(t *testing.T) {
 	}
 	if !strings.HasPrefix(cfg.PeerID, honestPeerIDPrefix) {
 		t.Fatalf("PeerID lost its honest prefix: %q", cfg.PeerID)
+	}
+}
+
+func TestClientConfigListenHostRestrictsAddressFamily(t *testing.T) {
+	cases := []struct {
+		host      string
+		disableV6 bool
+		disableV4 bool
+	}{
+		{"127.0.0.1", true, false},
+		{"::1", false, true},
+		{"localhost", false, false},
+		{"", false, false},
+	}
+	for _, tc := range cases {
+		p := DefaultSeedingPolicy()
+		p.ListenHost = tc.host
+		cfg := clientConfig(seedTestResource(false), t.TempDir(), false, p)
+		if cfg.DisableIPv6 != tc.disableV6 || cfg.DisableIPv4 != tc.disableV4 {
+			t.Fatalf("host=%q: DisableIPv6=%v DisableIPv4=%v, want %v/%v",
+				tc.host, cfg.DisableIPv6, cfg.DisableIPv4, tc.disableV6, tc.disableV4)
+		}
+		if tc.host == "" {
+			continue
+		}
+		for _, network := range []string{"tcp4", "tcp6", "udp4", "udp6"} {
+			if got := cfg.ListenHost(network); got != tc.host {
+				t.Fatalf("host=%q network=%s: ListenHost=%q", tc.host, network, got)
+			}
+		}
 	}
 }
 

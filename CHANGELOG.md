@@ -66,6 +66,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **路径 A 做种半向真实客户端证据与 `listenHost` 缺陷修复（2026-11-15，序 6 编码续包；零 L4 证据）**：
+  - `internal/interop/seeding_e2e_test.go`：新增 CI 可跑的确定性回环回归
+    `TestPathASeedingServesPeerAfterRunReturns`——独立 seeder → 带 `SeedingPolicy` 的
+    `bttransport` 下载 → **关闭原 seeder** → 第二个真实 BT 线协议 peer 从 ud 的后台做种
+    会话下载并校验字节；同时验证诚实 `-UD` PeerID 出现在 tracker announce、
+    `Transport.Close()` 释放监听且可重复调用。不改 `Registry()`、不加套件用例计数。
+  - **缺陷修复**：`internal/transport/bt/seeding.go` 的 `applySeedingPolicy` 在
+    `bt.listenHost` 为 IPv4 字面量时会对 `tcp6` 套接字返回同一地址，导致
+    `torrent.NewClient` 报 `listen tcp6: address 127.0.0.1: no suitable address found`；
+    现按 IP 字面量地址族设置 `DisableIPv6` / `DisableIPv4`，默认空值行为不变；
+    新增 `TestClientConfigListenHostRestrictsAddressFamily`，并校准既有
+    `TestClientConfigAppliesSeedingPolicy`。上传速率仍只由 `scheduler.Limiter` 管理。
+  - `cmd/udinteropx/seeding.go` + `tools/interop_libtorrent_leecher.py`：外部 harness
+    扩为 **`BX-01..BX-06` 6/6 PASS**。`BX-05`（ud → aria2-next 3.0.9）与 `BX-06`
+    （ud → libtorrent 2.1.1）由真实第三方引擎先做种、我方带路径 A 策略下载并保留
+    后台做种会话，**停掉原 seeder** 后由新的真实 leecher 从我方下载并 sha256 校验，
+    首次取得**我方做种半向**真实客户端证据；`make interop-external` 可复跑，
+    `make interop` 自动合并进 `dist/INTEROP.md`。python 绑定仍为可选外部工具、
+    非项目依赖、不入库、CI 不跑。
+  - harness 稳定性：针对既有回环首试 MSE / 握手竞态，`cmd/udinteropx` 增加
+    `runWithLoopbackRetry`——仅对 `FAIL` 做**有界 2 次真实执行重试**（每次新 seeder /
+    tracker / 下载且必须重新通过 sha256），重试次数写入证据串；`SKIPPED` /
+    `UNSUPPORTED` 立即返回，连续 2 次失败仍保留 `FAIL`，**绝不伪造 PASS**。
+  - 口径校准：`internal/interop/suite.go` 外部证据 Markdown 段、`cmd/udinteropx`
+    头部注释与 `libtorrent.go` 注释中「我方做种按 ADR-0004 明确不做」等过期表述改为
+    区分两个方向；`BT-02` / `BT-11` 仍按 `ScopeProductGap` 固定 `UNSUPPORTED`。
+  - **零 L4 证据 / 零判据改动**：六条 BX 均为**单向、回环、自托管 tracker**补充证据，
+    不计入 `BT-01..BT-14`；`BT-01..BT-14` 仍 **0/14**、`BT-02` / `BT-11` 仍
+    `UNSUPPORTED`、`release_gate_met=false`、`l4_executed=false`、
+    `nfr_perf_01.met=false`、序 6 仍开放。评审组复签 / 法务口径 / `14` R-10 重评 /
+    真实双向客户端矩阵 / NFR-PERF-01 双机基准仍待补。
+  - 文档同步：`docs/README` **v1.10** / `03` **v0.10** / `11` **v1.2** / `12` **v1.6** /
+    `13` **v0.14** / `14` **v1.6** / `16` **v0.10** / `18` **v0.4**、ADR-0004 / ADR-0021
+    时点口径注、`config.example.yaml`、根 `README.md`、`tools/build_docs.py` 首页横幅与
+    `docs/_site/index.html`；门户仍 **43 篇 / 0 断链**。**不改**已签署的 `17` /
+    ADR-0020 证据与历史版本说明中的时点数值。另按惯例补记 `915f783` 的 CI run
+    `43604236428` 经核验为 **`quality: success`**（时点口径追加，不改写原条目）。
 - **ADR-0021 路径 A 补齐实现（2026-11-14，序 6 编码部分；评审组复签待补）**：
   项目发起人 2026-11-14 明确指令「按 A 方案补齐，同时修改相关文档」，
   ADR-0021 按 `15` §4 规则④由 `Proposed` 转 `Accepted（路径 A）` 并同步 ADR 索引

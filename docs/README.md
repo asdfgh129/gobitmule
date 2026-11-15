@@ -1,7 +1,20 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.9 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0021 已批准（0021 为路径 A，评审组复签待补），其余文档待逐篇评审）** ｜ 日期：2026-11-14 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.10 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0021 已批准（0021 为路径 A，评审组复签待补），其余文档待逐篇评审）** ｜ 日期：2026-11-15 ｜ 维护责任：架构组
 
+> **v1.10 变更 / 2026-11-15 时点口径（路径 A 做种半向证据与 `listenHost` 缺陷修复；下文各版说明为更早时点值，保留不改）**：
+> 新增 `internal/interop/seeding_e2e_test.go`（CI 可跑：关闭原 seeder 后由第二个真实 BT 线协议
+> peer 从 ud 的后台做种会话下载并校验字节、`Transport.Close()` 回收监听），并修复
+> `bt.listenHost` 为 IPv4 字面量时 `tcp6` 绑定失败导致 `torrent.NewClient` 报错的缺陷
+> （`applySeedingPolicy` 按地址族关闭 IPv6 / IPv4 监听，补 `TestClientConfigListenHostRestrictsAddressFamily`）。
+> 外部 harness 扩为 **BX-01..BX-06 6/6 PASS**：新增 `BX-05`（ud → aria2-next 3.0.9）与
+> `BX-06`（ud → libtorrent 2.1.1）**我方做种半向**真实客户端证据，
+> `tools/interop_libtorrent_leecher.py` 为可选外部工具；回环握手瞬时竞态改为**有界 2 次
+> 真实执行重试**并在证据串显式记录次数，`SKIPPED` / `UNSUPPORTED` 不重试、不伪造 PASS。
+> **零 L4 证据**：`BT-01..BT-14` 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`、
+> `release_gate_met=false`、`l4_executed=false`、`nfr_perf_01.met=false`、序 6 仍开放；
+> 评审组复签 / 法务口径 / `14` R-10 重评 / 真实双向矩阵仍待补。
+>
 > **v1.9 变更**（2026-11-14，ADR-0021 路径 A 裁决与实现；**编码部分落地、
 > 评审组复签待补、零 L4 证据**）：项目发起人明确指令按 A 方案补齐，ADR-0021 由
 > `Proposed` 转 `Accepted（路径 A）`（ADR 索引 v0.5）。本包把 §三「阻塞定档」
@@ -255,12 +268,12 @@ graph TD
 
 | 项 | 当前值 | 权威来源 |
 |---|---|---|
-| 已交付 | P0 有条件通过（附加条件已关闭）、P1 WBS 8 / WBS 9 / WBS 7（BT / 磁力） / WBS 10（插件引擎）；**WBS 11 互操作套件 v1 已交付**（框架 + 自建 tracker + 9 条本地用例 + 证据链），但 L4 全矩阵未执行，序 6 **不关闭**；另以本机 **aria2-next 3.0.9**（MotrixNext）与真实 **libtorrent 2.1.1**（Python 绑定，可选外部工具）作真实做种方产出 **BX-01..BX-04 跨客户端证据**（sha256 校验通过），为**补充证据**不计入 L4 门禁 | `CHANGELOG.md`、`14` §11、`12` §3.1.1 |
+| 已交付 | P0 有条件通过（附加条件已关闭）、P1 WBS 8 / WBS 9 / WBS 7（BT / 磁力） / WBS 10（插件引擎）；**WBS 11 互操作套件 v1 已交付**（框架 + 自建 tracker + 9 条本地用例 + 证据链），但 L4 全矩阵未执行，序 6 **不关闭**；另以本机 **aria2-next 3.0.9**（MotrixNext）与真实 **libtorrent 2.1.1**（Python 绑定，可选外部工具）作真实引擎产出 **BX-01..BX-06 跨客户端证据**（sha256 校验通过、6/6 PASS；其中 `BX-05` / `BX-06` 为 2026-11-15 新增的「我方做种 → 真实客户端下载」半向），为**补充证据**不计入 L4 门禁 | `CHANGELOG.md`、`14` §11、`12` §3.1.1 |
 | 受门禁包 | **16 个**（WBS 10 新增 `internal/plugin` 88.4%；WBS 11 新增 `internal/interop` 87.1%，本包复测 **87.9%**；2026-11-14 证据审计包复测 **88.7%**，阈值 80%，`below_threshold=[]`） | `tools/gates.py:THRESHOLDS`、`12` §9 |
 | 链接模块 | **90 个**，0 copyleft / 0 未识别（含 `anacrolix/torrent` v1.62.0 与 `goja`；WBS 11 零新增依赖） | `dist/sbom.cdx.json`、`10` §8.1 / §8.2 |
-| 严格门禁 | `make gates-strict` **6 PASS / 0 WARN / 0 FAIL**（本机；CI 于 2026-11-13 的 run `43393512271` 曾因 WAL 偶发 `SQLITE_BUSY` 在 `cover` 步骤 **5 PASS / 0 WARN / 1 FAIL**，已修复，CI run `43399289527`（代码修复）与 `43400218985`（文档复验）均 `quality: success`（严格门禁 6 PASS / 0 WARN / 0 FAIL）；后续 `679a26e` run `43402970475` 与 `c3fbc70` run `43567640194` 于 2026-11-14 核验亦均 `quality: success`，被取代的 API 推送尝试 run `43566313113` 为 `failure`（非 flake、非门禁回归，详见 v1.6 变更）；后续 `84871b0` run `43570105065` 与 `0ca9164` run `43580889196` 于 2026-11-14 核验亦均 `quality: success`（见 v1.7 / v1.8 时点口径）；后续 `9395343` run `43595391886` 于 2026-11-14 核验为 `quality: success`（见 v1.9 时点口径）） | `dist/gates.json`、`.github/workflows/ci.yml`、`13` §4 |
-| 互操作套件 | `make interop` **23 例：9 PASS / 0 FAIL / 12 SKIPPED / 2 UNSUPPORTED**，证据 `dist/interop.json`；`dist/interop_external.json` 为 **BX-01..BX-04 真实跨客户端证据（2 引擎、4/4 PASS、sha256 校验）**，由 `make interop-external` 复跑并合并进 `dist/INTEROP.md` | `dist/INTEROP.md`、`dist/interop_external.json`、`12` §3.1.1 |
-| **L4 发布门禁** | ❌ **未通过**：`BT-01..BT-14` **0/14 PASS**，需真实 qBittorrent / Transmission / libtorrent、自建 tracker 二进制、抓包与隔离千兆内网；`SKIPPED` / `UNSUPPORTED` 不计为 PASS。**ADR-0021 路径 A 已补齐做种实现**，故「实现范围缩减」这一根因已消除，但**实验室验证仍未执行**：`BT-02` / `BT-11` 仍 `UNSUPPORTED`（实现具备 ≠ L4 已验证），`BT-03` 我方做种半向未实测；aria2-next / libtorrent 补充证据仍单向回环、不计入门禁 | `dist/INTEROP.md`、`14` §11 序 6、`12` §3.1、ADR-0021 决议记录 R4 |
+| 严格门禁 | `make gates-strict` **6 PASS / 0 WARN / 0 FAIL**（本机；CI 于 2026-11-13 的 run `43393512271` 曾因 WAL 偶发 `SQLITE_BUSY` 在 `cover` 步骤 **5 PASS / 0 WARN / 1 FAIL**，已修复，CI run `43399289527`（代码修复）与 `43400218985`（文档复验）均 `quality: success`（严格门禁 6 PASS / 0 WARN / 0 FAIL）；后续 `679a26e` run `43402970475` 与 `c3fbc70` run `43567640194` 于 2026-11-14 核验亦均 `quality: success`，被取代的 API 推送尝试 run `43566313113` 为 `failure`（非 flake、非门禁回归，详见 v1.6 变更）；后续 `84871b0` run `43570105065` 与 `0ca9164` run `43580889196` 于 2026-11-14 核验亦均 `quality: success`（见 v1.7 / v1.8 时点口径）；后续 `9395343` run `43595391886` 于 2026-11-14 核验为 `quality: success`（见 v1.9 时点口径）；后续 `915f783` run `43604236428` 于 2026-11-14 核验为 `quality: success`（见 v1.10 时点口径）） | `dist/gates.json`、`.github/workflows/ci.yml`、`13` §4 |
+| 互操作套件 | `make interop` **23 例：9 PASS / 0 FAIL / 12 SKIPPED / 2 UNSUPPORTED**，证据 `dist/interop.json`；`dist/interop_external.json` 为 **BX-01..BX-06 真实跨客户端证据（2 引擎、6/6 PASS、sha256 校验；含 2 条我方做种半向）**，由 `make interop-external` 复跑并合并进 `dist/INTEROP.md` | `dist/INTEROP.md`、`dist/interop_external.json`、`12` §3.1.1 |
+| **L4 发布门禁** | ❌ **未通过**：`BT-01..BT-14` **0/14 PASS**，需真实 qBittorrent / Transmission / libtorrent、自建 tracker 二进制、抓包与隔离千兆内网；`SKIPPED` / `UNSUPPORTED` 不计为 PASS。**ADR-0021 路径 A 已补齐做种实现**，故「实现范围缩减」这一根因已消除，但**实验室验证仍未执行**：`BT-02` / `BT-11` 仍 `UNSUPPORTED`（实现具备 ≠ L4 已验证），`BT-03` 我方做种半向已有 **BX-05 / BX-06 单向回环补充证据**（仍非 L4 双向矩阵）；aria2-next / libtorrent 补充证据仍单向回环、不计入门禁 | `dist/INTEROP.md`、`14` §11 序 6、`12` §3.1、ADR-0021 决议记录 R4 |
 | P2P 礼仪（路径 A） | **已落地（编码）**：`bt.*` 生效、`SeedingPolicy` 受限做种（分享率 1.0 / 60min 任一达标即停）、上传槽 8、`enableUPnP`、诚实 PeerID `-UD` 强制回落、私有种子恒不上传且恒禁 DHT/PEX；`tasks.bytes_uploaded` 与 announce 同源、`Completed → Seeding → Completed` 条件迁移。**上传字节速率仍由 `scheduler.Limiter` 唯一权威管理**，不设第二 limiter。⚠️ **R-10 反吸血风险重评 / 安全与礼仪复签 / L4 实测未执行** | `internal/transport/bt/seeding.go`、`internal/config/config.go`、`11` §7.1、`14` R-10 |
 | 路径 A 裁决 | **ADR-0021 已由 `Proposed` 转 `Accepted（路径 A）`**（项目发起人 2026-11-14 指令裁决，ADR 索引 v0.5；决策记录见 ADR-0021「决议记录」）。B 修订范围 / C 保持开放**未被选择**；`12` §3.1 判据**未修改**。**评审组五方签署表仍全部留白**——本次为发起人指令裁决，不冒充三方会签；法务口径、`14` R-10 重评与复签仍待补 | `docs/adr/ADR-0021-…` 决议记录、`adr/README` v0.5、`18` §六 / §九 |
 | L4 实验室链路 | `make l4-preflight` → `dist/l4_preflight.json` / `dist/L4_PREFLIGHT.md`（9 项前置条件清点，`l4_executed=false`、`release_gate_met=false` 硬不变量）；`l4-preflight-check` / `l4-run` 与示例 stub 配置只输出 `SKIPPED`，**不是 L4 执行证据**；`make l4-audit` 只做证据完整性重算；**四目标均不接入 CI** | `12` §3.1.3、`13` §3/§12、`dist/L4_PREFLIGHT.md` |
@@ -283,7 +296,8 @@ graph TD
 > `BT-02` / `BT-11` 的 `UNSUPPORTED`，路径 A 实现不翻转证据状态。
 > `docs/18` §六 签署表仍留白，法务口径与 R-10 重评待补。
 > 各文档此前「ADR-0004 不做种边界」的措辞属误归属，已追加带日期的校准注，
-> 历史版本说明中的数值保留不改。`make l4-preflight` 的 `PRESENT` 只表示工具可核验的
+> 历史版本说明中的数值保留不改。`BX-05` / `BX-06` 只证明路径 A 做种会话能与真实客户端
+> 完成单向回环传输，**不得**读作 `BT-02` / `BT-11` / `BT-03` 的 L4 通过证据。`make l4-preflight` 的 `PRESENT` 只表示工具可核验的
 > 条件存在，**绝不等于 PASS**；示例 stub 配置只能产出 `SKIPPED`，
 > `make l4-run` 用它必须保持 0/14 并明确失败。
 >
@@ -349,6 +363,7 @@ python3 tools/build_docs.py --check   # 只校验，不写文件（用于 CI 门
 | v1.7 | 2026-11-14 | 序 6 评审与 L4 实验室准备材料包：新增 `docs/18`（待评审、留白签署表、不产出 L4 证据）；§三 清单 / 当前态 / 下一个工作包、§二 角色阅读、§七 索引同步；`tools/build_docs.py` GROUPS / 导航契约 / 分组描述纳入 doc-18；同步 `13` v0.11（文档数 42 → 43）、根文档与 `CHANGELOG`；补记 CI run `43570105065`；门户重建 **43 篇 / 0 断链**，历史「42 篇」作为时点值不改写 | 架构组 |
 | v1.8 | 2026-11-14 | L4 证据包完整性审计：`internal/interop/audit.go` + `cmd/udl4audit` + `make l4-audit`（9 项 `AUD-*`，`CONSISTENT` ≠ L4 通过，不接入 CI）；§三 新增「证据完整性审计」行并把实验室链路扩为四目标、改写下一个工作包，§二 / §六 / §七 同步；`12` v1.4（新增 §3.1.4）、`13` v0.12、`18` v0.2、根文档与 `CHANGELOG` 同步，修正门户侧栏 41 → 43 篇；补记 CI run `43580889196`；门户重建仍 **43 篇 / 0 断链**，历史时点值不改写 | 架构组 |
 | v1.9 | 2026-11-14 | ADR-0021 路径 A 裁决与实现：§三「阻塞定档」改为「路径 A 裁决」并新增「P2P 礼仪」行，改写 L4 门禁 / 评审准备 / 下一个工作包 / ADR-0021 边界注，§三 清单表 18 行、§六、§七 同步；`03` v0.9 / `05` v0.8 / `07` v0.6 / `11` v1.1 / `12` v1.5 / `13` v0.13 / `14` v1.5 / `15` v0.6 / `16` v0.9 / `18` v0.3 / ADR-0004 / ADR-0017 / `config.example.yaml` / 根文档 / 门户横幅同步；ADR 汇总 21 `Accepted` / 0 待评审；补记 CI run `43595391886`；门户重建仍 **43 篇 / 0 断链**，历史时点值不改写 | 架构组 |
+| v1.10 | 2026-11-15 | 路径 A 做种半向真实客户端证据（BX-05 / BX-06）与 `listenHost` 地址族缺陷修复：§三 已交付 / 互操作套件 / L4 门禁 / ADR-0021 边界注同步，补记 CI run `43604236428`；`03` v0.10 / `11` v1.2 / `12` v1.6 / `13` v0.14 / `14` v1.6 / `16` v0.10 / `18` v0.4 / ADR-0004 / ADR-0021 / 根文档 / `config.example.yaml` / 门户横幅同步；门户重建仍 **43 篇 / 0 断链**，历史时点值不改写 | 架构组 |
 
 ## 七、P0 实现基线索引（代码 ↔ 文档）
 

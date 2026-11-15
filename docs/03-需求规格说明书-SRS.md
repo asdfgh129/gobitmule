@@ -1,6 +1,19 @@
 # 03 软件需求规格说明书（SRS）
 
-> 文档编号：UD-DOC-03 ｜ 版本：v0.9 ｜ 状态：草案（P0 追踪矩阵已补全，P1 WBS 7/8/9/10/11 已补记，待评审） ｜ 日期：2026-11-14 ｜ 上游：`01`、`adr/`
+> 文档编号：UD-DOC-03 ｜ 版本：v0.10 ｜ 状态：草案（P0 追踪矩阵已补全，P1 WBS 7/8/9/10/11 已补记，待评审） ｜ 日期：2026-11-15 ｜ 上游：`01`、`adr/`
+>
+> **v0.10 变更 / 2026-11-15 时点口径（路径 A 做种半向证据与 `listenHost` 缺陷修复；下文各版说明为更早时点值，保留不改）**：
+> 新增 `internal/interop/seeding_e2e_test.go`（CI 可跑：关闭原 seeder 后由第二个真实 BT 线协议
+> peer 从 ud 的后台做种会话下载并校验字节、`Transport.Close()` 回收监听），并修复
+> `bt.listenHost` 为 IPv4 字面量时 `tcp6` 绑定失败导致 `torrent.NewClient` 报错的缺陷
+> （`applySeedingPolicy` 按地址族关闭 IPv6 / IPv4 监听，补 `TestClientConfigListenHostRestrictsAddressFamily`）。
+> 外部 harness 扩为 **BX-01..BX-06 6/6 PASS**：新增 `BX-05`（ud → aria2-next 3.0.9）与
+> `BX-06`（ud → libtorrent 2.1.1）**我方做种半向**真实客户端证据，
+> `tools/interop_libtorrent_leecher.py` 为可选外部工具；回环握手瞬时竞态改为**有界 2 次
+> 真实执行重试**并在证据串显式记录次数，`SKIPPED` / `UNSUPPORTED` 不重试、不伪造 PASS。
+> **零 L4 证据**：`BT-01..BT-14` 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`、
+> `release_gate_met=false`、`l4_executed=false`、`nfr_perf_01.met=false`、序 6 仍开放；
+> 评审组复签 / 法务口径 / `14` R-10 重评 / 真实双向矩阵仍待补。
 >
 > **v0.9 变更 / 2026-11-14 时点口径（ADR-0021 路径 A，追加；下文 v0.8 及更早说明为提案期时点值，保留不改）**：
 > 项目发起人明确指令「按 A 方案补齐」，ADR-0021 由 `Proposed` 转 `Accepted（路径 A）`
@@ -281,7 +294,7 @@ WASM 硬隔离、第三方规则仓库 / 发布流水线、规则失效遥测、
 
 | 需求 / 准则 | 证据 | 状态 |
 |---|---|---|
-| 与真实第三方引擎互通（补充） | `BX-01..BX-04`：aria2-next 3.0.9 + `libtorrent 2.1.1` 真实做种 → 我方 `bttransport` 下载，sha256 一致；`make interop-external` 可复跑 | ✅ 4/4 PASS，**单向回环、不计入 L4** |
+| 与真实第三方引擎互通（补充） | `BX-01..BX-06`：aria2-next 3.0.9 + `libtorrent 2.1.1`，`BX-01..BX-04` 为「对方做种 → 我方下载」、`BX-05` / `BX-06` 为「我方做种 → 对方下载」，均 sha256 一致；`make interop-external` 可复跑 | ✅ 6/6 PASS，**各为单向回环、不计入 L4** |
 | `12` §8 发布门禁「互操作 L4」 | `12` §3.1「L4 门禁可满足性冲突」 | ✅ **2026-11-14 路径 A 裁决后**：实现范围缩减（合规差距）根因已消除；❌ **但判据未改、真实矩阵仍未执行**，`BT-02`/`BT-11` 仍 `UNSUPPORTED`、`BT-03` 我方做种半向未实测，14/14 PASS 仍不可满足 |
 | NFR-PERF-01 千兆内网吞吐 | `make perf` → `dist/perf.json`（1GiB / 4 连接 / 256KiB，真实 HTTP Range Transport） | ⚠️ 回环参考 885.83 MB/s，固定 `nfr_perf_01.met=false`；**双机千兆实验室仍未执行** |
 | 16 门禁包 / 90 链接模块 / 6 PASS | `make gates-strict`、`TestClientConfigHandshakePolicy`、`TestLoadExternalEvidenceStatuses` | ✅ 口径不变，零新增依赖 |

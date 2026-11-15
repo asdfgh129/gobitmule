@@ -4,18 +4,25 @@
 // against REAL third-party BitTorrent engines over a self-hosted BEP 3 HTTP
 // tracker on loopback:
 //
-//   - aria2-next 3.0.9 bundled with MotrixNext.app (BX-01 .torrent, BX-02 magnet);
+//   - aria2-next 3.0.9 bundled with MotrixNext.app (BX-01 / BX-02 download,
+//     BX-05 upload half-direction);
 //   - libtorrent 2.x via the optional python-libtorrent binding
-//     (BX-03 .torrent, BX-04 magnet), see tools/interop_libtorrent.py.
+//     (BX-03 / BX-04 download, BX-06 upload half-direction), see
+//     tools/interop_libtorrent.py and tools/interop_libtorrent_leecher.py.
 //
-// Each case seeds a real payload with the third-party engine, downloads it with
-// our engine and verifies sha256. libtorrent is named by BT-03, but these cases
-// are ONE-WAY (third-party seeds -> ud downloads) on loopback, with no packet
-// capture, no chihaya/opentracker binary and no gigabit LAN, while BT-03
-// requires bidirectional sessions (ud seeding is out of scope per ADR-0004).
-// So BX-* is supplementary evidence, NEVER an L4 pass: BT-01..BT-14 remain
-// SKIPPED / UNSUPPORTED and the L4 release gate stays closed. An unavailable
-// external engine emits SKIPPED / UNSUPPORTED, never a fabricated PASS.
+// BX-01..BX-04 seed a real payload with the third-party engine and download it
+// with our engine; BX-05 / BX-06 (ADR-0021 path A) do the reverse: our engine
+// downloads first, then keeps a bounded seeding session alive while a fresh
+// real third-party leecher downloads from it. Each case verifies sha256.
+//
+// All BX-* cases are ONE-WAY on loopback with a self-hosted BEP 3 tracker, no
+// packet capture, no chihaya / opentracker binary and no isolated gigabit LAN;
+// BT-03 requires a bidirectional qBittorrent / Transmission / libtorrent
+// matrix. So BX-* is supplementary evidence, NEVER an L4 pass: BT-01..BT-14
+// remain SKIPPED / UNSUPPORTED and the L4 release gate stays closed. An
+// unavailable external engine emits SKIPPED / UNSUPPORTED, never a fabricated
+// PASS. Path A implemented ud seeding on 2026-11-14; it did NOT execute the
+// L4 matrix.
 package main
 
 import (
@@ -81,9 +88,12 @@ func main() {
 			Evidence: "aria2-next binary not present in this environment",
 		})
 	} else {
-		results = append(results, runTorrent(aria2), runMagnet(aria2))
+		results = append(results,
+			runWithLoopbackRetry(func() verdict { return runTorrent(aria2) }),
+			runWithLoopbackRetry(func() verdict { return runMagnet(aria2) }))
 	}
 	results = append(results, runLibtorrentCases()...)
+	results = append(results, runSeedingCases(aria2)...)
 	emit(results, outPath)
 	// Non-zero exit only if a case we attempted actually FAILED.
 	for _, r := range results {
@@ -91,6 +101,35 @@ func main() {
 			os.Exit(1)
 		}
 	}
+}
+
+// maxLoopbackAttempts bounds retries for the documented first-attempt MSE /
+// loopback handshake race. A retry is a NEW genuine execution (fresh seeder,
+// fresh tracker, fresh download); it never coerces SKIPPED / UNSUPPORTED to
+// PASS and never fabricates a hash-verified result. The attempt count is
+// written into the evidence string so a retried PASS is visible in the bundle.
+const maxLoopbackAttempts = 2
+
+func runWithLoopbackRetry(fn func() verdict) verdict {
+	var v verdict
+	for attempt := 1; attempt <= maxLoopbackAttempts; attempt++ {
+		v = fn()
+		if v.Status != "FAIL" {
+			if attempt > 1 {
+				v.Evidence += fmt.Sprintf("；回环线协议瞬时竞态后第 %d/%d 次真实执行通过",
+					attempt, maxLoopbackAttempts)
+			}
+			return v
+		}
+		if attempt < maxLoopbackAttempts {
+			time.Sleep(750 * time.Millisecond)
+		}
+	}
+	if v.Evidence == "" {
+		v.Evidence = v.Error
+	}
+	v.Evidence += fmt.Sprintf("；连续 %d 次真实执行均失败，保留 FAIL", maxLoopbackAttempts)
+	return v
 }
 
 func emit(vs []verdict, outPath string) {
