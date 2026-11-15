@@ -564,6 +564,8 @@ def build_home(docs: list[Doc], by_rel: dict[str, Doc]) -> str:
   2026-11-15 新增 <code>BX-05</code> / <code>BX-06</code>（ud 做种 → 真实 aria2-next /
   libtorrent leecher）后，外部补充证据为 <code>BX-01..BX-06</code> 6/6 PASS，但六条均为
   <strong>单向回环</strong>、<strong>不计入 L4</strong>；
+  回环重试的诚实语义已由 <code>cmd/udinteropx/main_test.go</code> 5 条确定性回归锁定
+  （<code>FAIL → SKIPPED/UNSUPPORTED</code> 不写成「通过」）；
   <strong>L4 真实客户端矩阵仍 0/14、NFR-PERF-01 双机千兆基准未执行</strong>，
   <code>release_gate_met=false</code>、<code>l4_executed=false</code> 恒真。
   当前态唯一速查为 <strong>docs/README §三</strong>，进度真值源为

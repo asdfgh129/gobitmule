@@ -107,8 +107,14 @@ func main() {
 // loopback handshake race. A retry is a NEW genuine execution (fresh seeder,
 // fresh tracker, fresh download); it never coerces SKIPPED / UNSUPPORTED to
 // PASS and never fabricates a hash-verified result. The attempt count is
-// written into the evidence string so a retried PASS is visible in the bundle.
+// written into the evidence string so a retried result is visible in the bundle.
+// Only a final PASS is described as "通过": a FAIL -> SKIPPED / UNSUPPORTED
+// transition keeps its own honest status and is never worded as a pass.
 const maxLoopbackAttempts = 2
+
+// loopbackRetryDelay is a variable so deterministic regressions do not wait
+// on the real inter-run backoff; production behaviour is unchanged.
+var loopbackRetryDelay = 750 * time.Millisecond
 
 func runWithLoopbackRetry(fn func() verdict) verdict {
 	var v verdict
@@ -116,13 +122,18 @@ func runWithLoopbackRetry(fn func() verdict) verdict {
 		v = fn()
 		if v.Status != "FAIL" {
 			if attempt > 1 {
-				v.Evidence += fmt.Sprintf("；回环线协议瞬时竞态后第 %d/%d 次真实执行通过",
-					attempt, maxLoopbackAttempts)
+				if v.Status == "PASS" {
+					v.Evidence += fmt.Sprintf("；回环线协议瞬时竞态后第 %d/%d 次真实执行通过",
+						attempt, maxLoopbackAttempts)
+				} else {
+					v.Evidence += fmt.Sprintf("；回环线协议瞬时竞态后第 %d/%d 次真实执行返回 %s（不记为 PASS）",
+						attempt, maxLoopbackAttempts, v.Status)
+				}
 			}
 			return v
 		}
 		if attempt < maxLoopbackAttempts {
-			time.Sleep(750 * time.Millisecond)
+			time.Sleep(loopbackRetryDelay)
 		}
 	}
 	if v.Evidence == "" {

@@ -66,6 +66,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **回环证据重试语义校准与已核验 CI 结论补记（2026-11-15，序 6 续包；零 L4 证据）**：
+  - **缺陷修复**：`cmd/udinteropx/main.go` 的 `runWithLoopbackRetry` 原先在
+    「首次 `FAIL` → 二次 `SKIPPED` / `UNSUPPORTED`」时仍追加「第 2/2 次真实执行通过」，
+    与 `SKIPPED` / `UNSUPPORTED` 从不为 PASS 的硬口径不符；现按最终状态措辞：只有最终
+    `PASS` 写「通过」，其余状态保留原始状态并标注「不记为 PASS」，状态本身从不被升级。
+    重试次数、连续失败仍保留 `FAIL` 的证据串与 sha256 校验均不变。
+  - 新增 `cmd/udinteropx/main_test.go` 5 条确定性回归：首试 `PASS` 不重试、
+    `FAIL → PASS` 有界 1 次重试且证据串记录次数、`FAIL → SKIPPED` / `UNSUPPORTED`
+    不得措辞为通过、非 `FAIL` 状态立即返回、连续 2 次 `FAIL` 保留 `FAIL` 与原始 `Error`。
+    退避抽为 `loopbackRetryDelay` 以便回归用例零等待，生产默认仍 750ms；harness 行为与
+    套件 v1 注册表**不变**，不新增任何 PASS 证据、不改 `BT-01..BT-14` 计数。
+  - **已核验 CI 结论补记**（按 `15` §4 规则④的滚动时点口径）：`6ee661f`
+    （路径 A 做种半向真实客户端证据与 `listenHost` 地址族缺陷修复）run `43695083832`
+    经 `gh run view` 核验为 **`quality: success`**；如实追加，不改写上文
+    `915f783` / `43604236428` 等历史时点值。
+  - 文档同步：`docs/README` **v1.11**、根 `README.md`、`12` **v1.7**（§3.1.1 措辞与
+    §9 用例矩阵）、`13` **v0.15**（§4 CI 结论）、`tools/build_docs.py` 首页横幅与
+    `docs/_site/index.html`；门户仍 **43 篇 / 0 断链**。`03` / `11` / `14` / `16` / `18`
+    的 v1.10 时点注所述事实（`BX-01..BX-06` 6/6 PASS、单向回环、不伪造 PASS）在本次
+    修复后**更成立**，故不改写历史版本说明。
+  - **零 L4 证据**：`BT-01..BT-14` 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`、
+    `release_gate_met=false`、`l4_executed=false`、`nfr_perf_01.met=false`、序 6 仍开放。
 - **路径 A 做种半向真实客户端证据与 `listenHost` 缺陷修复（2026-11-15，序 6 编码续包；零 L4 证据）**：
   - `internal/interop/seeding_e2e_test.go`：新增 CI 可跑的确定性回环回归
     `TestPathASeedingServesPeerAfterRunReturns`——独立 seeder → 带 `SeedingPolicy` 的
