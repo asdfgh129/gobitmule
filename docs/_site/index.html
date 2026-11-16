@@ -248,7 +248,8 @@ padding-top:14px;margin-top:18px}
 更正为实测结论，历史上的一切旧数值一律显式标注为「时点值」并保留不改；同时补登 <code>v1.14</code> /
 <code>v1.15</code> 两行变更记录（此前仅加了卷首横幅）。<strong>判据零改动</strong>，<code>SKIPPED</code> / <code>UNSUPPORTED</code> /
 <code>PRESENT</code> / <code>CONSISTENT</code> 仍不计 PASS；<strong>CI 内的 <code>make interop</code> 与实验室 <code>make l4-run</code>
-两种证据不得互相替代</strong>。序 6 仍开放（仅余治理项）。</p>
+两种证据不得互相替代</strong>。序 6 仍开放（仅余治理项）。
+<strong>CI</strong>：本包 <code>38d3544</code> run <code>43880440536</code> 为 <strong><code>quality: success</code></strong>。</p>
 <p><strong>v1.15 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机应用层基准 met=true；序 6 仅余治理项）</strong>：
 <code>cmd/udperf</code> 新增 <code>--serve</code> / <code>--url</code> 双机模式，主机 B 提供 1GiB HTTP Range
 数据、主机 A 用真实 <code>internal/transport/http</code> 下载并逐片校验。2026-11-16 实测：
@@ -1119,7 +1120,7 @@ python3 tools/build_docs.py --check   # 只校验，不写文件（用于 CI 门
 <tr>
 <td>v1.16</td>
 <td>2026-11-16</td>
-<td>文档「当前态」一致性收口（纯文档、零代码）：<code>03</code> §8 追踪矩阵、<code>07</code> §8 矩阵、<code>11</code> §4 残余风险、<code>12</code> §9 结果表与「实际范围说明」、<code>13</code> §3 命令表（含新增 <code>make perf-lab</code> 行）、<code>14</code> WBS 表与 §11、<code>16</code> §4 / §6、<code>18</code> §二 / §八、根 <code>README</code> 能力边界条目，由「0/14 / <code>release_gate_met=false</code> / <code>met=false</code> / ❌ 未通过」更正为实测结论，历史数值全部标注「时点值」保留不改；补登 v1.14 / v1.15 变更记录；<code>13</code> 门户篇数 44 → 46；判据与 CI 状态零变化</td>
+<td>文档「当前态」一致性收口（纯文档、零代码）：<code>03</code> §8 追踪矩阵、<code>07</code> §8 矩阵、<code>11</code> §4 残余风险、<code>12</code> §9 结果表与「实际范围说明」、<code>13</code> §3 命令表（含新增 <code>make perf-lab</code> 行）、<code>14</code> WBS 表与 §11、<code>16</code> §4 / §6、<code>18</code> §二 / §八、根 <code>README</code> 能力边界条目，由「0/14 / <code>release_gate_met=false</code> / <code>met=false</code> / ❌ 未通过」更正为实测结论，历史数值全部标注「时点值」保留不改；补登 v1.14 / v1.15 变更记录；<code>13</code> 门户篇数 44 → 46；判据与 CI 状态零变化；<code>38d3544</code> run <code>43880440536</code> 为 <code>quality: success</code></td>
 <td>架构组</td>
 </tr>
 </tbody>
@@ -9088,6 +9089,9 @@ run <code>43791092155</code> 为 <strong><code>quality: success</code></strong>�
 <p><strong>后续提交 CI 结论补记（<code>13</code> v0.18，2026-11-16 核验）</strong>：<code>38bd52c</code>
 （NFR-PERF-01 双机应用层 11.21MB/s 达标 + <code>cmd/udperf</code> 双机模式）
 run <code>43875659670</code> 为 <strong><code>quality: success</code></strong>；同样不改写上文更早原文。</p>
+<p><strong>后续提交 CI 结论补记（<code>13</code> v0.19，2026-11-16 核验）</strong>：<code>38d3544</code>
+（并发 <code>Cancel</code> 不再被覆盖为 <code>Failed</code> + 文档「当前态」一致性收口）run
+<code>43880440536</code> 为 <strong><code>quality: success</code></strong>；同样不改写上文更早原文。</p>
 </blockquote>
 <p><strong>已知差异</strong>：可复现构建镜像固定 digest、代码签名/公证、Android/iOS 目标、<strong>L4 真实客户端互操作外部矩阵（<code>BT-01..BT-14</code>）</strong>、<strong>NFR-PERF-01 双机应用层 1GiB 基准</strong> 均未纳入 CI。WBS 11 已把 <code>make interop</code> 的<strong>本地回环子集</strong>接入 CI，但其 <code>release_gate_met</code> 为 <code>false</code>，<strong>不得据此宣称 L4 或性能门禁通过</strong>。<strong>2026-11-16 更新</strong>：L4 矩阵已在双机实验室<strong>人工执行并 14/14 PASS</strong>，证据归档 <code>docs/evidence/l4-2026-11-16/</code>、报告 <code>docs/19</code>；该执行仍<strong>不接入 CI</strong>（真实实验室不可 CI 化）。NFR-PERF-01 双机应用层基准已于同日<strong>人工执行并 <code>met=true</code></strong>（11.21MB/s ≥ 10MB/s，<code>docs/20</code>），同样<strong>不接入 CI</strong>；<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code>，不得与双机证据混用。覆盖率阈值强制（<code>gates.py --strict</code>）已于 2026-11-10 纳入 CI（<code>make gates-strict</code>），当前 <strong>16 个受门禁包</strong>全部达标（WBS 9 新增 3 个、WBS 10 新增 <code>internal/plugin</code>、WBS 11 新增 <code>internal/interop</code>），当前态见 <code>12</code> §9 与 <code>docs/README</code> §三；<code>17</code> §5 为 P0 时点快照。构建时若默认代理不可达，可用 <code>GOPROXY=https://goproxy.cn,direct make build</code> 覆盖（<code>Makefile</code> 已支持）。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/13-构建发布与运维.md</code></div></article><article class="doc" id="doc-doc-14" data-slug="doc-14"><div class="doc-head"><h1>14 项目计划与风险管理</h1><div class="doc-meta"><span class="badge">草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`，序 6 仅余治理复签）</span>文档编号：UD-DOC-14 ｜ 版本：v1.11 ｜ 状态：草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；**L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`**，序 6 仅余治理复签） ｜ 日期：2026-11-16</div></div><blockquote>
 <p><strong>v1.11 变更 / 2026-11-16 时点口径（验收结论当前态同步；下文各版说明为更早时点值，保留不改）</strong>：
@@ -12951,6 +12955,7 @@ Transmission / libtorrent，且要求抓包 + 千兆内网），故 BX 证据<st
 <li><strong>判据与门禁</strong>：无代码改动、<code>12</code> §3.1 判据零修改；仍 <code>make lint</code> / <code>make test</code> /
     <code>go test -race ./...</code> 全绿、<code>make gates-strict</code> 6 PASS / 0 WARN / 0 FAIL、
     门户 <code>--check</code> <strong>46 篇 / 0 断链</strong>。序 6 仍开放（仅余治理项）。</li>
+<li><strong>CI</strong>：本包 <code>38d3544</code> run <code>43880440536</code> 为 <strong><code>quality: success</code></strong>。</li>
 <li><strong>ADR-0021 路径 A 全量文档同步（2026-11-14）</strong>：ADR-0021 追加「决议记录」
   （R1 裁决事实 / R2 签署如实状态 / R3 已落地 / R4 未落地），<code>adr/README</code> 升 <strong>v0.5</strong>
   并同步 0021 索引状态；<code>docs/18</code> 升 <strong>v0.3</strong>（登记裁决输入，§二事实清单 /
@@ -13133,6 +13138,7 @@ Transmission / libtorrent，且要求抓包 + 千兆内网），故 BX 证据<st
     加回守卫通过（非「改测试凑绿」）。</li>
 <li><strong>验证</strong>：<code>make lint</code> / <code>make test</code> / <code>go test -race ./...</code> 全绿、
     <code>make gates-strict</code> 6 PASS / 0 WARN / 0 FAIL；零新增依赖（仍 90 链接模块）。</li>
+<li><strong>CI</strong>：本包 <code>38d3544</code> run <code>43880440536</code> 为 <strong><code>quality: success</code></strong>。</li>
 <li><strong>文档门户首页横幅与 ADR 状态矛盾、<code>bt.*</code> 配置键误导（2026-11-13）</strong>：
   <code>tools/build_docs.py</code> 生成的总览页仍硬编码「ADR 0001–0020 仍全部为 <code>Proposed</code>、
   P0 里程碑尚未正式评审」，与 <code>docs/adr/README.md</code> 索引（0001–0020 已于 2026-11-09

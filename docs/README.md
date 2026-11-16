@@ -11,6 +11,7 @@
 > `v1.15` 两行变更记录（此前仅加了卷首横幅）。**判据零改动**，`SKIPPED` / `UNSUPPORTED` /
 > `PRESENT` / `CONSISTENT` 仍不计 PASS；**CI 内的 `make interop` 与实验室 `make l4-run`
 > 两种证据不得互相替代**。序 6 仍开放（仅余治理项）。
+> **CI**：本包 `38d3544` run `43880440536` 为 **`quality: success`**。
 
 > **v1.15 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机应用层基准 met=true；序 6 仅余治理项）**：
 > `cmd/udperf` 新增 `--serve` / `--url` 双机模式，主机 B 提供 1GiB HTTP Range
@@ -470,7 +471,7 @@ python3 tools/build_docs.py --check   # 只校验，不写文件（用于 CI 门
 | v1.13 | 2026-11-16 | 依发起人两项裁决翻转 `BT-02`/`BT-11` 注册表 `productGap → gateExternal`（仅 verified upload 才 PASS，本地现 14 SKIPPED / 0 UNSUPPORTED）+ 新开 ADR-0022（NFR-PERF-01 门槛修订为「≥ 可用链路 × 80%」，百兆段取 ≥10MB/s，原 80MB/s 时点值不改写）；同步 `12` §3.1/§5、`13` v0.16、`14` v1.8、`18` v0.6、`adr/README`、根文档 / 门户横幅；**零 L4 证据**，L4 仍 0/14、序 6 开放；门户重建 **44 篇 / 0 断链** | 架构组 |
 | v1.14 | 2026-11-16 | L4 真实双机实验室 **14/14 PASS**：14 条真实 harness 实装（`cmd/udinteropx/l4.go`）、`BT-02`/`BT-11` 由真实 harness 以 verified upload 判定、BT-04 本机 DHT 路由器 + BEP 52 hybrid、BT-08 / BT-14 抓包、`tools/l4_external_config.lab.json`、`applySeedingPolicy` 地址族缺陷修复、有界 2 次真实重试；证据归档 `docs/evidence/l4-2026-11-16/`，新增报告 `19`；同步 `12` v1.9 / `13` v0.17 / `14` v1.9 / `18` v0.7 / 根文档；门户 **45 篇 / 0 断链** | 架构组 |
 | v1.15 | 2026-11-16 | NFR-PERF-01 双机应用层 **11.21MB/s、`met=true`**（ADR-0022）：`cmd/udperf` 增 `--serve` / `--url` / `--min-mb-s` / `--require-met` 与实验室专用 pin 化 SSRF guard、`make perf-lab`、3 条确定性回归；证据 `docs/evidence/nfr-perf-01-2026-11-16/`，新增报告 `20`；同步 `12` v1.10 / `13` v0.18 / `14` v1.10 / `18` v0.8 / 根文档；门户 **46 篇 / 0 断链** | 架构组 |
-| v1.16 | 2026-11-16 | 文档「当前态」一致性收口（纯文档、零代码）：`03` §8 追踪矩阵、`07` §8 矩阵、`11` §4 残余风险、`12` §9 结果表与「实际范围说明」、`13` §3 命令表（含新增 `make perf-lab` 行）、`14` WBS 表与 §11、`16` §4 / §6、`18` §二 / §八、根 `README` 能力边界条目，由「0/14 / `release_gate_met=false` / `met=false` / ❌ 未通过」更正为实测结论，历史数值全部标注「时点值」保留不改；补登 v1.14 / v1.15 变更记录；`13` 门户篇数 44 → 46；判据与 CI 状态零变化 | 架构组 |
+| v1.16 | 2026-11-16 | 文档「当前态」一致性收口（纯文档、零代码）：`03` §8 追踪矩阵、`07` §8 矩阵、`11` §4 残余风险、`12` §9 结果表与「实际范围说明」、`13` §3 命令表（含新增 `make perf-lab` 行）、`14` WBS 表与 §11、`16` §4 / §6、`18` §二 / §八、根 `README` 能力边界条目，由「0/14 / `release_gate_met=false` / `met=false` / ❌ 未通过」更正为实测结论，历史数值全部标注「时点值」保留不改；补登 v1.14 / v1.15 变更记录；`13` 门户篇数 44 → 46；判据与 CI 状态零变化；`38d3544` run `43880440536` 为 `quality: success` | 架构组 |
 
 ## 七、P0 实现基线索引（代码 ↔ 文档）
 

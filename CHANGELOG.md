@@ -600,6 +600,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **判据与门禁**：无代码改动、`12` §3.1 判据零修改；仍 `make lint` / `make test` /
     `go test -race ./...` 全绿、`make gates-strict` 6 PASS / 0 WARN / 0 FAIL、
     门户 `--check` **46 篇 / 0 断链**。序 6 仍开放（仅余治理项）。
+  - **CI**：本包 `38d3544` run `43880440536` 为 **`quality: success`**。
 - **ADR-0021 路径 A 全量文档同步（2026-11-14）**：ADR-0021 追加「决议记录」
   （R1 裁决事实 / R2 签署如实状态 / R3 已落地 / R4 未落地），`adr/README` 升 **v0.5**
   并同步 0021 索引状态；`docs/18` 升 **v0.3**（登记裁决输入，§二事实清单 /
@@ -781,6 +782,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     加回守卫通过（非「改测试凑绿」）。
   - **验证**：`make lint` / `make test` / `go test -race ./...` 全绿、
     `make gates-strict` 6 PASS / 0 WARN / 0 FAIL；零新增依赖（仍 90 链接模块）。
+  - **CI**：本包 `38d3544` run `43880440536` 为 **`quality: success`**。
 - **文档门户首页横幅与 ADR 状态矛盾、`bt.*` 配置键误导（2026-11-13）**：
   `tools/build_docs.py` 生成的总览页仍硬编码「ADR 0001–0020 仍全部为 `Proposed`、
   P0 里程碑尚未正式评审」，与 `docs/adr/README.md` 索引（0001–0020 已于 2026-11-09
