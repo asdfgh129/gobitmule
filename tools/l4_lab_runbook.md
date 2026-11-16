@@ -43,7 +43,14 @@
 | 评审签署 | 已按发起人指令记录（`docs/18` §六） | `UD_L4_REVIEW_SIGNATURE` JSON | `LAB-REVIEW` |
 | 双机基准 | 人工实测 | `UD_L4_PERF_ATTESTATION` JSON | `LAB-PERF` |
 
-主机 A 一键部署：`bash tools/l4_lab_setup_hostA.sh`（Debian/Ubuntu；其它发行版按包管理器等价替换）。
+主机 A 一键部署（**已确认主机 A = Ubuntu Server 23.x，2026-11-16**）：
+把 `tools/l4_lab_setup_hostA.sh`、`tools/chihaya_lab.yaml` 与
+`~/l4lab/bin/chihaya-linux-{amd64,arm64}` 拷到主机 A 同一目录后执行
+`bash l4_lab_setup_hostA.sh`。脚本会：① 检测 23.04/23.10 已 EOL 并把 apt 源
+自动切到 `old-releases.ubuntu.com`（原文件留 `*.bak`）；② apt 安装
+qbittorrent-nox / transmission-daemon / tcpdump / chrony；③ 优先安装随附的
+**预编译 chihaya**（macOS 交叉编译、构建口径见 §5），找不到才回退本机 go 构建。
+其它发行版按包管理器等价替换。
 主机 U 已就位：`~/l4lab/bin/chihaya`（构建口径见 §5）。
 
 ## 3. 已知事实（2026-11-16）
