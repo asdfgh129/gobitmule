@@ -66,6 +66,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **序 6 治理复签与 L4 实验室可执行化启动（2026-11-16；零 L4 证据）**：
+  - **治理**：项目发起人指令「继续推进，争取 14/14 PASS」，选定**判据不动、搭真实
+    双机实验室**路线（B / C 未被选择，`12` §3.1 判据不修改）。ADR-0021 依 `17` §1
+    P0 先例由发起人指令代行复签（**如实标注非实名会签**），新增决议记录 R5，
+    `docs/18` §六 签署表填写（法务口径：libtorrent / aria2-next 为实验室外部工具，
+    非项目依赖、不入库、不分发）、§九 收口清单同步；`adr/README` 索引更新。
+    `14` R-10 重评**维持「中」**（缓解已落地、真实 L4 未实测），等级口径由
+    「待重评」改「2026-11-16 重评维持」。
+  - **实验室工具链**：本机装真实 chihaya（`~/l4lab/bin/chihaya`）。构建口径如实记录：
+    上游 `2f794401e4`（2023-06-15）+ 唯一补丁为剔除 `cmd/chihaya/config.go` 的
+    JWT prehook blank import——其依赖 `SermoDigital/jose` 在 Go 1.24+ 下 init 注册
+    SHA3 即 panic，实验室不用该 prehook，announce / scrape / UDP 逻辑零改动；
+    本机回环冒烟 HTTP announce / scrape 均 200 + 合法 bencode。新增
+    `tools/l4_lab_runbook.md`（双机拓扑、时间同步、`LAB-*` 核验矩阵、执行顺序）、
+    `tools/l4_lab_setup_hostA.sh`（Debian/Ubuntu 一键部署 qbittorrent-nox /
+    transmission-daemon / chrony / tcpdump + chihaya 构建指引）与
+    `tools/chihaya_lab.yaml`（实验室配置模板，监听 0.0.0.0、关 IP 伪装）。
+  - **preflight 实测**：`UD_L4_TRACKER` 指向真实 chihaya 后 `make l4-preflight` 为
+    **PRESENT 1 / MISSING 5 / UNVERIFIED 3**（此前 PRESENT 0 / MISSING 6 /
+    UNVERIFIED 3）；`LAB-CAPTURE` 因本机 tcpdump 非特权转 `UNVERIFIED`（不放宽判据，
+    实验室 root 下核验）。
+  - **零 L4 证据**：`BT-01..BT-14` 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`、
+    `release_gate_met=false`、`l4_executed=false`、`nfr_perf_01.met=false`、序 6 仍开放；
+    12 条真实 harness 实装、真实 external config、双机拓扑实测与 NFR-PERF-01 均为
+    后续工作包。文档同步 `docs/README` **v1.12** / `14` **v1.7** / `18` **v0.5** /
+    ADR-0021（R5）/ `adr/README` / 根 `README.md`。
 - **回环证据重试语义校准与已核验 CI 结论补记（2026-11-15，序 6 续包；零 L4 证据）**：
   - **缺陷修复**：`cmd/udinteropx/main.go` 的 `runWithLoopbackRetry` 原先在
     「首次 `FAIL` → 二次 `SKIPPED` / `UNSUPPORTED`」时仍追加「第 2/2 次真实执行通过」，

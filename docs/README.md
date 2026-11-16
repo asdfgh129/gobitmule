@@ -1,7 +1,21 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.11 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0021 已批准（0021 为路径 A，评审组复签待补），其余文档待逐篇评审）** ｜ 日期：2026-11-15 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.12 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0021 已批准（0021 为路径 A，2026-11-16 发起人指令复签、非实名会签），其余文档待逐篇评审）** ｜ 日期：2026-11-16 ｜ 维护责任：架构组
 
+> **v1.12 变更 / 2026-11-16 时点口径（发起人指令复签与 L4 实验室可执行化启动；零 L4 证据；下文各版说明为更早时点值，保留不改）**：
+> 项目发起人指令「继续推进，争取 14/14 PASS」，选定**判据不动、搭真实双机实验室**
+> 路线（B 修订范围 / C 保持开放未被选择，`12` §3.1 判据不修改）。ADR-0021 依
+> `17` §1 P0 先例由发起人指令代行复签（**如实标注非实名会签**），新增决议记录 R5；
+> `18` **v0.5**：§六 签署表填写（含法务口径：libtorrent / aria2-next 为实验室外部
+> 工具，非项目依赖）、§九 收口清单同步；`14` **v1.7**：R-10 重评维持「中」。
+> 实验室工具链：本机装真实 chihaya（上游 `2f794401e4` + 剔除 JWT prehook 的
+> Go 1.24+ 兼容补丁，回环冒烟通过），`make l4-preflight` 实测转
+> **PRESENT 1 / MISSING 5 / UNVERIFIED 3**；新增 `tools/l4_lab_runbook.md` /
+> `tools/l4_lab_setup_hostA.sh` / `tools/chihaya_lab.yaml`。**零 L4 证据**：
+> `BT-01..BT-14` 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`、
+> `release_gate_met=false`、`l4_executed=false`、`nfr_perf_01.met=false`、序 6 仍开放；
+> 12 条真实 harness、真实 external config、双机拓扑实测与 NFR-PERF-01 仍待补。
+>
 > **v1.11 变更 / 2026-11-15 时点口径（回环证据重试语义校准与已核验 CI 结论补记；下文各版说明为更早时点值，保留不改）**：
 > 修复 `cmd/udinteropx/main.go:runWithLoopbackRetry` 在「首次 `FAIL` → 二次
 > `SKIPPED` / `UNSUPPORTED`」时误写「第 2/2 次真实执行通过」的措辞缺陷：现只有最终
@@ -290,9 +304,10 @@ graph TD
 | 路径 A 裁决 | **ADR-0021 已由 `Proposed` 转 `Accepted（路径 A）`**（项目发起人 2026-11-14 指令裁决，ADR 索引 v0.5；决策记录见 ADR-0021「决议记录」）。B 修订范围 / C 保持开放**未被选择**；`12` §3.1 判据**未修改**。**评审组五方签署表仍全部留白**——本次为发起人指令裁决，不冒充三方会签；法务口径、`14` R-10 重评与复签仍待补 | `docs/adr/ADR-0021-…` 决议记录、`adr/README` v0.5、`18` §六 / §九 |
 | L4 实验室链路 | `make l4-preflight` → `dist/l4_preflight.json` / `dist/L4_PREFLIGHT.md`（9 项前置条件清点，`l4_executed=false`、`release_gate_met=false` 硬不变量）；`l4-preflight-check` / `l4-run` 与示例 stub 配置只输出 `SKIPPED`，**不是 L4 执行证据**；`make l4-audit` 只做证据完整性重算；**四目标均不接入 CI** | `12` §3.1.3、`13` §3/§12、`dist/L4_PREFLIGHT.md` |
 | 证据完整性审计 | `make l4-audit` → `dist/l4_audit.json` / `dist/L4_AUDIT.md`（`ud.l4-evidence-audit/v1`）：9 项 `AUD-*` 独立重算**已产出**证据包的门禁覆盖、状态枚举、汇总计数与 `release_gate_met`；实测 stub 产物 `CONSISTENT` 且重算门禁 `false`，篡改副本 `INCONSISTENT`（`AUD-SUMMARY` / `AUD-GATE-VERDICT`）。**完整性结论 ≠ L4 通过**，恒 `l4_executed_by_audit=false`、不接入 CI、不替代 `make interop-gate` | `internal/interop/audit.go`、`cmd/udl4audit`、`12` §3.1.4、`13` §3/§12、`18` §7.3 / §7.4 / §十 |
-| 评审准备 | 新增 [18 序 6 评审与 L4 实验室准备材料包](18-序6评审与L4实验室准备材料包.md)（`v0.3`、`草案`、**评审组复签待补**）：已核实事实清单、A / B / C 影响面核对表、**留白**豁免清单与签署表、隔离拓扑 / 抓包方案、9 项 `LAB-*` 映射、NFR-PERF-01 双机方案；**已登记路径 A 裁决输入、不代行评审组签署、不产出 L4 证据**，空表未签署无效 | `docs/18`、ADR-0021、`12` §3.1.2 / §3.1.3 |
+| 评审准备 | [18 序 6 评审与 L4 实验室准备材料包](18-序6评审与L4实验室准备材料包.md)（`v0.5`、`草案`）：§六 签署表已于 2026-11-16 按发起人指令复签（依 `17` §1 P0 先例代行五角色，**非实名会签**，见 ADR-0021 R5）；已核实事实清单、A / B / C 影响面核对表、隔离拓扑 / 抓包方案、9 项 `LAB-*` 映射、NFR-PERF-01 双机方案；实验室搭建以仓库
+`tools/l4_lab_runbook.md` 为准 | `docs/18`、ADR-0021 决议记录 R5、`12` §3.1.2 / §3.1.3 |
 | 性能基准 | `make perf` 产出 `dist/perf.json`：1GiB / 4 连接 / 256KiB 分片走真实 HTTP Range Transport，本机回环参考 **885.83 MB/s（1.156s）**；**`nfr_perf_01.met=false`**，回环不等于双机千兆内网达标；既有 32MiB 微基准仍为回归基线 | `dist/perf.json`、`12` §5 |
-| 下一个工作包 | **评审组按 `18` §六 复签**（含法务口径、`14` R-10 重评）→ 在隔离千兆内网执行 `BT-01..BT-14` 真实客户端矩阵（`make l4-preflight-check` 齐备后 `make l4-run --require-external`）、`chihaya` / `opentracker` 二进制与抓包 → `make l4-audit` 复核证据包 → NFR-PERF-01 双机 1GiB ≥ 80MB/s → 全量文档 / 门禁 / CI 证据同步 | `14` §11、`16` §6、`12` §3.1 / §5、`18` §七 / §八 / §九、ADR-0021 决议记录 R2 / R4 |
+| 下一个工作包 | **12 条真实 harness 实装**（`BT-01..BT-10` / `BT-12..BT-14`，编码包；`BT-02` / `BT-11` 保持注册表 `UNSUPPORTED`）→ 主机 A 部署（`tools/l4_lab_setup_hostA.sh`：qbittorrent-nox / transmission-daemon / chihaya）+ 双机隔离拓扑 + 拓扑签署 → `sudo make l4-preflight-check` 齐备后 `make l4-run --require-external --external-config <真实配置>` → `make l4-audit` 复核 → NFR-PERF-01 双机 1GiB ≥ 80MB/s → 全量文档 / 门禁 / CI 证据同步 | `14` §11（2026-11-16 注）、`12` §3.1、`18` §七 / §八、`tools/l4_lab_runbook.md`、ADR-0021 R5 |
 
 > **禁止误读**：套件 v1 已交付、CI 会跑 `make interop`，只说明**可复跑的本地自动化部分是绿的**；
 > `dist/INTEROP.md` 的 `release_gate_met: false` 才是发布结论。产品文案仍按 `16` §7
@@ -377,6 +392,7 @@ python3 tools/build_docs.py --check   # 只校验，不写文件（用于 CI 门
 | v1.9 | 2026-11-14 | ADR-0021 路径 A 裁决与实现：§三「阻塞定档」改为「路径 A 裁决」并新增「P2P 礼仪」行，改写 L4 门禁 / 评审准备 / 下一个工作包 / ADR-0021 边界注，§三 清单表 18 行、§六、§七 同步；`03` v0.9 / `05` v0.8 / `07` v0.6 / `11` v1.1 / `12` v1.5 / `13` v0.13 / `14` v1.5 / `15` v0.6 / `16` v0.9 / `18` v0.3 / ADR-0004 / ADR-0017 / `config.example.yaml` / 根文档 / 门户横幅同步；ADR 汇总 21 `Accepted` / 0 待评审；补记 CI run `43595391886`；门户重建仍 **43 篇 / 0 断链**，历史时点值不改写 | 架构组 |
 | v1.10 | 2026-11-15 | 路径 A 做种半向真实客户端证据（BX-05 / BX-06）与 `listenHost` 地址族缺陷修复：§三 已交付 / 互操作套件 / L4 门禁 / ADR-0021 边界注同步，补记 CI run `43604236428`；`03` v0.10 / `11` v1.2 / `12` v1.6 / `13` v0.14 / `14` v1.6 / `16` v0.10 / `18` v0.4 / ADR-0004 / ADR-0021 / 根文档 / `config.example.yaml` / 门户横幅同步；门户重建仍 **43 篇 / 0 断链**，历史时点值不改写 | 架构组 |
 | v1.11 | 2026-11-15 | 回环证据重试语义校准与已核验 CI 结论补记：修复 `runWithLoopbackRetry` 把 `FAIL → SKIPPED/UNSUPPORTED` 误写为「通过」的措辞缺陷并补 5 条确定性回归（`cmd/udinteropx/main_test.go`）；§三 严格门禁行追加 `6ee661f` run `43695083832` `quality: success`；同步 `12` v1.7 / `13` v0.15 / 根文档 / 门户横幅；门户重建仍 **43 篇 / 0 断链**，历史时点值不改写 | 架构组 |
+| v1.12 | 2026-11-16 | 发起人指令复签与 L4 实验室可执行化启动：ADR-0021 复签（决议记录 R5，非实名会签）、`18` v0.5（§六 签署表 + 法务口径、§九）、`14` v1.7（R-10 重评维持「中」）；本机装真实 chihaya（上游 `2f794401e4` + JWT prehook 兼容补丁），`l4-preflight` 转 PRESENT 1 / MISSING 5 / UNVERIFIED 3；新增 `tools/l4_lab_runbook.md` / `l4_lab_setup_hostA.sh` / `chihaya_lab.yaml`；**零 L4 证据**，L4 仍 0/14、序 6 开放；门户重建 | 架构组 |
 
 ## 七、P0 实现基线索引（代码 ↔ 文档）
 

@@ -1,0 +1,38 @@
+# chihaya 实验室配置模板（tools/l4_lab_setup_hostA.sh 会复制到主机 A ~/l4lab/）
+# 与 /tmp 冒烟配置的差异：监听 0.0.0.0（跨主机可达）、关闭 IP 伪装
+# （隔离内网里 tracker 必须记录两台主机的真实 IP，统计才可信）。
+chihaya:
+  announce_interval: "30m"
+  min_announce_interval: "15s"
+  metrics:
+    enable_metrics: true
+    metrics_addr: "0.0.0.0:6881"
+  trackers:
+    - namespace: ""
+      default:
+        default_num_want: 50
+  storage:
+    name: memory
+    config:
+      gc_ttl: 30m
+      peer_ttl: 60m
+      min_announce_interval: 15s
+  response:
+    max_num_want: 50
+  prehooks: []
+  posthooks: []
+  http:
+    addr: "0.0.0.0:16969"
+    allow_ip_spoofing: false
+    announce_routes:
+      - "/announce"
+    scrape_routes:
+      - "/scrape"
+    read_timeout: 5s
+    write_timeout: 5s
+  udp:
+    addr: "0.0.0.0:16969"
+    allow_ip_spoofing: false
+    private_key: "REPLACE-WITH-32-BYTE-LAB-SECRET-KEY"
+    max_clock_skew: 10s
+    enable_request_timing: false
