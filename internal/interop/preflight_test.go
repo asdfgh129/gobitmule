@@ -111,18 +111,27 @@ func TestPreflightReadyMeansOnlyToolVerifiablePrerequisites(t *testing.T) {
 		t.Fatalf("human sign-off / invariants wrong: %+v", rep)
 	}
 	if got := findReq(rep, "LAB-CONFIG"); got.Status != LabPresent ||
-		!strings.Contains(got.Detail, "12 条外部用例") {
+		!strings.Contains(got.Detail, "14 条外部用例") {
 		t.Fatalf("config check = %+v", got)
 	}
 	if got := findReq(rep, "LAB-CAPTURE"); got.Status != LabPresent {
 		t.Fatalf("capture check = %+v", got)
 	}
-	if len(externalCaseIDs()) != 12 {
-		t.Fatalf("external case count = %d, want 12", len(externalCaseIDs()))
+	if len(externalCaseIDs()) != 14 {
+		t.Fatalf("external case count = %d, want 14 (ADR-0021 path A flipped BT-02/BT-11)", len(externalCaseIDs()))
 	}
-	for _, id := range externalCaseIDs() {
-		if id == "BT-02" || id == "BT-11" {
-			t.Fatal("product-gap cases must never be dispatched to an external harness")
+	// 2026-11-16: ADR-0021 path A landed; BT-02/BT-11 are now gateExternal and
+	// MUST be dispatchable to a real harness. The verdict is still decided by
+	// the harness (PASS only on verified upload), never coerced by the registry.
+	for _, id := range []string{"BT-02", "BT-11"} {
+		found := false
+		for _, e := range externalCaseIDs() {
+			if e == id {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal(id + " must be dispatchable to the external harness after ADR-0021 path A")
 		}
 	}
 }
@@ -154,7 +163,7 @@ func TestPreflightRejectsStubAndIncompleteConfig(t *testing.T) {
 	o.ReadFile = func(string) ([]byte, error) { return partial, nil }
 	rep = CheckLabPrerequisites(o)
 	if got := findReq(rep, "LAB-CONFIG"); got.Status != LabUnverified ||
-		!strings.Contains(got.Detail, "1/12") {
+		!strings.Contains(got.Detail, "1/14") {
 		t.Fatalf("incomplete config must be flagged: %+v", got)
 	}
 

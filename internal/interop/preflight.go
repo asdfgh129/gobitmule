@@ -108,8 +108,10 @@ func (o PreflightOptions) firstBinary(envKey string, names ...string) (string, b
 }
 
 // externalCaseIDs lists the gate cases that can actually be dispatched to a
-// real external harness. BT-02 / BT-11 are product-gap cases with a fixed
-// UNSUPPORTED verdict and must never appear in a config that claims coverage.
+// real external harness. Since 2026-11-16 (ADR-0021 path A Accepted + seeding
+// implemented) BT-02 / BT-11 are no longer product-gap cases: they MUST appear
+// in any config that claims full 14-case coverage. The verdict is still decided
+// by the real harness (PASS only on verified upload), never coerced.
 func externalCaseIDs() []string {
 	var ids []string
 	for _, c := range Registry() {
@@ -201,15 +203,15 @@ func CheckLabPrerequisites(in PreflightOptions) PreflightReport {
 		// Hard invariants: a preflight can never satisfy the release gate.
 		ReleaseGateMet:     false,
 		ReleaseGateNote:    "L4 发布门禁只由 dist/interop.json:release_gate_met 判定；本清单不是执行证据，SKIPPED / UNSUPPORTED / PRESENT 一律不等于 PASS。",
-		ReviewBlocker:      "ADR-0021（Proposed，未生效）：实现相对 ADR-0004 / ADR-0017 与 03 的 M 级需求存在未签署范围缩减，评审签署前 14/14 PASS 形式不可满足。",
+		ReviewBlocker:      "ADR-0021 已 Accepted（路径 A，2026-11-16 发起人指令复签、非实名会签，见 R5；BT-02/BT-11 注册表同日翻转为 gateExternal，见 R6），实现范围缩减根因已消除；当前阻塞为真实 14 条 harness / 双机实验室签署未执行，NFR-PERF-01 口径见 ADR-0022（百兆段 ≥10MB/s）。L4 仍 0/14，签名或豁免均不计 PASS。",
 		ExternalConfigPath: o.ExternalConfig,
 		Runbook: []string{
-			"1. 在隔离千兆内网准备两台主机，安装真实 qBittorrent / Transmission / libtorrent 系客户端与 chihaya / opentracker 二进制，并确认具备抓包权限。",
+			"1. 在隔离内网准备两台主机，安装真实 qBittorrent / Transmission / libtorrent 系客户端与 chihaya / opentracker 二进制，并确认具备抓包权限；实测链路速率须按 ADR-0022 归档（当前百兆段 94.1Mbps，非千兆）。",
 			"2. 为每个 BT 外部用例实现真实 harness：stdout 最后一行输出 JSON verdict {status, reason, evidence}；status 仅允许 PASS / FAIL / SKIPPED / UNSUPPORTED。",
 			"3. 把命令写入 external-config JSON（参照 tools/l4_external_config.example.json，但必须替换其中的 stub），用 L4_CONFIG=<path> 或 --config 传入。",
 			"4. 先跑 make l4-preflight（清点）/ make l4-preflight-check（未齐备即非零退出），再补签 UD_L4_TOPOLOGY_ATTESTATION / UD_L4_REVIEW_SIGNATURE / UD_L4_PERF_ATTESTATION。",
-			"5. 评审组按 ADR-0021 选择路径并签署，回写 docs/adr/README.md 索引状态；签署前不得改判据、不得把豁免计入通过数。",
-			"6. 执行 make l4-run（--require-external --external-config --release-gate-only），真实证据落在 dist/l4_lab/；只有 14/14 PASS 且 NFR-PERF-01 达标才可能关闭序 6。",
+			"5. 评审组按 ADR-0021 R5 复签（已由发起人指令代行、非实名会签）补 UD_L4_REVIEW_SIGNATURE 与法务口径，回写 docs/adr/README.md 索引；不得改判据、不得把 SKIPPED / UNSUPPORTED / 豁免计入通过数。",
+			"6. 执行 make l4-run（--require-external --external-config --release-gate-only），真实证据落在 dist/l4_lab/；只有 14/14 PASS 且 NFR-PERF-01 按 ADR-0022 口径实测达标才可能关闭序 6。",
 		},
 	}
 

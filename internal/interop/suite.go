@@ -157,9 +157,14 @@ const schemaVersion = "ud.interop/v1"
 func Registry() []Case {
 	cases := []Case{
 		gateExternal("BT-01", "与 qBittorrent 双向：我方下载 / 对方做种", "文件哈希一致"),
-		productGap("BT-02", "与 qBittorrent 双向：对方下载 / 我方做种",
-			"对方报告完成、bytes_uploaded 一致",
-			"我方做种/上传未实现：clientConfig 固定 NoUpload=true、Seed=false（ADR-0004、WBS 7 交付边界）"),
+		// 2026-11-16 时点口径：ADR-0021 路径 A 已由发起人裁决 Accepted 且受限做种
+		// 实现已落地并经 6ee661f 真实客户端半向验证（BX-05/06）。原 productGap
+		// 固定 UNSUPPORTED 的口径随裁决翻转：BT-02 现由外部真实 harness 判定，
+		// 仅当对方报告完成且 bytes_uploaded 与 announce 同源一致才 PASS。
+		// 下方 productGap 构造函数保留（向后兼容历史证据解析），但 Registry 中
+		// 已无 product-gap 用例；docs/12 §3.1 判据表原文为时点值保留不改。
+		gateExternal("BT-02", "与 qBittorrent 双向：对方下载 / 我方做种",
+			"对方报告完成、bytes_uploaded 一致"),
 		gateExternal("BT-03", "与 Transmission / libtorrent 系客户端双向", "同上"),
 		gateExternal("BT-04", "磁力：仅 DHT 获取元数据并完成下载", "无 .torrent 文件也可用"),
 		gateExternal("BT-05", "自建 chihaya / opentracker：HTTP announce + scrape", "统计准确"),
@@ -168,8 +173,10 @@ func Registry() []Case {
 		gateExternal("BT-08", "private=1：DHT / PEX / LSD 全部关闭", "抓包验证无 DHT/PEX 流量"),
 		gateExternal("BT-09", "选择下载（多文件种子部分选中）", "未选文件不落盘"),
 		gateExternal("BT-10", "WebSeed / uTP / MSE 连接", "至少一条链路成功"),
-		productGap("BT-11", "做种策略：分享率与 seed-time 达标后停止", "统计取统一 Task 模型",
-			"做种默认关闭且不提供分享率 / seed-time / 上传槽策略（WBS 7 交付边界）"),
+		// 2026-11-16：同 BT-02，ADR-0021 路径 A 落地后做种策略已具备，
+		// BT-11 改由外部真实 harness 判定（分享率 / seed-time 任一达标即停、
+		// 统计取统一 Task 模型），不再固定 UNSUPPORTED。
+		gateExternal("BT-11", "做种策略：分享率与 seed-time 达标后停止", "统计取统一 Task 模型"),
 		gateExternal("BT-12", "流式读取边下边播（File.NewReader 语义）", "首字节可读时间 < 阈值"),
 		gateExternal("BT-13", "BT v2 hybrid 与 qBittorrent 互操作", "已知支持不整齐，记录结果并默认 v1/hybrid"),
 		gateExternal("BT-14", "诚实 PeerID 校验", "抓包为 -GT0001- 或自定义但非伪装"),
@@ -354,8 +361,9 @@ func (r Report) Markdown() string {
 		fmt.Fprintf(&b, "> BEP 3 tracker 下完成并校验 sha256，DHT/PEX/LSD 关闭。\n")
 		fmt.Fprintf(&b, "> 每条仍是**单向**：aria2-next 不点名于 L4；libtorrent 2.x 虽点名于 `BT-03`，\n")
 		fmt.Fprintf(&b, "> 但 `BT-03` 要求双向真实客户端矩阵，且仍缺隔离千兆内网、抓包设备与\n")
-		fmt.Fprintf(&b, "> `chihaya` / `opentracker` 二进制；套件 v1 注册表仍固定 `BT-02` / `BT-11`\n")
-		fmt.Fprintf(&b, "> 为 `UNSUPPORTED`（路径 A 补齐实现不等于 L4 已验证）。\n")
+		fmt.Fprintf(&b, "> `chihaya` / `opentracker` 二进制。**2026-11-16 时点口径**：ADR-0021\n")
+		fmt.Fprintf(&b, "> 路径 A 落地后 `BT-02` / `BT-11` 已由 `product-gap` 翻转为 `gateExternal`，\n")
+		fmt.Fprintf(&b, "> 交由隔离段真实 harness 判定（仍仅 verified upload 才 PASS）。\n")
 		fmt.Fprintf(&b, "> 因此这是**真实跨客户端互通证据**，但**不计入** `BT-01..BT-14` 的 L4 发布门禁；\n")
 		fmt.Fprintf(&b, "> L4 仍以 SKIPPED / UNSUPPORTED 维持**未通过**，`UNSUPPORTED` 表示外部引擎不可用，绝不等于通过。\n\n")
 		fmt.Fprintf(&b, "| 编号 | 客户端 | 状态 | 说明 | 哈希/infohash |\n|---|---|---|---|---|\n")

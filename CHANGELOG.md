@@ -66,6 +66,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **BT-02/BT-11 注册表翻转 + ADR-0022 性能口径修订（2026-11-16；零 L4 证据）**：
+  - **注册表翻转**：依发起人裁决，`internal/interop/suite.go:Registry()` 将
+    `BT-02`（与 qBittorrent 双向：对方下载 / 我方做种）与
+    `BT-11`（做种策略：分享率与 seed-time 达标后停止）由 `productGap()`
+    （固定 `UNSUPPORTED`）改为 `gateExternal()`——ADR-0021 路径 A 受限做种已落地
+    并经 `6ee661f` 真实客户端半向验证（`BX-05/06`），「实现范围缩减」根因消除；
+    两条现由隔离段真实 harness 判定，**仅 bytes_uploaded 与 announce 同源一致才 PASS**。
+    `productGap()` 构造器保留供历史证据解析兼容，但 `Registry()` 已无 product-gap 用例。
+    `Report.Markdown()` 边界段同步。`internal/interop/preflight.go` 的
+    `externalCaseIDs()` 注释与 `preflight_test.go` / `suite_test.go` 断言同步：
+    external 用例 **12 → 14** 且必须包含 `BT-02`/`BT-11`。本地 `make interop`
+    现为 **23 例：9 PASS / 0 FAIL / 14 SKIPPED / 0 UNSUPPORTED，L4 仍 0/14、
+    `release_gate_met=false`**——翻转的是判据归口，不是「实现落地即 PASS」。
+  - **ADR-0022**：新开 `docs/adr/ADR-0022-NFR-PERF-01性能口径修订.md`，发起人裁决将
+    NFR-PERF-01 门槛由「千兆内网 ≥ 80MB/s」修订为「≥ 可用链路理论上限 × 80%」。
+    依据：双机隔离段 iperf3 单流 / 8 流均 **94.1Mbps ≈ 11.8MB/s**（物理链路硬限速
+    100Mbps，非 TCP 窗口问题，代码配置层无解），原口径在此环境形式不可满足；
+    当前百兆段门槛取 **≥ 10MB/s**，证据须附 iperf3 实测并标注「非千兆内网」，
+    不得冒充千兆达标；链路升级至真千顿时修订自动失效、恢复原 80MB/s。
+    验证强度下降风险由 ADR-0022 显式记录，待评审复签复核。
+  - **文档同步**：`docs/12` v1.8（§3.1 注册表翻转时点注 + §5 ADR-0022 时点注，
+    判据表 / 80MB/s 原文保留不改）、`docs/13` v0.16、`docs/14` v1.8、`docs/18` v0.6、
+    `docs/README` v1.13、`adr/README`、根 `README.md`、门户横幅；CI 结论补记
+    `1f15649` run `43791092155` = `quality: success`。**零 L4 证据**：
+    `BT-01..BT-14` 仍 **0/14**（14 SKIPPED）、`release_gate_met=false`、
+    `l4_executed=false`、`nfr_perf_01.met=false`、序 6 仍开放。
+  - **主机 A 部署脚本校准**：`tools/l4_lab_setup_hostA.sh` EOL apt 源正则改为
+    凡 `/ubuntu` 仓库路径（含 aliyun/tuna/163 等第三方镜像）一律 rewrite 到
+    `old-releases.ubuntu.com`（ERE 下 `\?` 实为字面问号，已踩坑并修正）。
 - **序 6 治理复签与 L4 实验室可执行化启动（2026-11-16；零 L4 证据）**：
   - **治理**：项目发起人指令「继续推进，争取 14/14 PASS」，选定**判据不动、搭真实
     双机实验室**路线（B / C 未被选择，`12` §3.1 判据不修改）。ADR-0021 依 `17` §1

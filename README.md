@@ -2,7 +2,7 @@
 
 跨平台的统一下载引擎：把 **BT / 磁力 / ed2k / HTTP(S) / FTP(S) / SFTP / Metalink / 迅雷链接 / 视频网站 / Telegram / 微信** 等来源，收敛到一条流水线、一个调度器、一份状态。
 
-> **当前阶段：P0「有条件通过」的附加条件已于 2026-11-10 全部关闭，P1 进行中（WBS 8 / 9 / 7 / 10 已交付，WBS 11 互操作套件 v1 已交付；ADR-0021 路径 A 已落地并于 2026-11-16 按发起人指令复签（非实名会签，见其决议记录 R5），真实双机实验室搭建中——本机已装真实 chihaya、`l4-preflight` PRESENT 1 / MISSING 5 / UNVERIFIED 3、方案见 `tools/l4_lab_runbook.md`；L4 真实客户端矩阵与 NFR-PERF-01 双机基准仍未执行，序 6 仍开放）。** 当前态：**16 个门禁包**全部达标、**90 个链接模块** 0 copyleft / 0 未识别，`make gates-strict` 本机 **6 PASS / 0 WARN / 0 FAIL**（CI 于 2026-11-13 的 `cover` 步骤曾因 WAL 偶发 `SQLITE_BUSY` 失败，已在 `internal/store` 以有界事务重放修复，CI run `43399289527` / `43400218985` 均 `quality: success`；后续 `679a26e` run `43402970475` 与 `c3fbc70` run `43567640194` 于 2026-11-14 核验亦均 `quality: success`，另有被取代的 API 推送尝试 run `43566313113` 为 `failure`，属推送方式问题、非 flake 亦非门禁回归；后续 `84871b0` run `43570105065`、`0ca9164` run `43580889196` 与 `9395343` run `43595391886` 于 2026-11-14 核验亦均 `quality: success`，另 `915f783` run `43604236428` 于 2026-11-14 核验为 `quality: success`、`6ee661f` run `43695083832` 于 2026-11-15 核验为 `quality: success`，详见 `CHANGELOG` 与 `13` §4），`make interop` 本地 9 例全绿；本机 **aria2-next 3.0.9 + 真实 libtorrent 2.1.1 的 BX-01..BX-06 跨客户端证据（6/6 PASS，sha256 校验，均单向回环补充、不计入 L4 门禁；BX-05 / BX-06 为我方做种半向）**；`make perf` 产出 1GiB 回环参考基准（固定 `nfr_perf_01.met=false`）；唯一速查见 [`docs/README` §三](docs/README.md)，进度真值源为 [`CHANGELOG`](CHANGELOG.md) 与 [`docs/14` §11](docs/14-项目计划与风险管理.md)。
+> **当前阶段：P0「有条件通过」的附加条件已于 2026-11-10 全部关闭，P1 进行中（WBS 8 / 9 / 7 / 10 已交付，WBS 11 互操作套件 v1 已交付；ADR-0021 路径 A 已落地并于 2026-11-16 按发起人指令复签（非实名会签，见其决议记录 R5），真实双机实验室已部署（双机同处 `192.168.1.0/24`、iperf3 实测 94.1Mbps，本机已装真实 chihaya、`l4-preflight` PRESENT 1 / MISSING 5 / UNVERIFIED 3、方案见 `tools/l4_lab_runbook.md`）；**2026-11-16 两项发起人裁决**：`BT-02`/`BT-11` 注册表由 `productGap` 翻转为 `gateExternal`（本地现 14 SKIPPED / 0 UNSUPPORTED，仅 verified upload 才 PASS）、ADR-0022 将 NFR-PERF-01 门槛修订为「≥ 可用链路理论上限 × 80%」（百兆段 ≥10MB/s，原千兆 80MB/s 时点值保留不改）；L4 真实客户端矩阵与 NFR-PERF-01 双机基准仍未执行，序 6 仍开放）。** 当前态：**16 个门禁包**全部达标、**90 个链接模块** 0 copyleft / 0 未识别，`make gates-strict` 本机 **6 PASS / 0 WARN / 0 FAIL**（CI 于 2026-11-13 的 `cover` 步骤曾因 WAL 偶发 `SQLITE_BUSY` 失败，已在 `internal/store` 以有界事务重放修复，CI run `43399289527` / `43400218985` 均 `quality: success`；后续 `679a26e` run `43402970475` 与 `c3fbc70` run `43567640194` 于 2026-11-14 核验亦均 `quality: success`，另有被取代的 API 推送尝试 run `43566313113` 为 `failure`，属推送方式问题、非 flake 亦非门禁回归；后续 `84871b0` run `43570105065`、`0ca9164` run `43580889196` 与 `9395343` run `43595391886` 于 2026-11-14 核验亦均 `quality: success`，另 `915f783` run `43604236428` 于 2026-11-14 核验为 `quality: success`、`6ee661f` run `43695083832` 于 2026-11-15 核验为 `quality: success`，详见 `CHANGELOG` 与 `13` §4），`make interop` 本地 9 例全绿；本机 **aria2-next 3.0.9 + 真实 libtorrent 2.1.1 的 BX-01..BX-06 跨客户端证据（6/6 PASS，sha256 校验，均单向回环补充、不计入 L4 门禁；BX-05 / BX-06 为我方做种半向）**；`make perf` 产出 1GiB 回环参考基准（固定 `nfr_perf_01.met=false`）；唯一速查见 [`docs/README` §三](docs/README.md)，进度真值源为 [`CHANGELOG`](CHANGELOG.md) 与 [`docs/14` §11](docs/14-项目计划与风险管理.md)。
 > 仓库已包含可运行的 Go 代码：HTTP(S) / FTP(S) / SFTP 直链与 BT / 磁力均能走完
 > `Resolver → Resource → Transport → PostProcessor → Store` 全流水线。
 > **P1 WBS 8 已交付（2026-11-10）**：`thunder://` / `flashget://` / `qqdl://` 解码与 Metalink
@@ -41,6 +41,12 @@
 > `ScopeProductGap` 固定该状态；路径 A 已补齐实现但 L4 真实矩阵未执行，**不得**翻转状态），
 > **发布门禁未通过**、
 > 序 6 不关闭；NFR-PERF-01 千兆内网基准同样未执行。
+> **2026-11-16 时点口径（上文 12 SKIPPED / 2 UNSUPPORTED 为套件 v1 时点值保留不改）**：
+> 发起人裁决翻转 `BT-02` / `BT-11` 注册表为 `gateExternal`（由隔离段真实 harness 判定，
+> 仅 verified upload 才 PASS），本地 `make interop` 现为 **23 例：9 PASS / 0 FAIL /
+> 14 SKIPPED / 0 UNSUPPORTED**，但 L4 门禁仍 0/14、`release_gate_met=false`——翻转的是
+> 判据归口，不是「实现落地即 PASS」。NFR-PERF-01 亦按 ADR-0022 修订为「≥ 可用链路 × 80%」
+> （百兆段 ≥10MB/s，实测 94.1Mbps ≈ 11.8MB/s、非千兆），原 80MB/s 为时点值保留不改。
 > 补充证据（2026-11-13 扩容）：`cmd/udinteropx` 支持双引擎，驱动项目真实 `bttransport`
 > 对 **aria2-next 3.0.9**（MotrixNext，`BX-01` / `BX-02`）与真实 **libtorrent 2.1.1**
 > （`BX-03` / `BX-04`，可选 `tools/interop_libtorrent.py` seeder，非项目依赖、CI 不跑）
@@ -57,7 +63,8 @@
 > `BT-01..BT-14`；libtorrent 虽点名于 `BT-03`，该判据要求同一真实客户端会话内双向
 > （含 qBittorrent / Transmission 矩阵），两个半向被拆成独立用例，且仍缺抓包、
 > 隔离千兆内网与 `chihaya` / `opentracker` 二进制，故**均不计入 L4 门禁**；
-> 套件 v1 注册表仍固定 `BT-02` / `BT-11` 为 `UNSUPPORTED`。`make perf` 的 1GiB 回环参考值固定
+> 套件 v1 注册表仍固定 `BT-02` / `BT-11` 为 `UNSUPPORTED`（2026-11-14 时点值，2026-11-16
+> 已翻转为 `gateExternal`，见上文）。`make perf` 的 1GiB 回环参考值固定
 > `nfr_perf_01.met=false`，不等于千兆内网达标。
 > **序 6 阻塞定档（2026-11-13）**：核对已批准的 ADR-0004「后果 / 后续动作」、
 > ADR-0017 决策 4 与 `03` 的 M 级需求后确认，它们都**要求**显式实现做种礼仪
@@ -75,7 +82,8 @@
 > 条件迁移均已落地，**未签署范围缩减（合规差距）这一根因已消除**。
 > **但** `docs/18` §六 评审组五方签署表仍全部留白（本次为发起人指令裁决，
 > 不冒充三方会签），法务口径与 `14` R-10 重评待补；`12` §3.1 判据未改，
-> L4 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`（实现具备 ≠ 已验证）、
+> L4 仍 **0/14**、`BT-02` / `BT-11` 仍 `UNSUPPORTED`（实现具备 ≠ 已验证；2026-11-14
+> 时点值，2026-11-16 已翻转为 `gateExternal`）、
 > `release_gate_met=false`、`l4_executed=false`、序 6 **仍开放**。
 > 同轮新增 `make l4-preflight` / `l4-preflight-check` / `l4-run` 打通实验室接线
 > （前置条件清点，**不是 L4 执行证据**，示例 stub 配置只能产出 `SKIPPED`，三者均不接入 CI）。

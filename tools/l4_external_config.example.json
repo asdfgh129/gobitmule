@@ -1,6 +1,7 @@
 {
   "cases": {
     "BT-01": {"command": ["python3", "tools/l4_harness_stub.py", "BT-01"], "note": "STUB：替换为真实 qBittorrent 双向会话 harness"},
+    "BT-02": {"command": ["python3", "tools/l4_harness_stub.py", "BT-02"], "note": "STUB：替换为 qBittorrent 对方下载 / 我方做种 harness；2026-11-16 起 gateExternal（仅 verified upload 才 PASS）"},
     "BT-03": {"command": ["python3", "tools/l4_harness_stub.py", "BT-03"], "note": "STUB：替换为真实 Transmission / libtorrent 双向会话 harness"},
     "BT-04": {"command": ["python3", "tools/l4_harness_stub.py", "BT-04"], "note": "STUB：替换为仅 DHT 取元数据的真实客户端 harness"},
     "BT-05": {"command": ["python3", "tools/l4_harness_stub.py", "BT-05"], "note": "STUB：替换为 chihaya / opentracker HTTP announce + scrape harness"},
@@ -9,6 +10,7 @@
     "BT-08": {"command": ["python3", "tools/l4_harness_stub.py", "BT-08"], "note": "STUB：替换为 private=1 抓包级 DHT / PEX / LSD harness"},
     "BT-09": {"command": ["python3", "tools/l4_harness_stub.py", "BT-09"], "note": "STUB：替换为多文件选择下载 harness"},
     "BT-10": {"command": ["python3", "tools/l4_harness_stub.py", "BT-10"], "note": "STUB：替换为 WebSeed / uTP / MSE 链路 harness"},
+    "BT-11": {"command": ["python3", "tools/l4_harness_stub.py", "BT-11"], "note": "STUB：替换为做种策略分享率 / seed-time 达标即停 harness；2026-11-16 起 gateExternal（统计取统一 Task 模型）"},
     "BT-12": {"command": ["python3", "tools/l4_harness_stub.py", "BT-12"], "note": "STUB：替换为流式首字节时延 harness"},
     "BT-13": {"command": ["python3", "tools/l4_harness_stub.py", "BT-13"], "note": "STUB：替换为 BT v2 hybrid 真实互操作 harness"},
     "BT-14": {"command": ["python3", "tools/l4_harness_stub.py", "BT-14"], "note": "STUB：替换为诚实 PeerID 抓包 harness"}

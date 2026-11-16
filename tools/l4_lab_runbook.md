@@ -15,8 +15,9 @@
 
 | 节点 | 角色 | 承载 |
 |---|---|---|
-| 主机 U（macOS，本机） | 被测 | `udd` + 12 条真实 harness 驱动 + `tcpdump` 抓包 + NFR-PERF-01 客户端侧 |
-| 主机 A（Linux，待用户提供） | 对端 | `qbittorrent-nox`（BT-01/02/13）+ `transmission-daemon`（BT-03 之一半）+ `chihaya`（BT-05/06/07）+ NFR-PERF-01 服务端侧 |
+| 主机 U（macOS，本机） | 被测 | `udd` + **14 条**真实 harness 驱动 + `tcpdump` 抓包 + NFR-PERF-01 客户端侧 |
+| 主机 A（Linux，192.168.1.222） | 对端 | `qbittorrent-nox`（BT-01/02/13）+ `transmission-daemon`（BT-03 之一半）+ `chihaya`（BT-05/06/07）+ NFR-PERF-01 服务端侧 |
+| NAT 主机（Linux，192.168.1.221） | 对端/隔离段 | 第二台真实客户端 + iperf3 对端；与主机 A 同处 `192.168.1.0/24`，延迟约 0.36ms |
 
 > libtorrent 2.1.1（Python 绑定）在本机已有，作为 BT-03 的 libtorrent 系对端之一；
 > `LAB-CLIENT-LT`（双向会话）仍需抓包佐证后人工签署。
@@ -57,16 +58,18 @@ qbittorrent-nox / transmission-daemon / tcpdump / chrony；③ 优先安装随�
 
 - 本机 sudo 被运行环境禁止 ⇒ brew/qbittorrent-nox 无法装入 macOS 本机；
   qBittorrent 固定跑在主机 A（Linux 版本恰好是 `qbittorrent-nox` 官方形态）。
-- `internal/interop/preflight.go` 报告头部的 `ReviewBlocker` 文案仍写
-  「ADR-0021（Proposed，未生效）」，为提案期口径；ADR-0021 现已 `Accepted（路径 A）`。
-  该字符串属下一编码包校准项（连同 12 条真实 harness），不作为治理结论引用。
+- `internal/interop/preflight.go` 报告头部的 `ReviewBlocker` 提案期口径已于 2026-11-16
+  校准为「ADR-0021 已 Accepted（路径 A，R5 复签）+ R6 翻转 `BT-02`/`BT-11`」，
+  不再写「Proposed，未生效」。若见到旧 `dist/l4_preflight.json` 中的提案期字符串，
+  属历史时点证据，重跑 `make l4-preflight` 即以新文案覆盖。
 
 ## 4. 执行顺序（对应 docs/18 §7.4）
 
 1. 主机 A 部署 + 网络隔离 + 时间同步（本文 §1/§2）。
-2. **实装 12 条真实 harness**（下一编码包；本 runbook 就绪前 `make l4-run` 只会 SKIPPED）。
-3. 编写真实 `l4_external_config.json`（覆盖 `BT-01..BT-10`、`BT-12..BT-14` 共 12 条；
-   `BT-02` / `BT-11` 按注册表固定 `UNSUPPORTED`，**不得出现在声称覆盖的配置里**）。
+2. **实装 14 条真实 harness**（下一编码包；本 runbook 就绪前 `make l4-run` 只会 SKIPPED）。
+3. 编写真实 `l4_external_config.json`（覆盖 `BT-01..BT-14` 共 **14 条**；2026-11-16 起
+   `BT-02` / `BT-11` 已翻转为 `gateExternal`，**必须出现在声称覆盖的配置里**，
+   由真实 harness 判定、仅 verified upload 才 PASS）。
 4. `UD_L4_TRACKER=~/l4lab/bin/chihaya`（U 侧回环项）+ 主机 A 侧 chihaya 跨机项，
    `sudo make l4-preflight`（root 使 `LAB-CAPTURE` 可转 PRESENT）→
    `sudo make l4-preflight-check`。
@@ -104,5 +107,5 @@ export UD_L4_PERF_ATTESTATION="dist/l4_lab/perf_attestation.json"
 # 抓包：sudo 执行 preflight / l4-run，或在实验室授予当前用户 BPF 权限
 ```
 
-> wrapper 与 12 条 harness 属下一个编码包交付物；在它们存在之前把上述变量指向
+> wrapper 与 14 条 harness 属下一个编码包交付物；在它们存在之前把上述变量指向
 > 不存在的文件只会得到诚实的第一手 `MISSING`，这正是 preflight 的用途。

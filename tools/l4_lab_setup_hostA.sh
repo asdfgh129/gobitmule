@@ -18,10 +18,16 @@ echo "== [0/5] Ubuntu 版本与 EOL 源检测 =="
 echo "主机 A 系统：${PRETTY_NAME:-unknown}（$(uname -m)）"
 case "${VERSION_ID:-}" in
   23.04|23.10|22.10|21.10|20.10)
-    echo "检测到已 EOL 的 Ubuntu ${VERSION_ID}：切换 apt 源 archive/security/ports → old-releases.ubuntu.com"
-    SED='s#https\?://archive\.ubuntu\.com#http://old-releases.ubuntu.com#g; s#https\?://security\.ubuntu\.com#http://old-releases.ubuntu.com#g; s#https\?://ports\.ubuntu\.com#http://old-releases.ubuntu.com#g'
+    echo "检测到已 EOL 的 Ubuntu ${VERSION_ID}：全部 /ubuntu 仓库路径（含第三方镜像）→ old-releases.ubuntu.com"
+    # EOL 后 archive/security/ports 与第三方镜像（aliyun/tuna/163 等）都会 404，
+    # 因此不区分 host，凡 /ubuntu 仓库路径一律指向 old-releases。
+    # 注意：-E（ERE）下 `?` 本身就是量词，写成 `\?` 反而匹配字面问号（已踩坑）。
+    SED='s#https?://[^/ ]*/ubuntu#http://old-releases.ubuntu.com/ubuntu#g'
     if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
       sudo sed -i.bak -E "$SED" /etc/apt/sources.list.d/ubuntu.sources
+    fi
+    if ls /etc/apt/sources.list.d/*.list >/dev/null 2>&1; then
+      sudo sed -i.bak -E "$SED" /etc/apt/sources.list.d/*.list
     fi
     if [ -f /etc/apt/sources.list ]; then
       sudo sed -i.bak -E "$SED" /etc/apt/sources.list

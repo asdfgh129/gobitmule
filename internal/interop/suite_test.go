@@ -67,7 +67,11 @@ func TestRunAllProducesHonestEvidence(t *testing.T) {
 	if rep.Summary.GatePass != 0 || rep.ReleaseGateMet {
 		t.Fatal("L4 gate must NOT be met without real external clients")
 	}
-	if rep.Summary.Unsupported != 2 || rep.Summary.Skipped != 12 {
+	// 2026-11-16 ADR-0021 path A: BT-02/BT-11 flipped from product-gap to
+	// gateExternal, so without a real harness ALL 14 gate cases are SKIPPED
+	// and none are UNSUPPORTED. UNSUPPORTED is only emitted by a real harness
+	// when an external engine is genuinely unavailable.
+	if rep.Summary.Unsupported != 0 || rep.Summary.Skipped != 14 {
 		t.Fatalf("unexpected skips: %+v", rep.Summary)
 	}
 	localPass := 0

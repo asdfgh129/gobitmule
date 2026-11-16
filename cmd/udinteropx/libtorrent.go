@@ -11,9 +11,11 @@ package main
 // seeding, and BX-06 now exercises the reverse direction (ud -> libtorrent
 // leecher). Neither direction executes the L4 matrix: BT-03 still requires a
 // bidirectional qBittorrent / Transmission / libtorrent session with packet
-// capture, an isolated gigabit LAN and chihaya / opentracker binaries. The
-// suite v1 registry still fixes BT-02 / BT-11 as UNSUPPORTED. These cases must
-// never be counted toward release_gate_met.
+// capture, an isolated LAN and chihaya / opentracker binaries. 2026-11-16
+// timepoint note: the sponsor flipped BT-02 / BT-11 from product-gap fixtures
+// to gateExternal (ADR-0021 R6), judged only by a real harness with verified
+// upload; locally they are SKIPPED. Neither SKIPPED nor BX-* loopback evidence
+// may be counted toward release_gate_met.
 
 import (
 	"bufio"

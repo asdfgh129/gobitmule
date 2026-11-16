@@ -561,12 +561,17 @@ def build_home(docs: list[Doc], by_rel: dict[str, Doc]) -> str:
   <a href="#/doc-14">docs/14 §11 序 6</a> 未关闭——ADR-0021 已按项目发起人指令
   选择<strong>路径 A 补齐实现</strong>（受限做种 / 分享率 / seed-time / 上传槽 /
   UPnP / 诚实 PeerID / <code>tasks.bytes_*</code> 统计已落地，评审组复签待补）。
-  2026-11-15 新增 <code>BX-05</code> / <code>BX-06</code>（ud 做种 → 真实 aria2-next /
-  libtorrent leecher）后，外部补充证据为 <code>BX-01..BX-06</code> 6/6 PASS，但六条均为
-  <strong>单向回环</strong>、<strong>不计入 L4</strong>；
+  2026-11-16 两项发起人新裁决：<code>BT-02</code> / <code>BT-11</code> 注册表由
+  <code>productGap</code> 翻转为 <code>gateExternal</code>（真实 harness 判定、仅 verified
+  upload 才 PASS），本地 <code>make interop</code> 现 14 SKIPPED / 0 UNSUPPORTED；
+  新开 <a href="#/adr-0022">ADR-0022</a> 将 NFR-PERF-01 门槛修订为「≥ 可用链路 × 80%」
+  （当前百兆隔离段 ≥10MB/s，实测 94.1Mbps ≈ 11.8MB/s、非千兆；原千兆 80MB/s 时点值
+  保留不改）。2026-11-15 新增 <code>BX-05</code> / <code>BX-06</code>（ud 做种 → 真实
+  aria2-next / libtorrent leecher）后，外部补充证据为 <code>BX-01..BX-06</code> 6/6 PASS，
+  但六条均为 <strong>单向回环</strong>、<strong>不计入 L4</strong>；
   回环重试的诚实语义已由 <code>cmd/udinteropx/main_test.go</code> 5 条确定性回归锁定
   （<code>FAIL → SKIPPED/UNSUPPORTED</code> 不写成「通过」）；
-  <strong>L4 真实客户端矩阵仍 0/14、NFR-PERF-01 双机千兆基准未执行</strong>，
+  <strong>L4 真实客户端矩阵仍 0/14、NFR-PERF-01 双机基准未执行</strong>，
   <code>release_gate_met=false</code>、<code>l4_executed=false</code> 恒真。
   当前态唯一速查为 <strong>docs/README §三</strong>，进度真值源为
   <a href="#/changelog">CHANGELOG</a>；范围外能力与残余风险见
