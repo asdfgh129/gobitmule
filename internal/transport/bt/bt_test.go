@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
@@ -315,11 +316,11 @@ func TestClientConfigHandshakePolicy(t *testing.T) {
 	r := &core.Resource{Kind: core.KindTorrent, Identity: core.ProtocolIdentity{Private: true}}
 	dir := t.TempDir()
 
-	def := clientConfig(r, dir, false)
+	def := clientConfig(r, dir, false, nil)
 	if !def.HeaderObfuscationPolicy.Preferred || def.HeaderObfuscationPolicy.RequirePreferred {
 		t.Fatalf("daemon default handshake policy changed: %+v", def.HeaderObfuscationPolicy)
 	}
-	plain := clientConfig(r, dir, true)
+	plain := clientConfig(r, dir, true, nil)
 	if plain.HeaderObfuscationPolicy.Preferred || plain.HeaderObfuscationPolicy.RequirePreferred {
 		t.Fatalf("plain option must disable only the preference: %+v", plain.HeaderObfuscationPolicy)
 	}
@@ -334,5 +335,53 @@ func TestClientConfigHandshakePolicy(t *testing.T) {
 	}
 	if got := New(nil, noopCreds{}); got.plainHandshake {
 		t.Fatal("plaintext handshake must be opt-in")
+	}
+}
+
+// TestClientConfigDHTBootstrap guards the restricted-network DHT router seam
+// used by the isolated L4 lab. Daemon defaults must stay untouched; supplying
+// custom routers must wire real StartingNodes, while the security-extension
+// override is limited to loopback routers (routable private DHTs keep it).
+func TestClientConfigDHTBootstrap(t *testing.T) {
+	r := &core.Resource{Kind: core.KindTorrent}
+	dir := t.TempDir()
+
+	def := clientConfig(r, dir, false, nil)
+	if def.DhtStartingNodes == nil {
+		t.Fatal("daemon default StartingNodes missing")
+	}
+	if def.ConfigureAnacrolixDhtServer != nil {
+		t.Fatal("daemon default DHT security must stay enabled")
+	}
+
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 6881}
+	custom := clientConfig(r, dir, false, []net.Addr{addr})
+	nodes, err := custom.DhtStartingNodes("udp")()
+	if err != nil || len(nodes) != 1 {
+		t.Fatalf("custom DHT nodes = %d, err = %v", len(nodes), err)
+	}
+	if custom.ConfigureAnacrolixDhtServer == nil {
+		t.Fatal("loopback routers must disable the DHT security extension")
+	}
+	cfg := &dht.ServerConfig{}
+	custom.ConfigureAnacrolixDhtServer(cfg)
+	if !cfg.NoSecurity {
+		t.Fatal("loopback-router DHT security override not applied")
+	}
+
+	routable := &net.UDPAddr{IP: net.IPv4(192, 0, 2, 10), Port: 6881}
+	private := clientConfig(r, dir, false, []net.Addr{routable})
+	nodes, err = private.DhtStartingNodes("udp")()
+	if err != nil || len(nodes) != 1 {
+		t.Fatalf("routable DHT nodes = %d, err = %v", len(nodes), err)
+	}
+	if private.ConfigureAnacrolixDhtServer != nil {
+		t.Fatal("routable custom routers must keep the DHT security extension enabled")
+	}
+	if !custom.NoUpload || custom.Seed {
+		t.Fatal("custom DHT routers must not change the upload/product boundary")
+	}
+	if got := New(nil, noopCreds{}, WithDHTBootstrapNodes(addr)); len(got.dhtBootstrap) != 1 {
+		t.Fatalf("WithDHTBootstrapNodes not applied: %d", len(got.dhtBootstrap))
 	}
 }

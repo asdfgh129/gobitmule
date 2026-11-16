@@ -30,6 +30,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"math/rand"
@@ -66,6 +67,26 @@ type verdict struct {
 }
 
 func main() {
+	// L4 real-lab harness mode. Runs ON the isolated lab host and emits exactly
+	// one JSON verdict as the last stdout line (contract of
+	// internal/interop.runExternalCase). The normal BX-* mode below is untouched.
+	l4Case := flag.String("l4-case", os.Getenv("UD_INTEROP_L4_CASE"),
+		"run one real L4 lab harness case (BT-01..BT-14) and print a single JSON verdict")
+	flag.Parse()
+	if *l4Case != "" {
+		v := runL4Case(*l4Case)
+		blob, err := json.Marshal(v)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "udinteropx: marshal l4 verdict: %v\n", err)
+			os.Exit(2)
+		}
+		fmt.Println(string(blob))
+		if v.Status == "FAIL" {
+			os.Exit(1)
+		}
+		return
+	}
+
 	aria2 := os.Getenv("UD_ARIA2_NEXT")
 	if aria2 == "" {
 		aria2 = "/Applications/MotrixNext.app/Contents/MacOS/aria2-next"

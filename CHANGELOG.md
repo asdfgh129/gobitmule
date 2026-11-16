@@ -66,6 +66,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **L4 真实实验室 14/14 PASS：14 条 harness 实装 + 双机执行 + 证据归档（2026-11-16）**：
+  - **harness 实装**：`cmd/udinteropx` 新增 `--l4-case BT-XX` /
+    `UD_INTEROP_L4_CASE` 模式（`cmd/udinteropx/l4.go`），逐条输出单行 JSON 判定
+    `{status,reason,evidence}`；`internal/interop.runExternalCase()` 解析最后一行
+    JSON 作为门禁结果。14 条用例全部驱动**真实** `internal/transport/bt` 与真实
+    第三方客户端（主机 B 的 qBittorrent v4.5.1 / Transmission 3.00 /
+    python-libtorrent 2.0.8），tracker 为每例独立端口的真实 chihaya。
+  - **生产代码**：`internal/transport/bt` 新增 `WithDHTBootstrapNodes(...)` 选项，
+    允许受限网络 / 隔离实验室注入自定义 DHT 路由器；仅在显式注入时对回环 DHT
+    节点关闭 security extension，默认公共 DHT 行为不变。补
+    `TestClientConfigDHTBootstrap`；`go.mod` 将 `github.com/anacrolix/dht/v2`
+    从间接依赖转为直接依赖（模块总数不变，仍 90 个链接模块）。
+  - **BT-04（纯磁力 / 仅 DHT）**：公网 DHT UDP 被 NAT 阻断，改用隔离段**本地真实
+    DHT 路由器** + 进程内真实 anacrolix 做种节点，完成真实 `announce_peer` /
+    `get_peers` / `ut_metadata` 与 payload sha256 校验；修复上游
+    `peerstore.InMemory` 在本场景下把 peer 地址损坏为 `[?7f00:1]` 的问题
+    （实验室专用 `l4PeerStore` 保存完整 `krpc.NodeAddr`）。
+  - **抓包与清理**：`BT-08` 私种下载期间 UDP 包 0（过滤对端合法 uTP 与自环），
+    `BT-14` 抓包命中诚实 PeerID `-UD0000-`；主机 B 的第二个隔离段地址
+    `192.168.1.239` 纳入过滤。qBittorrent 清理改为 graceful shutdown +
+    profile 作用域 `pkill`，消除跨用例残留进程导致的超时。
+  - **有界真实重试**：仅对瞬时网络竞态签名（`context deadline exceeded` /
+    `E_TRANSIENT_NETWORK` / `i/o timeout` / `connection reset by peer`）做
+    最多 2 次**全新真实执行**，第二次不得把 `SKIPPED` / `UNSUPPORTED` 升级为 PASS；
+    新增 3 条确定性回归锁定语义。最终正式执行 14 条均为首次 PASS。
+  - **真实配置与执行**：新增 `tools/l4_external_config.lab.json`（14 条，
+    `timeout_s=780`）；`make l4-run L4_CONFIG=... L4_CASE_TIMEOUT=840s` 产出
+    `dist/l4_lab/interop.json` / `INTEROP.md`：**23 例 PASS、L4 门禁 14/14 PASS、
+    `release_gate_met=true`**；`make l4-audit` 独立重算 9 项 `AUD-*` 为
+    **`CONSISTENT` 9/9、0 FAIL**，重算 `gate_pass=14/14`。审计器仍恒
+    `l4_executed_by_audit=false`，PASS 依据是真实执行而非审计自洽。
+  - **证据归档**：原始报告、抓包与校验和归档到
+    `docs/evidence/l4-2026-11-16/`（`interop.json` / `INTEROP.md` /
+    `l4_audit.json` / `BT-08-capture.pcap` / `BT-14-capture.pcap` /
+    `SHA256SUMS`），并新增 [19 L4 实验室实测与发布门禁报告](docs/19-L4实验室实测与发布门禁报告.md)。
+  - **边界（不得误读）**：受控双机实验室、指定客户端版本；`BT-04` 不是公共 DHT
+    网络；不等于 PT / 公网全矩阵 / 千兆性能达标。**NFR-PERF-01 双机应用层 1GiB
+    基准仍未执行**（`cmd/udperf` 仅回环模式，`dist/perf.json` 仍 `met=false`），
+    评审组实名复签 / 法务与安全会签 / `14` R-10 复评仍待补，**序 6 不关闭**。
+    本地 `make interop` 无 external config 时仍保持 0/14 并明确失败。
+  - **文档同步**：`docs/19`（新增）、`docs/README` **v1.14**（门户 45 篇）、
+    `12` **v1.9**、`13` **v0.17**、`14` **v1.9**、`18` **v0.7**、
+    `tools/build_docs.py`（GROUPS / 横幅 / doc-19）+ 门户重建、根 `README.md`。
+  - **本机门禁**：`make lint` / `make test` / `go test -race ./...` 全绿；
+    `make build` 与 `make gates-strict` 结果见下方 CI 结论补记。
 - **BT-02/BT-11 注册表翻转 + ADR-0022 性能口径修订（2026-11-16；零 L4 证据）**：
   - **注册表翻转**：依发起人裁决，`internal/interop/suite.go:Registry()` 将
     `BT-02`（与 qBittorrent 双向：对方下载 / 我方做种）与

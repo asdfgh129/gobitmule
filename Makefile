@@ -136,9 +136,13 @@ l4-preflight-check:
 	$(GO) run ./cmd/udl4preflight --out $(DIST)/l4_preflight.json --md $(DIST)/L4_PREFLIGHT.md --config $(L4_CONFIG) --require-ready
 
 # Only run this inside an isolated lab with real harness commands. With the
-# stub config it MUST exit non-zero (0/14 PASS).
+# stub config it MUST exit non-zero (0/14 PASS). Real DHT/magnet and tracker
+# failover cases can exceed the 90s loopback default, so the lab timeout is
+# explicit and overridable.
+L4_CASE_TIMEOUT ?= 480s
+
 l4-run:
-	$(GO) run ./cmd/udinterop --out $(L4_OUT) --require-external --external-config $(L4_CONFIG) --release-gate-only
+	$(GO) run ./cmd/udinterop --out $(L4_OUT) --require-external --external-config $(L4_CONFIG) --release-gate-only --case-timeout $(L4_CASE_TIMEOUT)
 
 # Independent integrity audit of an ALREADY-PRODUCED evidence bundle. This is
 # NOT an L4 run, NOT a release gate and NOT wired into CI. A zero exit status

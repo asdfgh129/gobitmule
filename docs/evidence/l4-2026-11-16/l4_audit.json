@@ -1,0 +1,71 @@
+{
+  "schema": "ud.l4-evidence-audit/v1",
+  "generated_at": "2026-11-16T11:56:35Z",
+  "scope": "L4 证据包完整性审计（integrity only；NOT an L4 execution, NOT a release gate）",
+  "input": "dist/l4_lab/interop.json",
+  "verdict": "CONSISTENT",
+  "checks": [
+    {
+      "id": "AUD-SCHEMA",
+      "ok": true,
+      "detail": "schema=\"ud.interop/v1\"，期望 \"ud.interop/v1\""
+    },
+    {
+      "id": "AUD-GATE-COVERAGE",
+      "ok": true,
+      "detail": "规范门禁 14 条；缺 [] / 多 [] / 重复 []"
+    },
+    {
+      "id": "AUD-STATUS-ENUM",
+      "ok": true,
+      "detail": "非法 status=[] / 空 ID=[] / 空 reason=[]"
+    },
+    {
+      "id": "AUD-SUMMARY",
+      "ok": true,
+      "detail": "重算 {Total:23 GateTotal:14 GatePass:14 Pass:23 Fail:0 Skipped:0 Unsupported:0}；文档 {Total:23 GateTotal:14 GatePass:14 Pass:23 Fail:0 Skipped:0 Unsupported:0}"
+    },
+    {
+      "id": "AUD-GATE-VERDICT",
+      "ok": true,
+      "detail": "文档 release_gate_met=true；按 case 重算=true（gate_pass=14/14，FAIL=0）"
+    },
+    {
+      "id": "AUD-GATE-REASON",
+      "ok": true,
+      "detail": "release_gate_reason=\"BT-01..BT-14 全部 PASS\"；all_gates_pass=true"
+    },
+    {
+      "id": "AUD-EXTERNAL-FLAG",
+      "ok": true,
+      "detail": "release_gate_met=true，require_external=true"
+    },
+    {
+      "id": "AUD-PASS-EVIDENCE",
+      "ok": true,
+      "detail": "PASS 门禁用例缺 reason/evidence：[]"
+    },
+    {
+      "id": "AUD-SUPPLEMENTAL",
+      "ok": true,
+      "detail": "补充证据非法 status=[]（补充证据永不翻转门禁）"
+    }
+  ],
+  "checks_passed": 9,
+  "checks_failed": 0,
+  "recomputed_summary": {
+    "total": 23,
+    "gate_total": 14,
+    "gate_pass": 14,
+    "pass": 23,
+    "fail": 0,
+    "skipped": 0,
+    "unsupported": 0
+  },
+  "recomputed_release_gate_met": true,
+  "gate_cases": 14,
+  "gate_pass": 14,
+  "gate_non_pass": [],
+  "l4_executed_by_audit": false,
+  "note": "CONSISTENT 仅表示证据包内部自洽，不等于 L4 矩阵已执行或通过；INCONSISTENT / MISSING 绝不表示 L4 通过。发布门禁只由被审计文档的 case 列表重算，审计器本身不设置 release_gate_met、不产出任何 L4 证据。SKIPPED / UNSUPPORTED / PRESENT 一律不计 PASS。"
+}

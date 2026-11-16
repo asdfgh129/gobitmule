@@ -54,7 +54,7 @@ func (o *recordingObserver) snapshot() (int, int, []string) {
 func TestClientConfigLeechOnlyDefaults(t *testing.T) {
 	for _, private := range []bool{false, true} {
 		r := seedTestResource(private)
-		cfg := clientConfig(r, t.TempDir(), false)
+		cfg := clientConfig(r, t.TempDir(), false, nil)
 		if !cfg.NoUpload || cfg.Seed {
 			t.Fatalf("private=%v: no policy must stay leech-only (NoUpload=%v Seed=%v)",
 				private, cfg.NoUpload, cfg.Seed)
@@ -79,7 +79,7 @@ func TestClientConfigAppliesSeedingPolicy(t *testing.T) {
 	p.ListenHost = "127.0.0.1"
 	p.EnableDHT = false
 	p.EnablePEX = false
-	cfg := clientConfig(seedTestResource(false), t.TempDir(), false, p)
+	cfg := clientConfig(seedTestResource(false), t.TempDir(), false, nil, p)
 
 	if cfg.NoUpload || !cfg.Seed {
 		t.Fatalf("seeding policy must enable upload: NoUpload=%v Seed=%v", cfg.NoUpload, cfg.Seed)
@@ -121,7 +121,7 @@ func TestClientConfigListenHostRestrictsAddressFamily(t *testing.T) {
 	for _, tc := range cases {
 		p := DefaultSeedingPolicy()
 		p.ListenHost = tc.host
-		cfg := clientConfig(seedTestResource(false), t.TempDir(), false, p)
+		cfg := clientConfig(seedTestResource(false), t.TempDir(), false, nil, p)
 		if cfg.DisableIPv6 != tc.disableV6 || cfg.DisableIPv4 != tc.disableV4 {
 			t.Fatalf("host=%q: DisableIPv6=%v DisableIPv4=%v, want %v/%v",
 				tc.host, cfg.DisableIPv6, cfg.DisableIPv4, tc.disableV6, tc.disableV4)
@@ -138,7 +138,7 @@ func TestClientConfigListenHostRestrictsAddressFamily(t *testing.T) {
 }
 
 func TestPrivateTorrentNeverSeedsEvenWithPolicy(t *testing.T) {
-	cfg := clientConfig(seedTestResource(true), t.TempDir(), false, DefaultSeedingPolicy())
+	cfg := clientConfig(seedTestResource(true), t.TempDir(), false, nil, DefaultSeedingPolicy())
 	if !cfg.NoUpload || cfg.Seed {
 		t.Fatalf("private torrent must stay leech-only: NoUpload=%v Seed=%v", cfg.NoUpload, cfg.Seed)
 	}

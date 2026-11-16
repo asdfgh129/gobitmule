@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -145,5 +146,68 @@ func TestRunWithLoopbackRetryKeepsFailAfterBoundedAttempts(t *testing.T) {
 	}
 	if !strings.Contains(v.Evidence, "连续 2 次真实执行均失败，保留 FAIL") {
 		t.Fatalf("evidence must record the bounded failure, not hide it: %q", v.Evidence)
+	}
+}
+
+// --- L4 lab harness bounded retry ----------------------------------------
+
+func fastL4RetryDelay(t *testing.T) {
+	t.Helper()
+	old := l4CaseRetryDelay
+	l4CaseRetryDelay = 0
+	t.Cleanup(func() { l4CaseRetryDelay = old })
+}
+
+func TestL4WithRetryTransientThenPass(t *testing.T) {
+	fastL4RetryDelay(t)
+	calls := 0
+	v := l4WithRetry(func() l4Verdict {
+		calls++
+		if calls == 1 {
+			return l4Fail("torrent read error: context deadline exceeded", nil)
+		}
+		return l4Pass("hash verified", map[string]interface{}{"sha256": "abc"})
+	})
+	if calls != 2 || v.Status != "PASS" {
+		t.Fatalf("calls=%d status=%s want 2/PASS", calls, v.Status)
+	}
+	if v.Evidence["l4_attempts"] != maxL4Attempts {
+		t.Fatalf("attempt count not recorded: %+v", v.Evidence)
+	}
+	if !strings.Contains(fmt.Sprint(v.Evidence["l4_first_attempt"]), "context deadline exceeded") {
+		t.Fatalf("first FAIL must be preserved: %+v", v.Evidence)
+	}
+	if !strings.Contains(v.Reason, "第 2/2 次全新真实执行通过") {
+		t.Fatalf("retry wording must be honest: %q", v.Reason)
+	}
+}
+
+func TestL4WithRetryNeverRetriesNonTransient(t *testing.T) {
+	fastL4RetryDelay(t)
+	calls := 0
+	v := l4WithRetry(func() l4Verdict {
+		calls++
+		return l4Fail("sha256 mismatch", nil)
+	})
+	if calls != 1 || v.Status != "FAIL" {
+		t.Fatalf("calls=%d status=%s want 1/FAIL", calls, v.Status)
+	}
+}
+
+func TestL4WithRetryNeverCoercesSkipped(t *testing.T) {
+	fastL4RetryDelay(t)
+	calls := 0
+	v := l4WithRetry(func() l4Verdict {
+		calls++
+		if calls == 1 {
+			return l4Fail("E_TRANSIENT_NETWORK: peer timeout", nil)
+		}
+		return l4Skip("tool unavailable", nil)
+	})
+	if calls != 2 || v.Status != "SKIPPED" {
+		t.Fatalf("calls=%d status=%s want 2/SKIPPED", calls, v.Status)
+	}
+	if strings.Contains(v.Reason, "通过") {
+		t.Fatalf("a non-PASS retry must never be worded as a pass: %q", v.Reason)
 	}
 }

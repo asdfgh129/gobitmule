@@ -3,6 +3,7 @@ module github.com/asdfgh129/ud
 go 1.27.4
 
 require (
+	github.com/anacrolix/dht/v2 v2.23.1-0.20260525063928-ec3a9bd99456
 	github.com/anacrolix/torrent v1.62.0
 	github.com/dop251/goja v0.0.0-20261108153707-d8dfb4d8b999
 	github.com/gorilla/websocket v1.5.3
@@ -18,7 +19,6 @@ require (
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/btree v0.1.1 // indirect
 	github.com/anacrolix/chansync v0.8.0 // indirect
-	github.com/anacrolix/dht/v2 v2.23.1-0.20260525063928-ec3a9bd99456 // indirect
 	github.com/anacrolix/envpprof v1.4.0 // indirect
 	github.com/anacrolix/generics v0.2.0 // indirect
 	github.com/anacrolix/go-libutp v1.5.2-0.20260908013213-836dd42cdde6 // indirect

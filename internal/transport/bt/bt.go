@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
@@ -28,6 +29,7 @@ type Transport struct {
 	guard          core.URLGuard
 	creds          core.CredentialStore
 	bootstrapPeers []net.Addr // optional known peers (test seam + private-trackers bootstrap)
+	dhtBootstrap   []net.Addr // optional custom DHT routers (restricted networks / isolated lab)
 	plainHandshake bool       // lab-only: prefer plaintext over MSE on outgoing handshakes
 	policy         SeedingPolicy
 	observer       SeedingObserver
@@ -54,6 +56,17 @@ func WithPlainHandshake() Option {
 // the loopback test seam.
 func WithBootstrapPeers(addrs ...net.Addr) Option {
 	return func(t *Transport) { t.bootstrapPeers = append(t.bootstrapPeers, addrs...) }
+}
+
+// WithDHTBootstrapNodes injects custom DHT router addresses into the underlying
+// client. This is a legitimate production feature for restricted networks
+// (private DHT swarms, or isolation segments where the public routers are
+// unreachable). It ONLY supplies the routers used to bootstrap the DHT routing
+// table: pure-magnet metadata discovery still traverses the real DHT protocol
+// (get_peers / announce_peer / ut_metadata), it does not bypass DHT with a known
+// peer or a .torrent file. When unset, the library defaults (public routers) apply.
+func WithDHTBootstrapNodes(addrs ...net.Addr) Option {
+	return func(t *Transport) { t.dhtBootstrap = append(t.dhtBootstrap, addrs...) }
 }
 
 func New(g core.URLGuard, creds core.CredentialStore, opts ...Option) *Transport {
@@ -124,7 +137,7 @@ func (t *Transport) Probe(ctx context.Context, r *core.Resource) (*core.ProbeRes
 		return nil, core.Err(core.E_INTERNAL, "cannot create probe dir: %v", err)
 	}
 	defer os.RemoveAll(dataDir)
-	cfg := clientConfig(r, dataDir, t.plainHandshake)
+	cfg := clientConfig(r, dataDir, t.plainHandshake, t.dhtBootstrap)
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
 		return nil, core.Err(core.E_TRANSIENT_NETWORK, "bt client init failed: %v", err)
@@ -165,7 +178,7 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 		return core.Err(core.E_INTERNAL, "cannot create bt data dir: %v", err)
 	}
 
-	cfg := clientConfig(r, dataDir, t.plainHandshake, t.policy)
+	cfg := clientConfig(r, dataDir, t.plainHandshake, t.dhtBootstrap, t.policy)
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
 		_ = os.RemoveAll(dataDir)
@@ -287,10 +300,51 @@ func buildSpec(r *core.Resource) (*torrent.TorrentSpec, error) {
 // WBS 7 behaviour kept for the WBS 11 interop lab. Note that "库默认
 // Seed=false" is a library default, NOT a product boundary (ADR-0004/0017
 // require us to implement the etiquette ourselves; see ADR-0021).
-func clientConfig(r *core.Resource, dataDir string, plainHandshake bool, policies ...SeedingPolicy) *torrent.ClientConfig {
+// dhtAddrIsLoopback reports whether a custom DHT router is a loopback address.
+// Only loopback routers need the security-extension override; routable private
+// DHT routers retain the library's IP-derived secure node IDs.
+func dhtAddrIsLoopback(a net.Addr) bool {
+	host, _, err := net.SplitHostPort(a.String())
+	if err != nil {
+		host = a.String()
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func clientConfig(r *core.Resource, dataDir string, plainHandshake bool, dhtBootstrap []net.Addr, policies ...SeedingPolicy) *torrent.ClientConfig {
 	// Start from the defaults so the rate limiters and other required fields are
 	// populated, then apply the BT-specific policy for this Resource.
 	cfg := torrent.NewDefaultClientConfig()
+	if len(dhtBootstrap) > 0 {
+		// Custom DHT routers for restricted networks / the isolated L4 lab.
+		// The public router defaults stay untouched when none are supplied.
+		nodes := make([]dht.Addr, 0, len(dhtBootstrap))
+		loopbackRouter := false
+		for _, a := range dhtBootstrap {
+			if a == nil {
+				continue
+			}
+			nodes = append(nodes, dht.NewAddr(a))
+			if dhtAddrIsLoopback(a) {
+				loopbackRouter = true
+			}
+		}
+		cfg.DhtStartingNodes = func(network string) dht.StartingNodesGetter {
+			return func() ([]dht.Addr, error) { return nodes, nil }
+		}
+		// Loopback routers cannot present IP-derived secure node IDs, so a
+		// lab-local DHT would otherwise reject them. Only that case disables
+		// the security extension; routable custom routers keep it enabled.
+		if loopbackRouter {
+			cfg.ConfigureAnacrolixDhtServer = func(sc *dht.ServerConfig) {
+				sc.NoSecurity = true
+			}
+		}
+	}
 	cfg.NoDHT = r.Identity.Private
 	cfg.DisablePEX = r.Identity.Private
 	cfg.NoUpload = true

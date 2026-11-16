@@ -1,6 +1,13 @@
 # Go build output
 /dist/
 /bin/
+# Local `go build ./cmd/...` artifacts (always build with -o into /tmp instead)
+/ud
+/udd
+/udinterop
+/udinteropx
+/udl4preflight
+/udl4audit
 *.exe
 *.test
 *.out

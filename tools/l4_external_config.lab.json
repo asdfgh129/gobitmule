@@ -1,0 +1,130 @@
+{
+  "cases": {
+    "BT-01": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-01'"
+      ],
+      "timeout_s": 780,
+      "note": "真实双机：qBittorrent(192.168.1.221) 做种 → ud 引擎跨机下载，自建 chihaya tracker"
+    },
+    "BT-02": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-02'"
+      ],
+      "timeout_s": 780,
+      "note": "真实双机：对方下载 / 我方做种，bytes_uploaded 与 announce 同源（gateExternal，仅 verified upload 才 PASS）"
+    },
+    "BT-03": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-03'"
+      ],
+      "timeout_s": 780,
+      "note": "真实双机：libtorrent 系客户端(qBittorrent)双向会话"
+    },
+    "BT-04": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-04'"
+      ],
+      "timeout_s": 780,
+      "note": "纯磁力：隔离段本地 DHT get_peers + ut_metadata 取元数据；公共 DHT UDP 被 NAT 阻断"
+    },
+    "BT-05": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-05'"
+      ],
+      "timeout_s": 780,
+      "note": "自建 chihaya HTTP announce + scrape 统计准确性"
+    },
+    "BT-06": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-06'"
+      ],
+      "timeout_s": 780,
+      "note": "UDP tracker IPv4 / IPv6 compact peer 校验"
+    },
+    "BT-07": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-07'"
+      ],
+      "timeout_s": 780,
+      "note": "HTTPS tracker + passkey + 主备分层降级（真实 300s 超时回退）"
+    },
+    "BT-08": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-08'"
+      ],
+      "timeout_s": 780,
+      "note": "private=1 抓包级 DHT / PEX / LSD 零流量（排除对端合法 uTP）"
+    },
+    "BT-09": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-09'"
+      ],
+      "timeout_s": 780,
+      "note": "多文件种子选择性下载"
+    },
+    "BT-10": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-10'"
+      ],
+      "timeout_s": 780,
+      "note": "MSE 首选握手链路（daemon 默认）"
+    },
+    "BT-11": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-11'"
+      ],
+      "timeout_s": 780,
+      "note": "做种策略分享率 / seed-time 达标即停（gateExternal，统计取统一 Task 模型）"
+    },
+    "BT-12": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-12'"
+      ],
+      "timeout_s": 780,
+      "note": "流式首字节时延"
+    },
+    "BT-13": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-13'"
+      ],
+      "timeout_s": 780,
+      "note": "python-libtorrent 2.0.8 生成的真实 BEP 52 v1+v2 hybrid 种子互操作"
+    },
+    "BT-14": {
+      "command": [
+        "sh",
+        "-c",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o LogLevel=ERROR -i \"$HOME/.ssh/id_ed25519_udlab\" root@192.168.34.222 '/root/l4lab/bin/udinteropx --l4-case BT-14'"
+      ],
+      "timeout_s": 780,
+      "note": "抓包验证真实 BT 握手 PeerID 为 -UD0000- 诚实标识"
+    }
+  }
+}

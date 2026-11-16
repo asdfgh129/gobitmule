@@ -2,7 +2,7 @@
 
 跨平台的统一下载引擎：把 **BT / 磁力 / ed2k / HTTP(S) / FTP(S) / SFTP / Metalink / 迅雷链接 / 视频网站 / Telegram / 微信** 等来源，收敛到一条流水线、一个调度器、一份状态。
 
-> **当前阶段：P0「有条件通过」的附加条件已于 2026-11-10 全部关闭，P1 进行中（WBS 8 / 9 / 7 / 10 已交付，WBS 11 互操作套件 v1 已交付；ADR-0021 路径 A 已落地并于 2026-11-16 按发起人指令复签（非实名会签，见其决议记录 R5），真实双机实验室已部署（双机同处 `192.168.1.0/24`、iperf3 实测 94.1Mbps，本机已装真实 chihaya、`l4-preflight` PRESENT 1 / MISSING 5 / UNVERIFIED 3、方案见 `tools/l4_lab_runbook.md`）；**2026-11-16 两项发起人裁决**：`BT-02`/`BT-11` 注册表由 `productGap` 翻转为 `gateExternal`（本地现 14 SKIPPED / 0 UNSUPPORTED，仅 verified upload 才 PASS）、ADR-0022 将 NFR-PERF-01 门槛修订为「≥ 可用链路理论上限 × 80%」（百兆段 ≥10MB/s，原千兆 80MB/s 时点值保留不改）；L4 真实客户端矩阵与 NFR-PERF-01 双机基准仍未执行，序 6 仍开放）。** 当前态：**16 个门禁包**全部达标、**90 个链接模块** 0 copyleft / 0 未识别，`make gates-strict` 本机 **6 PASS / 0 WARN / 0 FAIL**（CI 于 2026-11-13 的 `cover` 步骤曾因 WAL 偶发 `SQLITE_BUSY` 失败，已在 `internal/store` 以有界事务重放修复，CI run `43399289527` / `43400218985` 均 `quality: success`；后续 `679a26e` run `43402970475` 与 `c3fbc70` run `43567640194` 于 2026-11-14 核验亦均 `quality: success`，另有被取代的 API 推送尝试 run `43566313113` 为 `failure`，属推送方式问题、非 flake 亦非门禁回归；后续 `84871b0` run `43570105065`、`0ca9164` run `43580889196` 与 `9395343` run `43595391886` 于 2026-11-14 核验亦均 `quality: success`，另 `915f783` run `43604236428` 于 2026-11-14 核验为 `quality: success`、`6ee661f` run `43695083832` 于 2026-11-15 核验为 `quality: success`，详见 `CHANGELOG` 与 `13` §4），`make interop` 本地 9 例全绿；本机 **aria2-next 3.0.9 + 真实 libtorrent 2.1.1 的 BX-01..BX-06 跨客户端证据（6/6 PASS，sha256 校验，均单向回环补充、不计入 L4 门禁；BX-05 / BX-06 为我方做种半向）**；`make perf` 产出 1GiB 回环参考基准（固定 `nfr_perf_01.met=false`）；唯一速查见 [`docs/README` §三](docs/README.md)，进度真值源为 [`CHANGELOG`](CHANGELOG.md) 与 [`docs/14` §11](docs/14-项目计划与风险管理.md)。
+> **当前阶段：P0「有条件通过」的附加条件已于 2026-11-10 全部关闭，P1 进行中（WBS 8 / 9 / 7 / 10 已交付，WBS 11 互操作套件 v1 已交付；ADR-0021 路径 A 已落地并于 2026-11-16 按发起人指令复签（非实名会签，见其决议记录 R5），真实双机实验室已部署（双机同处 `192.168.1.0/24`、iperf3 实测 94.1Mbps，本机已装真实 chihaya、`l4-preflight` PRESENT 1 / MISSING 5 / UNVERIFIED 3、方案见 `tools/l4_lab_runbook.md`）；**2026-11-16 两项发起人裁决**：`BT-02`/`BT-11` 注册表由 `productGap` 翻转为 `gateExternal`（本地现 14 SKIPPED / 0 UNSUPPORTED，仅 verified upload 才 PASS）、ADR-0022 将 NFR-PERF-01 门槛修订为「≥ 可用链路理论上限 × 80%」（百兆段 ≥10MB/s，原千兆 80MB/s 时点值保留不改）；**L4 真实客户端矩阵已于 2026-11-16 在双机实验室真实执行 `BT-01..BT-14`，14/14 PASS、`release_gate_met=true`**（报告 [`docs/19`](docs/19-L4实验室实测与发布门禁报告.md)，证据 [`docs/evidence/l4-2026-11-16/`](docs/evidence/l4-2026-11-16/)），NFR-PERF-01 双机应用层基准仍未执行，序 6 仍开放）。** 当前态：**16 个门禁包**全部达标、**90 个链接模块** 0 copyleft / 0 未识别，`make gates-strict` 本机 **6 PASS / 0 WARN / 0 FAIL**（CI 于 2026-11-13 的 `cover` 步骤曾因 WAL 偶发 `SQLITE_BUSY` 失败，已在 `internal/store` 以有界事务重放修复，CI run `43399289527` / `43400218985` 均 `quality: success`；后续 `679a26e` run `43402970475` 与 `c3fbc70` run `43567640194` 于 2026-11-14 核验亦均 `quality: success`，另有被取代的 API 推送尝试 run `43566313113` 为 `failure`，属推送方式问题、非 flake 亦非门禁回归；后续 `84871b0` run `43570105065`、`0ca9164` run `43580889196` 与 `9395343` run `43595391886` 于 2026-11-14 核验亦均 `quality: success`，另 `915f783` run `43604236428` 于 2026-11-14 核验为 `quality: success`、`6ee661f` run `43695083832` 于 2026-11-15 核验为 `quality: success`，详见 `CHANGELOG` 与 `13` §4），`make interop` 本地 9 例全绿；本机 **aria2-next 3.0.9 + 真实 libtorrent 2.1.1 的 BX-01..BX-06 跨客户端证据（6/6 PASS，sha256 校验，均单向回环补充、不计入 L4 门禁；BX-05 / BX-06 为我方做种半向）**；`make perf` 产出 1GiB 回环参考基准（固定 `nfr_perf_01.met=false`）；唯一速查见 [`docs/README` §三](docs/README.md)，进度真值源为 [`CHANGELOG`](CHANGELOG.md) 与 [`docs/14` §11](docs/14-项目计划与风险管理.md)。
 > 仓库已包含可运行的 Go 代码：HTTP(S) / FTP(S) / SFTP 直链与 BT / 磁力均能走完
 > `Resolver → Resource → Transport → PostProcessor → Store` 全流水线。
 > **P1 WBS 8 已交付（2026-11-10）**：`thunder://` / `flashget://` / `qqdl://` 解码与 Metalink
@@ -41,11 +41,22 @@
 > `ScopeProductGap` 固定该状态；路径 A 已补齐实现但 L4 真实矩阵未执行，**不得**翻转状态），
 > **发布门禁未通过**、
 > 序 6 不关闭；NFR-PERF-01 千兆内网基准同样未执行。
+> **2026-11-16 实测结果（L4 门禁已通过；上文「发布门禁未通过 / L4 0/14」为更早时点值，保留不改）**：
+> 双机隔离段实验室以真实外部 harness 执行 `BT-01..BT-14`，
+> **14/14 PASS**、0 FAIL / 0 SKIPPED / 0 UNSUPPORTED，`release_gate_met=true`；
+> `BT-02` / `BT-11` 由真实 qBittorrent 做种 / 下载与 `bytes_uploaded` 同源统计判定，
+> `BT-03` 完成真实双向，`BT-04` 走隔离段本地真实 DHT，`BT-08` / `BT-14` 有抓包归档。
+> 报告见 [`docs/19`](docs/19-L4实验室实测与发布门禁报告.md)，原始证据与 SHA-256 见
+> [`docs/evidence/l4-2026-11-16/`](docs/evidence/l4-2026-11-16/)。
+> **边界**：受控实验室、指定客户端版本，不等于公网全矩阵 / PT / 千兆性能达标；
+> NFR-PERF-01 双机应用层基准仍未执行，序 6 仍开放。
+>
 > **2026-11-16 时点口径（上文 12 SKIPPED / 2 UNSUPPORTED 为套件 v1 时点值保留不改）**：
 > 发起人裁决翻转 `BT-02` / `BT-11` 注册表为 `gateExternal`（由隔离段真实 harness 判定，
 > 仅 verified upload 才 PASS），本地 `make interop` 现为 **23 例：9 PASS / 0 FAIL /
 > 14 SKIPPED / 0 UNSUPPORTED**，但 L4 门禁仍 0/14、`release_gate_met=false`——翻转的是
-> 判据归口，不是「实现落地即 PASS」。NFR-PERF-01 亦按 ADR-0022 修订为「≥ 可用链路 × 80%」
+> 判据归口，不是「实现落地即 PASS」（**同日更晚时点已由真实实验室判定 14/14 PASS，
+> 见本节上方「2026-11-16 实测结果」；该句保留为注册表翻转时点口径**）。NFR-PERF-01 亦按 ADR-0022 修订为「≥ 可用链路 × 80%」
 > （百兆段 ≥10MB/s，实测 94.1Mbps ≈ 11.8MB/s、非千兆），原 80MB/s 为时点值保留不改。
 > 补充证据（2026-11-13 扩容）：`cmd/udinteropx` 支持双引擎，驱动项目真实 `bttransport`
 > 对 **aria2-next 3.0.9**（MotrixNext，`BX-01` / `BX-02`）与真实 **libtorrent 2.1.1**

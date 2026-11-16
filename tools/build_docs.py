@@ -13,7 +13,7 @@ CDN is reachable; otherwise the diagram source remains readable as a code block.
 
 Navigation contract
 --------------------
-* Every document gets a STABLE ASCII slug: home / readme / doc-01..doc-18 /
+* Every document gets a STABLE ASCII slug: home / readme / doc-01..doc-19 /
   adr-index / adr-0001..adr-NNNN / changelog / root-readme. ADRs are discovered
   automatically from docs/adr/ADR-*.md, so adding an ADR needs no edit here.
   Non-ASCII fragments must be avoided: browsers percent-encode location.hash,
@@ -70,6 +70,7 @@ GROUPS = [
         "12-测试策略与测试计划.md", "13-构建发布与运维.md",
         "14-项目计划与风险管理.md", "15-开发规范与协作流程.md",
         "17-P0里程碑评审材料.md", "18-序6评审与L4实验室准备材料包.md",
+        "19-L4实验室实测与发布门禁报告.md",
     ]),
     ("变更记录", ["@root:CHANGELOG.md"]),
 ]
@@ -558,21 +559,23 @@ def build_home(docs: list[Doc], by_rel: dict[str, Doc]) -> str:
 <div class="banner warn"><strong>当前最该关注：</strong>P0「有条件通过」的附加条件已关闭，
   ADR 头部状态汇总为 <code>{adr_accepted}</code> 份 <code>Accepted</code>、
   <code>{adr_review}</code> 份待评审。P1 仍在进行：
-  <a href="#/doc-14">docs/14 §11 序 6</a> 未关闭——ADR-0021 已按项目发起人指令
-  选择<strong>路径 A 补齐实现</strong>（受限做种 / 分享率 / seed-time / 上传槽 /
-  UPnP / 诚实 PeerID / <code>tasks.bytes_*</code> 统计已落地，评审组复签待补）。
-  2026-11-16 两项发起人新裁决：<code>BT-02</code> / <code>BT-11</code> 注册表由
-  <code>productGap</code> 翻转为 <code>gateExternal</code>（真实 harness 判定、仅 verified
-  upload 才 PASS），本地 <code>make interop</code> 现 14 SKIPPED / 0 UNSUPPORTED；
-  新开 <a href="#/adr-0022">ADR-0022</a> 将 NFR-PERF-01 门槛修订为「≥ 可用链路 × 80%」
-  （当前百兆隔离段 ≥10MB/s，实测 94.1Mbps ≈ 11.8MB/s、非千兆；原千兆 80MB/s 时点值
-  保留不改）。2026-11-15 新增 <code>BX-05</code> / <code>BX-06</code>（ud 做种 → 真实
-  aria2-next / libtorrent leecher）后，外部补充证据为 <code>BX-01..BX-06</code> 6/6 PASS，
-  但六条均为 <strong>单向回环</strong>、<strong>不计入 L4</strong>；
-  回环重试的诚实语义已由 <code>cmd/udinteropx/main_test.go</code> 5 条确定性回归锁定
-  （<code>FAIL → SKIPPED/UNSUPPORTED</code> 不写成「通过」）；
-  <strong>L4 真实客户端矩阵仍 0/14、NFR-PERF-01 双机基准未执行</strong>，
-  <code>release_gate_met=false</code>、<code>l4_executed=false</code> 恒真。
+  <a href="#/doc-14">docs/14 §11 序 6</a> 仍未关闭——但 <strong>L4 发布门禁已于
+  2026-11-16 真实通过</strong>：双机隔离段实验室用真实 harness 执行
+  <code>BT-01..BT-14</code>，结果 <strong>14/14 PASS</strong>、0 FAIL / 0 SKIPPED /
+  0 UNSUPPORTED，<code>release_gate_met=true</code>；证据与抓包归档于
+  <a href="#/doc-19">docs/19</a> 与 <code>docs/evidence/l4-2026-11-16/</code>，
+  <code>make l4-audit</code> 重算 <code>CONSISTENT</code>（9/9）。
+  <code>BT-02</code> / <code>BT-11</code> 已按发起人裁决翻转为
+  <code>gateExternal</code> 并由真实 qBittorrent 做种 / 下载判定，不再是
+  <code>UNSUPPORTED</code>；<a href="#/adr-0022">ADR-0022</a> 将 NFR-PERF-01 门槛
+  修订为「≥ 可用链路 × 80%」（百兆段 ≥10MB/s，iperf3 实测 94.1Mbps ≈ 11.8MB/s、
+  非千兆；原千兆 80MB/s 时点值保留不改）。
+  <strong>但序 6 仍未关闭</strong>：NFR-PERF-01 的<strong>双机应用层 1GiB 基准尚未执行</strong>
+  （<code>cmd/udperf</code> 目前只有回环模式，<code>nfr_perf_01.met=false</code> 不变），
+  评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评结论仍待补。
+  <code>SKIPPED</code> / <code>UNSUPPORTED</code> / <code>PRESENT</code> /
+  <code>CONSISTENT</code> 仍一律不计 PASS；本地 <code>make interop</code> 无真实
+  external config 时仍保持 0/14 并明确失败，这是设计约束而非反证。
   当前态唯一速查为 <strong>docs/README §三</strong>，进度真值源为
   <a href="#/changelog">CHANGELOG</a>；范围外能力与残余风险见
   <a href="#/adr-0020">ADR-0020</a>。</div>
