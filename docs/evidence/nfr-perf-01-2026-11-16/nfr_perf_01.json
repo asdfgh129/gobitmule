@@ -1,0 +1,22 @@
+{
+  "schema": "ud.perf/v1",
+  "generated_at": "2026-11-16T13:16:02Z",
+  "scope": "two-host lab: 1 GiB over a real TCP link via the real HTTP Range Transport (NFR-PERF-01 workload)",
+  "workload": {
+    "bytes": 1073741824,
+    "connections": 4,
+    "piece_bytes": 262144,
+    "server": "remote udperf --serve, deterministic 64 KiB pattern",
+    "transport": "internal/transport/http Range path"
+  },
+  "elapsed_ms": 91367,
+  "MB_per_s": 11.207463570333005,
+  "bytes_verified": 1073741824,
+  "chunks_verified": 4096,
+  "nfr_perf_01": {
+    "target": "1 GiB over a real two-host link at \u003e= 10.00 MB/s (ADR-0022)",
+    "met": true,
+    "reason": "two-host lab: 11.21 MB/s, all bytes verified=true; threshold \u003e= 10.00 MB/s (ADR-0022: \u003e=80% of usable link; current 100 Mbps segment \u003e=10 MB/s)"
+  },
+  "reproduce": "host B: go run ./cmd/udperf --serve --listen \u003clab-ip\u003e:18080 --bytes 1073741824 ; host A: go run ./cmd/udperf --url http://192.168.1.221:18080/perf.bin --bytes 1073741824 --connections 4 --min-mb-s 10.0 --require-met --out dist/perf_lab.json"
+}

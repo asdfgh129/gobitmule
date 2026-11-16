@@ -13,7 +13,7 @@ CDN is reachable; otherwise the diagram source remains readable as a code block.
 
 Navigation contract
 --------------------
-* Every document gets a STABLE ASCII slug: home / readme / doc-01..doc-19 /
+* Every document gets a STABLE ASCII slug: home / readme / doc-01..doc-20 /
   adr-index / adr-0001..adr-NNNN / changelog / root-readme. ADRs are discovered
   automatically from docs/adr/ADR-*.md, so adding an ADR needs no edit here.
   Non-ASCII fragments must be avoided: browsers percent-encode location.hash,
@@ -71,6 +71,7 @@ GROUPS = [
         "14-项目计划与风险管理.md", "15-开发规范与协作流程.md",
         "17-P0里程碑评审材料.md", "18-序6评审与L4实验室准备材料包.md",
         "19-L4实验室实测与发布门禁报告.md",
+        "20-NFR-PERF-01双机应用层基准实测报告.md",
     ]),
     ("变更记录", ["@root:CHANGELOG.md"]),
 ]
@@ -570,9 +571,13 @@ def build_home(docs: list[Doc], by_rel: dict[str, Doc]) -> str:
   <code>UNSUPPORTED</code>；<a href="#/adr-0022">ADR-0022</a> 将 NFR-PERF-01 门槛
   修订为「≥ 可用链路 × 80%」（百兆段 ≥10MB/s，iperf3 实测 94.1Mbps ≈ 11.8MB/s、
   非千兆；原千兆 80MB/s 时点值保留不改）。
-  <strong>但序 6 仍未关闭</strong>：NFR-PERF-01 的<strong>双机应用层 1GiB 基准尚未执行</strong>
-  （<code>cmd/udperf</code> 目前只有回环模式，<code>nfr_perf_01.met=false</code> 不变），
-  评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评结论仍待补。
+  <strong>技术验收项已全部满足，但序 6 仍未关闭（治理项）</strong>：NFR-PERF-01
+  双机应用层 1GiB 基准已于 2026-11-16 实测 <strong>11.21 MB/s ≥ 10MB/s</strong>
+  （ADR-0022 百兆段口径，<code>nfr_perf_01.met=true</code>，见
+  <a href="#/doc-20">docs/20</a>；同链路 iperf3 94.15Mbps ≈ 11.22MB/s）；
+  <strong>原千兆 80MB/s 口径未宣称达标</strong>，链路升级后须重跑。
+  评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评结论仍待补，
+  技术验收 ≠ 治理关闭。
   <code>SKIPPED</code> / <code>UNSUPPORTED</code> / <code>PRESENT</code> /
   <code>CONSISTENT</code> 仍一律不计 PASS；本地 <code>make interop</code> 无真实
   external config 时仍保持 0/14 并明确失败，这是设计约束而非反证。

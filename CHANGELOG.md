@@ -66,6 +66,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **NFR-PERF-01 双机应用层基准达标：`cmd/udperf` 双机模式 + 11.21MB/s 实测（2026-11-16）**：
+  - **代码**：`cmd/udperf` 新增 `--serve` / `--listen` / `--advertise`
+    （对端提供 1GiB 确定性 HTTP Range 数据）、`--url`（用真实
+    `internal/transport/http` 下载远端 fixture）、`--min-mb-s` 与
+    `--require-met`（ADR-0022 门槛与退出码）。默认回环模式行为与
+    `nfr_perf_01.met=false` 完全不变。
+  - **安全边界**：双机模式为访问隔离段私网地址，使用**仅限本命令**的
+    `SSRFGuard`（`BlockPrivateNetworks=false`、只允许目标端口、禁重定向）；
+    回环模式仍用严格 `NewDevGuard`。新增 `cmd/udperf/main_test.go`：
+    门槛边界、私网/端口守卫、pattern 确定性 3 组回归。
+  - **Makefile**：新增 `perf-lab`（`PERF_LAB_URL` / `PERF_LAB_MIN_MB_S`），
+    不接入 CI；`make perf` 仍是回环参考。
+  - **实测**：主机 B（`192.168.1.221`）`udperf --serve --bytes 1073741824`，
+    主机 A（`192.168.1.222`）`--url ... --connections 4 --min-mb-s 10
+    --require-met`：**1GiB / 91.367s = 11.21MB/s，4096/4096 分片校验，
+    `nfr_perf_01.met=true`**。同链路 iperf3 3.12 单流 / 8 流接收均
+    **94.15Mbps ≈ 11.22MB/s**，应用层约为链路容量的 **99.9%**。
+  - **边界**：这是 **100Mbps 隔离段**，按 ADR-0022「≥ 可用链路 × 80%」
+    取保守门槛 **≥10MB/s**（80% 约为 8.98MB/s）；**不宣称**原
+    「千兆内网 ≥80MB/s」达标，链路升级后须重跑、ADR-0022 自动失效。
+    `make perf` 的 `dist/perf.json` 仍固定 `met=false`，与双机证据不得混用。
+  - **证据与文档**：证据归档 `docs/evidence/nfr-perf-01-2026-11-16/`
+    （`nfr_perf_01.json` / `iperf3-P1.json` / `iperf3-P8.json` / `link.json` /
+    `SHA256SUMS`），新增 [20 NFR-PERF-01 双机应用层基准实测报告](docs/20-NFR-PERF-01双机应用层基准实测报告.md)；
+    同步 `docs/README` **v1.15**（门户 **46 篇**）、`12` **v1.10**、
+    `13` **v0.18**、`14` **v1.10**、`18` **v0.8**、`19` §七、根 `README.md`、
+    `tools/build_docs.py`（GROUPS / 横幅 / doc-20）。
+  - **本机门禁**：`make lint` / `make test` / `go test -race ./...` 全绿；
+    `make build` 六平台成功；`make gates-strict` **6 PASS / 0 WARN / 0 FAIL**
+    （90 个链接模块、0 copyleft / 0 未识别、`no known vulnerabilities`）。
+  - **序 6 状态**：技术验收项（L4 14/14 + NFR `met=true`）**已全部满足**；
+    仅余评审组实名复签 / 法务与安全会签 / `14` R-10 复评，**序 6 暂不标记关闭**。
 - **L4 真实实验室 14/14 PASS：14 条 harness 实装 + 双机执行 + 证据归档（2026-11-16）**：
   - **harness 实装**：`cmd/udinteropx` 新增 `--l4-case BT-XX` /
     `UD_INTEROP_L4_CASE` 模式（`cmd/udinteropx/l4.go`），逐条输出单行 JSON 判定

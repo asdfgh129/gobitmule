@@ -157,9 +157,9 @@ padding-top:14px;margin-top:18px}
 </style></head><body>
 <div id="app">
 <aside id="sidebar">
-  <div class="brand"><h1>Universal Downloader</h1><p>开发文档 · 状态首页 + 45 篇</p></div>
+  <div class="brand"><h1>Universal Downloader</h1><p>开发文档 · 状态首页 + 46 篇</p></div>
   <input id="search" placeholder="搜索文档标题…" autocomplete="off">
-  <nav id="nav"><a class="nav-item nav-home" data-target="home" href="#/home"><span class="num">⌂</span>首页 · 状态总览</a><div class="nav-group">总览与治理</div><a class="nav-item" data-target="root-readme" href="#/root-readme"><span class="num">00</span>项目 README（总入口）</a><a class="nav-item" data-target="readme" href="#/readme"><span class="num">IDX</span>文档总览与文档控制</a><a class="nav-item" data-target="doc-01" href="#/doc-01"><span class="num">01</span>01 项目章程</a><a class="nav-item" data-target="doc-02" href="#/doc-02"><span class="num">02</span>02 术语表</a><div class="nav-group">需求与架构</div><a class="nav-item" data-target="doc-03" href="#/doc-03"><span class="num">03</span>03 软件需求规格说明书（SRS）</a><a class="nav-item" data-target="doc-04" href="#/doc-04"><span class="num">04</span>04 架构设计说明书（SAD）</a><a class="nav-item" data-target="doc-05" href="#/doc-05"><span class="num">05</span>05 详细设计说明书（LLD）</a><a class="nav-item" data-target="doc-06" href="#/doc-06"><span class="num">06</span>06 数据模型与存储设计</a><a class="nav-item" data-target="doc-16" href="#/doc-16"><span class="num">16</span>16 互操作性与兼容性设计</a><div class="nav-group">接口与扩展</div><a class="nav-item" data-target="doc-07" href="#/doc-07"><span class="num">07</span>07 接口规范（API）</a><a class="nav-item" data-target="doc-08" href="#/doc-08"><span class="num">08</span>08 扩展与插件开发规范</a><a class="nav-item" data-target="doc-09" href="#/doc-09"><span class="num">09</span>09 Sidecar 与外部依赖契约</a><div class="nav-group">工程保障</div><a class="nav-item" data-target="doc-10" href="#/doc-10"><span class="num">10</span>10 技术选型与依赖清单</a><a class="nav-item" data-target="doc-11" href="#/doc-11"><span class="num">11</span>11 安全与合规设计</a><a class="nav-item" data-target="doc-12" href="#/doc-12"><span class="num">12</span>12 测试策略与测试计划</a><a class="nav-item" data-target="doc-13" href="#/doc-13"><span class="num">13</span>13 构建、发布与运维</a><a class="nav-item" data-target="doc-14" href="#/doc-14"><span class="num">14</span>14 项目计划与风险管理</a><a class="nav-item" data-target="doc-15" href="#/doc-15"><span class="num">15</span>15 开发规范与协作流程</a><a class="nav-item" data-target="doc-17" href="#/doc-17"><span class="num">17</span>17 P0 里程碑评审材料</a><a class="nav-item" data-target="doc-18" href="#/doc-18"><span class="num">18</span>18 序 6 评审与 L4 实验室准备材料包</a><a class="nav-item" data-target="doc-19" href="#/doc-19"><span class="num">19</span>19 L4 实验室实测与发布门禁报告</a><div class="nav-group">变更记录</div><a class="nav-item" data-target="changelog" href="#/changelog"><span class="num">IDX</span>Changelog</a><div class="nav-group">架构决策记录 ADR</div><a class="nav-item" data-target="adr-index" href="#/adr-index"><span class="num">IDX</span>ADR 索引与演进时间线</a><a class="nav-item" data-target="adr-0001" href="#/adr-0001"><span class="num">0001</span>核心语言选择 Go，坚持纯 Go 单二进制</a><a class="nav-item" data-target="adr-0002" href="#/adr-0002"><span class="num">0002</span>采用 Resolver → Resource → Transport 统一流水线与单调度器</a><a class="nav-item" data-target="adr-0003" href="#/adr-0003"><span class="num">0003</span>完全移除 aria2 二进制，只保留其 wire protocol 规范</a><a class="nav-item" data-target="adr-0004" href="#/adr-0004"><span class="num">0004</span>BT 引擎进程内自研（anacrolix/torrent），不外包给 aria2</a><a class="nav-item" data-target="adr-0005" href="#/adr-0005"><span class="num">0005</span>ed2k 采用 goed2k（MIT，纯 Go）</a><a class="nav-item" data-target="adr-0006" href="#/adr-0006"><span class="num">0006</span>Metalink 自写纯 Go 解析，撤回 libmetalink</a><a class="nav-item" data-target="adr-0007" href="#/adr-0007"><span class="num">0007</span>迅雷链接仅做解码，不支持 P2SP</a><a class="nav-item" data-target="adr-0008" href="#/adr-0008"><span class="num">0008</span>Sidecar 判定标准与零 sidecar 基线</a><a class="nav-item" data-target="adr-0009" href="#/adr-0009"><span class="num">0009</span>Telegram 改用 gotd/td 纯 Go，移除 Telethon</a><a class="nav-item" data-target="adr-0010" href="#/adr-0010"><span class="num">0010</span>视频站双层解析：lux 进程内 + yt-dlp 仅吐 JSON</a><a class="nav-item" data-target="adr-0011" href="#/adr-0011"><span class="num">0011</span>ffmpeg 降级为桌面可选 Transcode 插件</a><a class="nav-item" data-target="adr-0012" href="#/adr-0012"><span class="num">0012</span>PostProcessor 输入必须是本地文件路径，输出 .part + 原子提交</a><a class="nav-item" data-target="adr-0013" href="#/adr-0013"><span class="num">0013</span>Resource 在 P0 一次性纳入多文件输出与协议身份字段</a><a class="nav-item" data-target="adr-0014" href="#/adr-0014"><span class="num">0014</span>插件引擎 goja 起步，wazero/Extism 提供可选硬隔离</a><a class="nav-item" data-target="adr-0015" href="#/adr-0015"><span class="num">0015</span>状态用 SQLite（modernc，纯 Go），凭据存系统钥匙串</a><a class="nav-item" data-target="adr-0016" href="#/adr-0016"><span class="num">0016</span>核心为 daemon，UI 用 Flutter/Tauri 且可替换</a><a class="nav-item" data-target="adr-0017" href="#/adr-0017"><span class="num">0017</span>P2P 保持诚实 PeerID，不承诺私有 tracker 准入</a><a class="nav-item" data-target="adr-0018" href="#/adr-0018"><span class="num">0018</span>微信能力单独分发、默认不安装</a><a class="nav-item" data-target="adr-0019" href="#/adr-0019"><span class="num">0019</span>RPC 兼容分 L0/L1/L2 三档，P0/P1 停在 L0</a><a class="nav-item" data-target="adr-0020" href="#/adr-0020"><span class="num">0020</span>P0 实现基线与范围声明</a><a class="nav-item" data-target="adr-0021" href="#/adr-0021"><span class="num">0021</span>L4 发布门禁与 P2P 礼仪范围冲突的裁决提案</a><a class="nav-item" data-target="adr-0022" href="#/adr-0022"><span class="num">0022</span>NFR-PERF-01 性能基准口径修订（适配隔离段百兆实测环境）</a></nav>
+  <nav id="nav"><a class="nav-item nav-home" data-target="home" href="#/home"><span class="num">⌂</span>首页 · 状态总览</a><div class="nav-group">总览与治理</div><a class="nav-item" data-target="root-readme" href="#/root-readme"><span class="num">00</span>项目 README（总入口）</a><a class="nav-item" data-target="readme" href="#/readme"><span class="num">IDX</span>文档总览与文档控制</a><a class="nav-item" data-target="doc-01" href="#/doc-01"><span class="num">01</span>01 项目章程</a><a class="nav-item" data-target="doc-02" href="#/doc-02"><span class="num">02</span>02 术语表</a><div class="nav-group">需求与架构</div><a class="nav-item" data-target="doc-03" href="#/doc-03"><span class="num">03</span>03 软件需求规格说明书（SRS）</a><a class="nav-item" data-target="doc-04" href="#/doc-04"><span class="num">04</span>04 架构设计说明书（SAD）</a><a class="nav-item" data-target="doc-05" href="#/doc-05"><span class="num">05</span>05 详细设计说明书（LLD）</a><a class="nav-item" data-target="doc-06" href="#/doc-06"><span class="num">06</span>06 数据模型与存储设计</a><a class="nav-item" data-target="doc-16" href="#/doc-16"><span class="num">16</span>16 互操作性与兼容性设计</a><div class="nav-group">接口与扩展</div><a class="nav-item" data-target="doc-07" href="#/doc-07"><span class="num">07</span>07 接口规范（API）</a><a class="nav-item" data-target="doc-08" href="#/doc-08"><span class="num">08</span>08 扩展与插件开发规范</a><a class="nav-item" data-target="doc-09" href="#/doc-09"><span class="num">09</span>09 Sidecar 与外部依赖契约</a><div class="nav-group">工程保障</div><a class="nav-item" data-target="doc-10" href="#/doc-10"><span class="num">10</span>10 技术选型与依赖清单</a><a class="nav-item" data-target="doc-11" href="#/doc-11"><span class="num">11</span>11 安全与合规设计</a><a class="nav-item" data-target="doc-12" href="#/doc-12"><span class="num">12</span>12 测试策略与测试计划</a><a class="nav-item" data-target="doc-13" href="#/doc-13"><span class="num">13</span>13 构建、发布与运维</a><a class="nav-item" data-target="doc-14" href="#/doc-14"><span class="num">14</span>14 项目计划与风险管理</a><a class="nav-item" data-target="doc-15" href="#/doc-15"><span class="num">15</span>15 开发规范与协作流程</a><a class="nav-item" data-target="doc-17" href="#/doc-17"><span class="num">17</span>17 P0 里程碑评审材料</a><a class="nav-item" data-target="doc-18" href="#/doc-18"><span class="num">18</span>18 序 6 评审与 L4 实验室准备材料包</a><a class="nav-item" data-target="doc-19" href="#/doc-19"><span class="num">19</span>19 L4 实验室实测与发布门禁报告</a><a class="nav-item" data-target="doc-20" href="#/doc-20"><span class="num">20</span>20 NFR-PERF-01 双机应用层基准实测报告</a><div class="nav-group">变更记录</div><a class="nav-item" data-target="changelog" href="#/changelog"><span class="num">IDX</span>Changelog</a><div class="nav-group">架构决策记录 ADR</div><a class="nav-item" data-target="adr-index" href="#/adr-index"><span class="num">IDX</span>ADR 索引与演进时间线</a><a class="nav-item" data-target="adr-0001" href="#/adr-0001"><span class="num">0001</span>核心语言选择 Go，坚持纯 Go 单二进制</a><a class="nav-item" data-target="adr-0002" href="#/adr-0002"><span class="num">0002</span>采用 Resolver → Resource → Transport 统一流水线与单调度器</a><a class="nav-item" data-target="adr-0003" href="#/adr-0003"><span class="num">0003</span>完全移除 aria2 二进制，只保留其 wire protocol 规范</a><a class="nav-item" data-target="adr-0004" href="#/adr-0004"><span class="num">0004</span>BT 引擎进程内自研（anacrolix/torrent），不外包给 aria2</a><a class="nav-item" data-target="adr-0005" href="#/adr-0005"><span class="num">0005</span>ed2k 采用 goed2k（MIT，纯 Go）</a><a class="nav-item" data-target="adr-0006" href="#/adr-0006"><span class="num">0006</span>Metalink 自写纯 Go 解析，撤回 libmetalink</a><a class="nav-item" data-target="adr-0007" href="#/adr-0007"><span class="num">0007</span>迅雷链接仅做解码，不支持 P2SP</a><a class="nav-item" data-target="adr-0008" href="#/adr-0008"><span class="num">0008</span>Sidecar 判定标准与零 sidecar 基线</a><a class="nav-item" data-target="adr-0009" href="#/adr-0009"><span class="num">0009</span>Telegram 改用 gotd/td 纯 Go，移除 Telethon</a><a class="nav-item" data-target="adr-0010" href="#/adr-0010"><span class="num">0010</span>视频站双层解析：lux 进程内 + yt-dlp 仅吐 JSON</a><a class="nav-item" data-target="adr-0011" href="#/adr-0011"><span class="num">0011</span>ffmpeg 降级为桌面可选 Transcode 插件</a><a class="nav-item" data-target="adr-0012" href="#/adr-0012"><span class="num">0012</span>PostProcessor 输入必须是本地文件路径，输出 .part + 原子提交</a><a class="nav-item" data-target="adr-0013" href="#/adr-0013"><span class="num">0013</span>Resource 在 P0 一次性纳入多文件输出与协议身份字段</a><a class="nav-item" data-target="adr-0014" href="#/adr-0014"><span class="num">0014</span>插件引擎 goja 起步，wazero/Extism 提供可选硬隔离</a><a class="nav-item" data-target="adr-0015" href="#/adr-0015"><span class="num">0015</span>状态用 SQLite（modernc，纯 Go），凭据存系统钥匙串</a><a class="nav-item" data-target="adr-0016" href="#/adr-0016"><span class="num">0016</span>核心为 daemon，UI 用 Flutter/Tauri 且可替换</a><a class="nav-item" data-target="adr-0017" href="#/adr-0017"><span class="num">0017</span>P2P 保持诚实 PeerID，不承诺私有 tracker 准入</a><a class="nav-item" data-target="adr-0018" href="#/adr-0018"><span class="num">0018</span>微信能力单独分发、默认不安装</a><a class="nav-item" data-target="adr-0019" href="#/adr-0019"><span class="num">0019</span>RPC 兼容分 L0/L1/L2 三档，P0/P1 停在 L0</a><a class="nav-item" data-target="adr-0020" href="#/adr-0020"><span class="num">0020</span>P0 实现基线与范围声明</a><a class="nav-item" data-target="adr-0021" href="#/adr-0021"><span class="num">0021</span>L4 发布门禁与 P2P 礼仪范围冲突的裁决提案</a><a class="nav-item" data-target="adr-0022" href="#/adr-0022"><span class="num">0022</span>NFR-PERF-01 性能基准口径修订（适配隔离段百兆实测环境）</a></nav>
 </aside>
 <main id="main"><div id="content"><article class="doc home" id="doc-home" data-slug="home">
 <header class="hero">
@@ -167,20 +167,20 @@ padding-top:14px;margin-top:18px}
   <h1>开发文档 · 状态总览</h1>
   <p>把 BT / 磁力 / ed2k / HTTP(S) / FTP(S) / SFTP / Metalink / 迅雷链接 / 视频网站 / Telegram / 微信等来源，收敛到一条流水线、一个调度器、一份状态。本页按文档版本头与 ADR 状态行自动汇总：哪些仍在待审核、哪些已决定、哪些已按 P0 实现校准，一眼可见。左侧全部文档链接保持不变。</p>
   <div class="chips">
-    <span class="chip s-plain">文档体系 v1.14</span>
+    <span class="chip s-plain">文档体系 v1.15</span>
     <span class="chip s-p0">P0 附加条件已关闭</span>
     <span class="chip s-review">P1 进行中 · 序 6 开放</span>
     <span class="chip s-plain">单文件 · 离线可读</span>
     <span class="chip s-plain">更新 2026-11-16</span>
   </div>
   <div class="stats">
-    <div class="stat"><b>45</b><small>文档总数（含 ADR / 根目录）</small></div>
-    <div class="stat"><b>19</b><small>待审核（草案 / Proposed）</small></div>
+    <div class="stat"><b>46</b><small>文档总数（含 ADR / 根目录）</small></div>
+    <div class="stat"><b>20</b><small>待审核（草案 / Proposed）</small></div>
     <div class="stat"><b>25</b><small>已决定（已批准 / 现行）</small></div>
     <div class="stat"><b>22</b><small>架构决策记录 ADR</small></div>
   </div>
-  <div class="hbar"><span class="hseg s-review" style="width:42.22%" title="待审核 19 篇"></span><span class="hseg s-accepted" style="width:55.56%" title="已决定 25 篇"></span><span class="hseg s-unknown" style="width:2.22%" title="未标注 1 篇"></span></div>
-  <div class="hlegend"><span><i class="hseg s-review"></i>待审核 19</span><span><i class="hseg s-accepted"></i>已决定 25</span><span><i class="hseg s-unknown"></i>未标注 1</span></div>
+  <div class="hbar"><span class="hseg s-review" style="width:43.48%" title="待审核 20 篇"></span><span class="hseg s-accepted" style="width:54.35%" title="已决定 25 篇"></span><span class="hseg s-unknown" style="width:2.17%" title="未标注 1 篇"></span></div>
+  <div class="hlegend"><span><i class="hseg s-review"></i>待审核 20</span><span><i class="hseg s-accepted"></i>已决定 25</span><span><i class="hseg s-unknown"></i>未标注 1</span></div>
 </header>
 
 <div class="banner warn"><strong>当前最该关注：</strong>P0「有条件通过」的附加条件已关闭，
@@ -197,9 +197,13 @@ padding-top:14px;margin-top:18px}
   <code>UNSUPPORTED</code>；<a href="#/adr-0022">ADR-0022</a> 将 NFR-PERF-01 门槛
   修订为「≥ 可用链路 × 80%」（百兆段 ≥10MB/s，iperf3 实测 94.1Mbps ≈ 11.8MB/s、
   非千兆；原千兆 80MB/s 时点值保留不改）。
-  <strong>但序 6 仍未关闭</strong>：NFR-PERF-01 的<strong>双机应用层 1GiB 基准尚未执行</strong>
-  （<code>cmd/udperf</code> 目前只有回环模式，<code>nfr_perf_01.met=false</code> 不变），
-  评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评结论仍待补。
+  <strong>技术验收项已全部满足，但序 6 仍未关闭（治理项）</strong>：NFR-PERF-01
+  双机应用层 1GiB 基准已于 2026-11-16 实测 <strong>11.21 MB/s ≥ 10MB/s</strong>
+  （ADR-0022 百兆段口径，<code>nfr_perf_01.met=true</code>，见
+  <a href="#/doc-20">docs/20</a>；同链路 iperf3 94.15Mbps ≈ 11.22MB/s）；
+  <strong>原千兆 80MB/s 口径未宣称达标</strong>，链路升级后须重跑。
+  评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评结论仍待补，
+  技术验收 ≠ 治理关闭。
   <code>SKIPPED</code> / <code>UNSUPPORTED</code> / <code>PRESENT</code> /
   <code>CONSISTENT</code> 仍一律不计 PASS；本地 <code>make interop</code> 无真实
   external config 时仍保持 0/14 并明确失败，这是设计约束而非反证。
@@ -212,10 +216,10 @@ padding-top:14px;margin-top:18px}
   <p class="sub">状态取自各文档版本头的 <code>状态：</code> 字段与 ADR 头部的 <code>状态</code> 行，由构建器读取 Markdown 后规范化为 5 类。支持关键词搜索、按状态 / 类型筛选；点击卡片标题在本页打开正文。</p>
   <div class="htoolbar" id="homeFilters">
     <input id="homeSearch" class="hsearch" type="search" placeholder="搜索编号、标题、摘要、责任人或状态…" autocomplete="off">
-    <div class="frow"><span>按状态</span><div class="filters"><button class="fbtn active" data-dim="status" data-f="all">全部 45</button><button class="fbtn" data-dim="status" data-f="review">待审核 19</button><button class="fbtn" data-dim="status" data-f="accepted">已决定 25</button><button class="fbtn" data-dim="status" data-f="maintained">持续维护 0</button><button class="fbtn" data-dim="status" data-f="deprecated">已废止 0</button><button class="fbtn" data-dim="status" data-f="unknown">未标注 1</button></div></div>
-    <div class="frow"><span>按类型</span><div class="filters"><button class="fbtn active" data-dim="kind" data-f="all">全部 45</button><button class="fbtn" data-dim="kind" data-f="doc">规范文档 21</button><button class="fbtn" data-dim="kind" data-f="adr">ADR 22</button><button class="fbtn" data-dim="kind" data-f="root">项目文件 2</button></div></div>
+    <div class="frow"><span>按状态</span><div class="filters"><button class="fbtn active" data-dim="status" data-f="all">全部 46</button><button class="fbtn" data-dim="status" data-f="review">待审核 20</button><button class="fbtn" data-dim="status" data-f="accepted">已决定 25</button><button class="fbtn" data-dim="status" data-f="maintained">持续维护 0</button><button class="fbtn" data-dim="status" data-f="deprecated">已废止 0</button><button class="fbtn" data-dim="status" data-f="unknown">未标注 1</button></div></div>
+    <div class="frow"><span>按类型</span><div class="filters"><button class="fbtn active" data-dim="kind" data-f="all">全部 46</button><button class="fbtn" data-dim="kind" data-f="doc">规范文档 22</button><button class="fbtn" data-dim="kind" data-f="adr">ADR 22</button><button class="fbtn" data-dim="kind" data-f="root">项目文件 2</button></div></div>
   </div>
-  <section class="hgroup"><h3>总览与治理<span class="hc-num">4 份</span></h3><p class="hc-gdesc">为什么做，以及文档体系如何管理</p><div class="hgrid"><div class="hcard" data-status="unknown" data-kind="root" data-search="readme 项目 readme（总入口） 构建与运行方式、代码地图、已验证门禁与已知限制。 根目录 · 项目入口 "><div class="hc-top"><span class="hc-id">README</span><span class="chip s-unknown">未标注</span></div><a class="hc-title" href="#/root-readme">项目 README（总入口）</a><div class="hc-desc">构建与运行方式、代码地图、已验证门禁与已知限制。</div><div class="hc-foot"><span class="hc-meta">根目录 · 项目入口</span><span class="chip s-plain">项目入口</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-00 文档总览与文档控制 文档控制、体系、清单、阅读路径 v1.14 · 全体 草案（p0 已通过有条件评审；adr 0001–0022 已批准（0021 为路径 a，2026-11-16 发起人指令复签；0022 为 nfr-perf-01 口径修订，均为非实名会签）；l4 发布门禁已于 2026-11-16 真实通过 14/14，序 6 因 nfr-perf-01 与复签仍开放；其余文档待逐篇评审）"><div class="hc-top"><span class="hc-id">UD-DOC-00</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/readme">文档总览与文档控制</a><div class="hc-desc">文档控制、体系、清单、阅读路径</div><div class="hc-foot"><span class="hc-meta">v1.14 · 全体</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-01 01 项目章程 愿景、目标、范围/非目标、成功指标、约束、里程碑 v0.1 · 全体 草案（待立项评审）"><div class="hc-top"><span class="hc-id">UD-DOC-01</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-01">01 项目章程</a><div class="hc-desc">愿景、目标、范围/非目标、成功指标、约束、里程碑</div><div class="hc-foot"><span class="hc-meta">v0.1 · 全体</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-02 02 术语表 统一术语，消除协议/容器/后处理概念混用 v0.1 · 全体 草案"><div class="hc-top"><span class="hc-id">UD-DOC-02</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-02">02 术语表</a><div class="hc-desc">统一术语，消除协议/容器/后处理概念混用</div><div class="hc-foot"><span class="hc-meta">v0.1 · 全体</span></div></div></div></section><section class="hgroup"><h3>需求与架构<span class="hc-num">5 份</span></h3><p class="hc-gdesc">需求、架构、详细设计、数据模型与互操作性</p><div class="hgrid"><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-03 03 软件需求规格说明书（srs） fr/nfr、用例、验收标准、需求追踪矩阵 v0.10 · 产品/qa/架构 草案（p0 追踪矩阵已补全，p1 wbs 7/8/9/10/11 已补记，待评审）"><div class="hc-top"><span class="hc-id">UD-DOC-03</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-03">03 软件需求规格说明书（SRS）</a><div class="hc-desc">FR/NFR、用例、验收标准、需求追踪矩阵</div><div class="hc-foot"><span class="hc-meta">v0.10 · 产品/QA/架构</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-04 04 架构设计说明书（sad） 架构原则、c4 视图、统一流水线、单调度器论证、质量属性 v0.2 · 架构/开发 草案（p0 骨架已落地，待评审）"><div class="hc-top"><span class="hc-id">UD-DOC-04</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-04">04 架构设计说明书（SAD）</a><div class="hc-desc">架构原则、C4 视图、统一流水线、单调度器论证、质量属性</div><div class="hc-foot"><span class="hc-meta">v0.2 · 架构/开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-05 05 详细设计说明书（lld） 包结构、核心 go 接口、task 状态机、分片与限流、错误模型 v0.8 · 后端开发 草案（p0 实现基线已落地；p1 wbs 7/8/9/10/11 已补记）"><div class="hc-top"><span class="hc-id">UD-DOC-05</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-05">05 详细设计说明书（LLD）</a><div class="hc-desc">包结构、核心 Go 接口、Task 状态机、分片与限流、错误模型</div><div class="hc-foot"><span class="hc-meta">v0.8 · 后端开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-06 06 数据模型与存储设计 er、ddl、resource json、状态持久化、迁移 v0.3 · 后端/qa 草案（ddl v1 已落地；写事务有界 busy 重放已落地）"><div class="hc-top"><span class="hc-id">UD-DOC-06</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-06">06 数据模型与存储设计</a><div class="hc-desc">ER、DDL、Resource JSON、状态持久化、迁移</div><div class="hc-foot"><span class="hc-meta">v0.3 · 后端/QA</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-16 16 互操作性与兼容性设计 bt/bep、tracker、ed2k 三层兼容性、身份与礼仪、pt 非承诺、文案口径 v0.10 · 架构/qa/产品 草案（路径 a 做种实现已落地；产品文案仍需法务会签）"><div class="hc-top"><span class="hc-id">UD-DOC-16</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-16">16 互操作性与兼容性设计</a><div class="hc-desc">BT/BEP、tracker、eD2k 三层兼容性、身份与礼仪、PT 非承诺、文案口径</div><div class="hc-foot"><span class="hc-meta">v0.10 · 架构/QA/产品</span><span class="chip s-p0">P0 已校准</span></div></div></div></section><section class="hgroup"><h3>接口与扩展<span class="hc-num">3 份</span></h3><p class="hc-gdesc">对外契约、插件与 sidecar 边界</p><div class="hgrid"><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-07 07 接口规范（api） rest / websocket / cli / 错误码 / aria2 rpc facade 子集 v0.6 · 全端/qa 草案（l0 已落地；p1 wbs 10 离线插件 cli、wbs 11 互操作 cli 已落地）"><div class="hc-top"><span class="hc-id">UD-DOC-07</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-07">07 接口规范（API）</a><div class="hc-desc">REST / WebSocket / CLI / 错误码 / aria2 RPC facade 子集</div><div class="hc-foot"><span class="hc-meta">v0.6 · 全端/QA</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-08 08 扩展与插件开发规范 resolver/transport/postprocessor 契约、goja/wazero、ssrf 能力裁剪 v0.3 · 后端/生态 草案（p1 wbs 10 插件引擎已落地，规范不变）"><div class="hc-top"><span class="hc-id">UD-DOC-08</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-08">08 扩展与插件开发规范</a><div class="hc-desc">Resolver/Transport/PostProcessor 契约、goja/wazero、SSRF 能力裁剪</div><div class="hc-foot"><span class="hc-meta">v0.3 · 后端/生态</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-09 09 sidecar 与外部依赖契约 判定标准、清单、manifest、json-rpc、能力协商与降级、ffmpeg/yt-dlp 专项约束 v0.1 · 后端/运维 草案"><div class="hc-top"><span class="hc-id">UD-DOC-09</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-09">09 Sidecar 与外部依赖契约</a><div class="hc-desc">判定标准、清单、manifest、JSON-RPC、能力协商与降级、ffmpeg/yt-dlp 专项约束</div><div class="hc-foot"><span class="hc-meta">v0.1 · 后端/运维</span></div></div></div></section><section class="hgroup"><h3>工程保障<span class="hc-num">9 份</span></h3><p class="hc-gdesc">依赖、安全、测试、构建、计划、协作流程与评审材料</p><div class="hgrid"><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-10 10 技术选型与依赖清单 完整库表、许可证矩阵、被否决方案、版本与 sbom 策略 v0.9 · 架构/法务 草案（p0/p1 依赖已 pin，供应链门禁已执行）"><div class="hc-top"><span class="hc-id">UD-DOC-10</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-10">10 技术选型与依赖清单</a><div class="hc-desc">完整库表、许可证矩阵、被否决方案、版本与 SBOM 策略</div><div class="hc-foot"><span class="hc-meta">v0.9 · 架构/法务</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-11 11 安全与合规设计 威胁模型、ssrf、凭据、供应链、许可证与平台条款边界 v1.2 · 安全/法务/全体 草案（p0/p1 控制已落地，仍需安全/法务评审）"><div class="hc-top"><span class="hc-id">UD-DOC-11</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-11">11 安全与合规设计</a><div class="hc-desc">威胁模型、SSRF、凭据、供应链、许可证与平台条款边界</div><div class="hc-foot"><span class="hc-meta">v1.2 · 安全/法务/全体</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-12 12 测试策略与测试计划 分层测试、互操作回归套件、故障注入、性能基准、发布门禁 v1.9 · qa/开发 草案（p0 评审门禁已采集证据；p1 wbs 7/8/9/10/11 用例已落地；l4 bt-01..bt-14 已于 2026-11-16 在双机实验室真实执行 14/14 pass；nfr-perf-01 双机应用层基准仍待执行）"><div class="hc-top"><span class="hc-id">UD-DOC-12</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-12">12 测试策略与测试计划</a><div class="hc-desc">分层测试、互操作回归套件、故障注入、性能基准、发布门禁</div><div class="hc-foot"><span class="hc-meta">v1.9 · QA/开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-13 13 构建、发布与运维 交叉编译矩阵、ci/cd、打包、配置、升级迁移、监控与 runbook v0.17 · devops/开发 草案（p0 评审门禁已接入 ci；p1 wbs 10 插件配置、wbs 11 互操作套件已落地；l4 门禁已于 2026-11-16 真实执行 14/14 pass）"><div class="hc-top"><span class="hc-id">UD-DOC-13</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-13">13 构建、发布与运维</a><div class="hc-desc">交叉编译矩阵、CI/CD、打包、配置、升级迁移、监控与 Runbook</div><div class="hc-foot"><span class="hc-meta">v0.17 · DevOps/开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-14 14 项目计划与风险管理 wbs、p0–p3 里程碑、风险登记册、未决事项 v1.9 · pm/架构 草案（p0 有条件通过、附加条件已关闭，p1 编码工作包 1–5 全部交付，序 6 路径 a 已落地并按发起人指令复签；l4 bt-01..bt-14 已于 2026-11-16 真实执行 14/14 pass，序 6 因 nfr-perf-01 与复签仍开放）"><div class="hc-top"><span class="hc-id">UD-DOC-14</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-14">14 项目计划与风险管理</a><div class="hc-desc">WBS、P0–P3 里程碑、风险登记册、未决事项</div><div class="hc-foot"><span class="hc-meta">v1.9 · PM/架构</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-15 15 开发规范与协作流程 编码规范、git 流程、评审清单、变更管理、dor/dod v0.6 · 全体 草案（p0 评审门禁已接入；ci 偶发失败处置口径已补记）"><div class="hc-top"><span class="hc-id">UD-DOC-15</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-15">15 开发规范与协作流程</a><div class="hc-desc">编码规范、Git 流程、评审清单、变更管理、DoR/DoD</div><div class="hc-foot"><span class="hc-meta">v0.6 · 全体</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="accepted" data-kind="doc" data-search="ud-doc-17 17 p0 里程碑评审材料 客观门禁证据、覆盖率达标记录、风险登记册更新、adr 变更清单、open 决策简报、签署表 v0.3 · 评审组/pm/qa/安全/法务 已批准（p0 里程碑评审已签署）"><div class="hc-top"><span class="hc-id">UD-DOC-17</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/doc-17">17 P0 里程碑评审材料</a><div class="hc-desc">客观门禁证据、覆盖率达标记录、风险登记册更新、ADR 变更清单、OPEN 决策简报、签署表</div><div class="hc-foot"><span class="hc-meta">v0.3 · 评审组/PM/QA/安全/法务</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-18 18 序 6 评审与 l4 实验室准备材料包 事实清单、a/b/c 影响面核对表、空白豁免与签署表模板、实验室拓扑/抓包方案、nfr-perf-01 双机方案、证据完整性审计衔接、硬不变量 v0.7 · 评审组/pm/qa/架构 草案（路径 a 已裁决并复签：2026-11-16 发起人指令按 p0 先例代行，非实名会签；bt-02/bt-11 已翻转 gateexternal；真实 l4 矩阵已于 2026-11-16 执行并 14/14 pass；nfr-perf-01 双机应用层基准仍未执行，序 6 仍开放）"><div class="hc-top"><span class="hc-id">UD-DOC-18</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-18">18 序 6 评审与 L4 实验室准备材料包</a><div class="hc-desc">事实清单、A/B/C 影响面核对表、空白豁免与签署表模板、实验室拓扑/抓包方案、NFR-PERF-01 双机方案、证据完整性审计衔接、硬不变量</div><div class="hc-foot"><span class="hc-meta">v0.7 · 评审组/PM/QA/架构</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-19 19 l4 实验室实测与发布门禁报告 双机拓扑与软件版本、可复跑命令、`bt-01..bt-14` 14/14 pass 逐条证据、抓包归档与 sha-256、审计结论、边界与未完成事项 v1.0 · 架构/qa/评审组 草案（实测报告；证据已归档，待评审组复核）"><div class="hc-top"><span class="hc-id">UD-DOC-19</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-19">19 L4 实验室实测与发布门禁报告</a><div class="hc-desc">双机拓扑与软件版本、可复跑命令、`BT-01..BT-14` 14/14 PASS 逐条证据、抓包归档与 SHA-256、审计结论、边界与未完成事项</div><div class="hc-foot"><span class="hc-meta">v1.0 · 架构/QA/评审组</span><span class="chip s-p0">P0 已校准</span></div></div></div></section><section class="hgroup"><h3>变更记录<span class="hc-num">1 份</span></h3><p class="hc-gdesc">每次代码变更的唯一记录入口</p><div class="hgrid"><div class="hcard" data-status="accepted" data-kind="root" data-search="changelog 更新日志 changelog keep a changelog 1.1.0 + semver 2.0.0；**每次代码变更必须先写这里**（`15` §10） 根目录 · 唯一变更真值源 现行"><div class="hc-top"><span class="hc-id">CHANGELOG</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/changelog">更新日志 CHANGELOG</a><div class="hc-desc">Keep a Changelog 1.1.0 + SemVer 2.0.0；**每次代码变更必须先写这里**（`15` §10）</div><div class="hc-foot"><span class="hc-meta">根目录 · 唯一变更真值源</span><span class="chip s-p0">唯一变更源</span></div></div></div></section><section class="hgroup"><h3>架构决策记录 ADR<span class="hc-num">23 份</span></h3><p class="hc-gdesc">一个决策一份记录，状态与影响面一目了然</p><div class="hgrid"><div class="hcard" data-status="accepted" data-kind="doc" data-search="ud-adr-00 adr 索引与演进时间线 全部架构决策记录（唯一决策真值源），含 0020 p0 实现基线 v0.5 · 全体 已批准"><div class="hc-top"><span class="hc-id">UD-ADR-00</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-index">ADR 索引与演进时间线</a><div class="hc-desc">全部架构决策记录（唯一决策真值源），含 0020 P0 实现基线</div><div class="hc-foot"><span class="hc-meta">v0.5 · 全体</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0001 核心语言选择 go，坚持纯 go 单二进制 影响文档：01、04、10、13 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0001</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0001">核心语言选择 Go，坚持纯 Go 单二进制</a><div class="hc-desc">影响文档：01、04、10、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0002 采用 resolver→resource→transport 统一流水线与单调度器 影响文档：03、04、05、07 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0002</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0002">采用 Resolver→Resource→Transport 统一流水线与单调度器</a><div class="hc-desc">影响文档：03、04、05、07</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0003 完全移除 aria2 二进制，只保留其 wire protocol 规范 影响文档：04、07、10 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0003</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0003">完全移除 aria2 二进制，只保留其 wire protocol 规范</a><div class="hc-desc">影响文档：04、07、10</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0004 bt 引擎进程内自研，不外包给 aria2 影响文档：04、10、16 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0004</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0004">BT 引擎进程内自研，不外包给 aria2</a><div class="hc-desc">影响文档：04、10、16</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0005 ed2k 采用 goed2k（mit，纯 go） 影响文档：10、16、12 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0005</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0005">ed2k 采用 goed2k（MIT，纯 Go）</a><div class="hc-desc">影响文档：10、16、12</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0006 metalink 自写纯 go 解析，撤回 libmetalink 影响文档：08、10 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0006</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0006">Metalink 自写纯 Go 解析，撤回 libmetalink</a><div class="hc-desc">影响文档：08、10</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0007 迅雷链接仅解码，不做 p2sp 影响文档：01、03、16 决策者 架构组 + 产品 + 法务 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0007</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0007">迅雷链接仅解码，不做 P2SP</a><div class="hc-desc">影响文档：01、03、16</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 产品 + 法务 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0008 sidecar 判定标准与零 sidecar 基线 影响文档：04、09、13 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0008</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0008">Sidecar 判定标准与零 sidecar 基线</a><div class="hc-desc">影响文档：04、09、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0009 telegram 改 gotd/td 纯 go，移除 telethon 影响文档：09、10 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0009</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0009">Telegram 改 gotd/td 纯 Go，移除 Telethon</a><div class="hc-desc">影响文档：09、10</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0010 视频站双层：lux 进程内 + yt-dlp 仅吐 json 影响文档：04、09 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0010</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0010">视频站双层：lux 进程内 + yt-dlp 仅吐 JSON</a><div class="hc-desc">影响文档：04、09</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0011 ffmpeg 降级为桌面可选 transcode 插件 影响文档：09、11、13 决策者 架构组 + 法务 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0011</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0011">ffmpeg 降级为桌面可选 Transcode 插件</a><div class="hc-desc">影响文档：09、11、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 法务 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0012 postprocessor 输入本地路径、输出 .part + 原子提交 影响文档：05、09、13 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0012</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0012">PostProcessor 输入本地路径、输出 .part + 原子提交</a><div class="hc-desc">影响文档：05、09、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0013 resource 在 p0 一次性纳入多文件与协议身份字段 影响文档：05、06、07、14 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0013</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0013">Resource 在 P0 一次性纳入多文件与协议身份字段</a><div class="hc-desc">影响文档：05、06、07、14</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0014 插件引擎 goja 起步，wazero/extism 可选硬隔离 影响文档：08、11 决策者 架构组 + 安全 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0014</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0014">插件引擎 goja 起步，wazero/Extism 可选硬隔离</a><div class="hc-desc">影响文档：08、11</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 安全 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0015 sqlite(modernc) + 系统钥匙串 影响文档：06、11 决策者 架构组 + 安全 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0015</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0015">SQLite(modernc) + 系统钥匙串</a><div class="hc-desc">影响文档：06、11</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 安全 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0016 核心为 daemon，ui 用 flutter/tauri 且可替换 影响文档：04、07、13 决策者 架构组 + 客户端 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0016</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0016">核心为 daemon，UI 用 Flutter/Tauri 且可替换</a><div class="hc-desc">影响文档：04、07、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 客户端 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0017 p2p 保持诚实 peerid，不承诺私有 tracker 准入 影响文档：11、16 决策者 架构组 + 产品 + 法务 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0017</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0017">P2P 保持诚实 PeerID，不承诺私有 tracker 准入</a><div class="hc-desc">影响文档：11、16</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 产品 + 法务 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0018 微信能力单独分发、默认不安装 影响文档：09、11、14 决策者 架构组 + 法务 + 产品 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0018</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0018">微信能力单独分发、默认不安装</a><div class="hc-desc">影响文档：09、11、14</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 法务 + 产品 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0019 rpc 兼容分 l0/l1/l2 三档，p0/p1 停在 l0 影响文档：07、14 决策者 架构组 + 产品 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0019</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0019">RPC 兼容分 L0/L1/L2 三档，P0/P1 停在 L0</a><div class="hc-desc">影响文档：07、14</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 产品 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0020 声明 p0 实现基线、三处规范修正与范围外能力清单 影响文档：03–07、10–15、changelog 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0020</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0020">声明 P0 实现基线、三处规范修正与范围外能力清单</a><div class="hc-desc">影响文档：03–07、10–15、CHANGELOG</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0021 l4 发布门禁与 p2p 礼仪范围冲突的裁决提案 影响文档：01、03、05、07、11、12、13、14、16、adr-0004/0017 决策者 项目发起人（2026-11-14 明确指令）；原提案拟由架构组 + 产品 + 法务评审签署 · accepted（路径 a；2026-11-14 依项目发起人指令裁决；2026-11-16 发起人指令复签，按 17 §1 p0 先例代行五角色，非实名会签，见 r5） accepted（路径 a；2026-11-14 依项目发起人指令裁决；2026-11-16 发起人指令复签，按 17 §1 p0 先例代行五角色，非实名会签，见 r5）"><div class="hc-top"><span class="hc-id">ADR-0021</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0021">L4 发布门禁与 P2P 礼仪范围冲突的裁决提案</a><div class="hc-desc">影响文档：01、03、05、07、11、12、13、14、16、ADR-0004/0017</div><div class="hc-foot"><span class="hc-meta">决策者 项目发起人（2026-11-14 明确指令）；原提案拟由架构组 + 产品 + 法务评审签署 · Accepted（路径 A；2026-11-14 依项目发起人指令裁决；2026-11-16 发起人指令复签，按 17 §1 P0 先例代行五角色，非实名会签，见 R5）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0022 nfr-perf-01 性能基准口径修订（适配隔离段百兆实测，门槛取链路上限 80%） 影响文档：12、13、14、18、adr-0021 决策者 项目发起人（用户）于 2026-11-16 明确选择「发起人裁决修订 nfr-perf-01 口径」 · accepted（项目发起人 2026-11-16 指令裁决；代行五角色，非实名会签，依 17 §1 p0 先例） accepted（项目发起人 2026-11-16 指令裁决；代行五角色，非实名会签，依 17 §1 p0 先例）"><div class="hc-top"><span class="hc-id">ADR-0022</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0022">NFR-PERF-01 性能基准口径修订（适配隔离段百兆实测，门槛取链路上限 80%）</a><div class="hc-desc">影响文档：12、13、14、18、ADR-0021</div><div class="hc-foot"><span class="hc-meta">决策者 项目发起人（用户）于 2026-11-16 明确选择「发起人裁决修订 NFR-PERF-01 口径」 · Accepted（项目发起人 2026-11-16 指令裁决；代行五角色，非实名会签，依 17 §1 P0 先例）</span></div></div></div></section>
+  <section class="hgroup"><h3>总览与治理<span class="hc-num">4 份</span></h3><p class="hc-gdesc">为什么做，以及文档体系如何管理</p><div class="hgrid"><div class="hcard" data-status="unknown" data-kind="root" data-search="readme 项目 readme（总入口） 构建与运行方式、代码地图、已验证门禁与已知限制。 根目录 · 项目入口 "><div class="hc-top"><span class="hc-id">README</span><span class="chip s-unknown">未标注</span></div><a class="hc-title" href="#/root-readme">项目 README（总入口）</a><div class="hc-desc">构建与运行方式、代码地图、已验证门禁与已知限制。</div><div class="hc-foot"><span class="hc-meta">根目录 · 项目入口</span><span class="chip s-plain">项目入口</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-00 文档总览与文档控制 文档控制、体系、清单、阅读路径 v1.15 · 全体 草案（p0 已通过有条件评审；adr 0001–0022 已批准（0021 为路径 a，2026-11-16 发起人指令复签；0022 为 nfr-perf-01 口径修订，均为非实名会签）；l4 门禁 14/14 与 nfr-perf-01（adr-0022 口径）均已实测通过，序 6 仅余评审实名复签 / 法务与安全会签 / r-10 复评等治理项；其余文档待逐篇评审）"><div class="hc-top"><span class="hc-id">UD-DOC-00</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/readme">文档总览与文档控制</a><div class="hc-desc">文档控制、体系、清单、阅读路径</div><div class="hc-foot"><span class="hc-meta">v1.15 · 全体</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-01 01 项目章程 愿景、目标、范围/非目标、成功指标、约束、里程碑 v0.1 · 全体 草案（待立项评审）"><div class="hc-top"><span class="hc-id">UD-DOC-01</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-01">01 项目章程</a><div class="hc-desc">愿景、目标、范围/非目标、成功指标、约束、里程碑</div><div class="hc-foot"><span class="hc-meta">v0.1 · 全体</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-02 02 术语表 统一术语，消除协议/容器/后处理概念混用 v0.1 · 全体 草案"><div class="hc-top"><span class="hc-id">UD-DOC-02</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-02">02 术语表</a><div class="hc-desc">统一术语，消除协议/容器/后处理概念混用</div><div class="hc-foot"><span class="hc-meta">v0.1 · 全体</span></div></div></div></section><section class="hgroup"><h3>需求与架构<span class="hc-num">5 份</span></h3><p class="hc-gdesc">需求、架构、详细设计、数据模型与互操作性</p><div class="hgrid"><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-03 03 软件需求规格说明书（srs） fr/nfr、用例、验收标准、需求追踪矩阵 v0.10 · 产品/qa/架构 草案（p0 追踪矩阵已补全，p1 wbs 7/8/9/10/11 已补记，待评审）"><div class="hc-top"><span class="hc-id">UD-DOC-03</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-03">03 软件需求规格说明书（SRS）</a><div class="hc-desc">FR/NFR、用例、验收标准、需求追踪矩阵</div><div class="hc-foot"><span class="hc-meta">v0.10 · 产品/QA/架构</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-04 04 架构设计说明书（sad） 架构原则、c4 视图、统一流水线、单调度器论证、质量属性 v0.2 · 架构/开发 草案（p0 骨架已落地，待评审）"><div class="hc-top"><span class="hc-id">UD-DOC-04</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-04">04 架构设计说明书（SAD）</a><div class="hc-desc">架构原则、C4 视图、统一流水线、单调度器论证、质量属性</div><div class="hc-foot"><span class="hc-meta">v0.2 · 架构/开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-05 05 详细设计说明书（lld） 包结构、核心 go 接口、task 状态机、分片与限流、错误模型 v0.8 · 后端开发 草案（p0 实现基线已落地；p1 wbs 7/8/9/10/11 已补记）"><div class="hc-top"><span class="hc-id">UD-DOC-05</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-05">05 详细设计说明书（LLD）</a><div class="hc-desc">包结构、核心 Go 接口、Task 状态机、分片与限流、错误模型</div><div class="hc-foot"><span class="hc-meta">v0.8 · 后端开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-06 06 数据模型与存储设计 er、ddl、resource json、状态持久化、迁移 v0.3 · 后端/qa 草案（ddl v1 已落地；写事务有界 busy 重放已落地）"><div class="hc-top"><span class="hc-id">UD-DOC-06</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-06">06 数据模型与存储设计</a><div class="hc-desc">ER、DDL、Resource JSON、状态持久化、迁移</div><div class="hc-foot"><span class="hc-meta">v0.3 · 后端/QA</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-16 16 互操作性与兼容性设计 bt/bep、tracker、ed2k 三层兼容性、身份与礼仪、pt 非承诺、文案口径 v0.10 · 架构/qa/产品 草案（路径 a 做种实现已落地；产品文案仍需法务会签）"><div class="hc-top"><span class="hc-id">UD-DOC-16</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-16">16 互操作性与兼容性设计</a><div class="hc-desc">BT/BEP、tracker、eD2k 三层兼容性、身份与礼仪、PT 非承诺、文案口径</div><div class="hc-foot"><span class="hc-meta">v0.10 · 架构/QA/产品</span><span class="chip s-p0">P0 已校准</span></div></div></div></section><section class="hgroup"><h3>接口与扩展<span class="hc-num">3 份</span></h3><p class="hc-gdesc">对外契约、插件与 sidecar 边界</p><div class="hgrid"><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-07 07 接口规范（api） rest / websocket / cli / 错误码 / aria2 rpc facade 子集 v0.6 · 全端/qa 草案（l0 已落地；p1 wbs 10 离线插件 cli、wbs 11 互操作 cli 已落地）"><div class="hc-top"><span class="hc-id">UD-DOC-07</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-07">07 接口规范（API）</a><div class="hc-desc">REST / WebSocket / CLI / 错误码 / aria2 RPC facade 子集</div><div class="hc-foot"><span class="hc-meta">v0.6 · 全端/QA</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-08 08 扩展与插件开发规范 resolver/transport/postprocessor 契约、goja/wazero、ssrf 能力裁剪 v0.3 · 后端/生态 草案（p1 wbs 10 插件引擎已落地，规范不变）"><div class="hc-top"><span class="hc-id">UD-DOC-08</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-08">08 扩展与插件开发规范</a><div class="hc-desc">Resolver/Transport/PostProcessor 契约、goja/wazero、SSRF 能力裁剪</div><div class="hc-foot"><span class="hc-meta">v0.3 · 后端/生态</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-09 09 sidecar 与外部依赖契约 判定标准、清单、manifest、json-rpc、能力协商与降级、ffmpeg/yt-dlp 专项约束 v0.1 · 后端/运维 草案"><div class="hc-top"><span class="hc-id">UD-DOC-09</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-09">09 Sidecar 与外部依赖契约</a><div class="hc-desc">判定标准、清单、manifest、JSON-RPC、能力协商与降级、ffmpeg/yt-dlp 专项约束</div><div class="hc-foot"><span class="hc-meta">v0.1 · 后端/运维</span></div></div></div></section><section class="hgroup"><h3>工程保障<span class="hc-num">10 份</span></h3><p class="hc-gdesc">依赖、安全、测试、构建、计划、协作流程与评审材料</p><div class="hgrid"><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-10 10 技术选型与依赖清单 完整库表、许可证矩阵、被否决方案、版本与 sbom 策略 v0.9 · 架构/法务 草案（p0/p1 依赖已 pin，供应链门禁已执行）"><div class="hc-top"><span class="hc-id">UD-DOC-10</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-10">10 技术选型与依赖清单</a><div class="hc-desc">完整库表、许可证矩阵、被否决方案、版本与 SBOM 策略</div><div class="hc-foot"><span class="hc-meta">v0.9 · 架构/法务</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-11 11 安全与合规设计 威胁模型、ssrf、凭据、供应链、许可证与平台条款边界 v1.2 · 安全/法务/全体 草案（p0/p1 控制已落地，仍需安全/法务评审）"><div class="hc-top"><span class="hc-id">UD-DOC-11</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-11">11 安全与合规设计</a><div class="hc-desc">威胁模型、SSRF、凭据、供应链、许可证与平台条款边界</div><div class="hc-foot"><span class="hc-meta">v1.2 · 安全/法务/全体</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-12 12 测试策略与测试计划 分层测试、互操作回归套件、故障注入、性能基准、发布门禁 v1.10 · qa/开发 草案（p0 评审门禁已采集证据；p1 wbs 7/8/9/10/11 用例已落地；l4 bt-01..bt-14 2026-11-16 双机 14/14 pass；nfr-perf-01 双机应用层基准 11.21mb/s、met=true（adr-0022））"><div class="hc-top"><span class="hc-id">UD-DOC-12</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-12">12 测试策略与测试计划</a><div class="hc-desc">分层测试、互操作回归套件、故障注入、性能基准、发布门禁</div><div class="hc-foot"><span class="hc-meta">v1.10 · QA/开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-13 13 构建、发布与运维 交叉编译矩阵、ci/cd、打包、配置、升级迁移、监控与 runbook v0.18 · devops/开发 草案（p0 评审门禁已接入 ci；p1 wbs 10 插件配置、wbs 11 互操作套件已落地；l4 门禁 2026-11-16 双机 14/14 pass；nfr-perf-01 双机应用层 met=true（adr-0022））"><div class="hc-top"><span class="hc-id">UD-DOC-13</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-13">13 构建、发布与运维</a><div class="hc-desc">交叉编译矩阵、CI/CD、打包、配置、升级迁移、监控与 Runbook</div><div class="hc-foot"><span class="hc-meta">v0.18 · DevOps/开发</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-14 14 项目计划与风险管理 wbs、p0–p3 里程碑、风险登记册、未决事项 v1.10 · pm/架构 草案（p0 有条件通过、附加条件已关闭，p1 编码工作包 1–5 全部交付，序 6 路径 a 已落地并按发起人指令复签；l4 bt-01..bt-14 2026-11-16 双机 14/14 pass，nfr-perf-01 双机应用层 met=true，序 6 仅余治理复签）"><div class="hc-top"><span class="hc-id">UD-DOC-14</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-14">14 项目计划与风险管理</a><div class="hc-desc">WBS、P0–P3 里程碑、风险登记册、未决事项</div><div class="hc-foot"><span class="hc-meta">v1.10 · PM/架构</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-15 15 开发规范与协作流程 编码规范、git 流程、评审清单、变更管理、dor/dod v0.6 · 全体 草案（p0 评审门禁已接入；ci 偶发失败处置口径已补记）"><div class="hc-top"><span class="hc-id">UD-DOC-15</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-15">15 开发规范与协作流程</a><div class="hc-desc">编码规范、Git 流程、评审清单、变更管理、DoR/DoD</div><div class="hc-foot"><span class="hc-meta">v0.6 · 全体</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="accepted" data-kind="doc" data-search="ud-doc-17 17 p0 里程碑评审材料 客观门禁证据、覆盖率达标记录、风险登记册更新、adr 变更清单、open 决策简报、签署表 v0.3 · 评审组/pm/qa/安全/法务 已批准（p0 里程碑评审已签署）"><div class="hc-top"><span class="hc-id">UD-DOC-17</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/doc-17">17 P0 里程碑评审材料</a><div class="hc-desc">客观门禁证据、覆盖率达标记录、风险登记册更新、ADR 变更清单、OPEN 决策简报、签署表</div><div class="hc-foot"><span class="hc-meta">v0.3 · 评审组/PM/QA/安全/法务</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-18 18 序 6 评审与 l4 实验室准备材料包 事实清单、a/b/c 影响面核对表、空白豁免与签署表模板、实验室拓扑/抓包方案、nfr-perf-01 双机方案、证据完整性审计衔接、硬不变量 v0.8 · 评审组/pm/qa/架构 草案（路径 a 已裁决并复签：2026-11-16 发起人指令按 p0 先例代行，非实名会签；bt-02/bt-11 已翻转 gateexternal；l4 矩阵 14/14 pass、nfr-perf-01 met=true；技术验收项全部满足，序 6 仅余治理复签）"><div class="hc-top"><span class="hc-id">UD-DOC-18</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-18">18 序 6 评审与 L4 实验室准备材料包</a><div class="hc-desc">事实清单、A/B/C 影响面核对表、空白豁免与签署表模板、实验室拓扑/抓包方案、NFR-PERF-01 双机方案、证据完整性审计衔接、硬不变量</div><div class="hc-foot"><span class="hc-meta">v0.8 · 评审组/PM/QA/架构</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-19 19 l4 实验室实测与发布门禁报告 双机拓扑与软件版本、可复跑命令、`bt-01..bt-14` 14/14 pass 逐条证据、抓包归档与 sha-256、审计结论、边界与未完成事项 v1.0 · 架构/qa/评审组 草案（实测报告；证据已归档，待评审组复核）"><div class="hc-top"><span class="hc-id">UD-DOC-19</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-19">19 L4 实验室实测与发布门禁报告</a><div class="hc-desc">双机拓扑与软件版本、可复跑命令、`BT-01..BT-14` 14/14 PASS 逐条证据、抓包归档与 SHA-256、审计结论、边界与未完成事项</div><div class="hc-foot"><span class="hc-meta">v1.0 · 架构/QA/评审组</span><span class="chip s-p0">P0 已校准</span></div></div><div class="hcard" data-status="review" data-kind="doc" data-search="ud-doc-20 20 nfr-perf-01 双机应用层基准实测报告 双机拓扑、1gib / 4 连接 / 256kib 分片实测 11.21mb/s、iperf3 94.15mbps、adr-0022 口径换算、sha-256、边界与序 6 状态 v1.0 · 架构/qa/评审组 草案（实测报告；证据已归档，待评审组复核）"><div class="hc-top"><span class="hc-id">UD-DOC-20</span><span class="chip s-review">待审核</span></div><a class="hc-title" href="#/doc-20">20 NFR-PERF-01 双机应用层基准实测报告</a><div class="hc-desc">双机拓扑、1GiB / 4 连接 / 256KiB 分片实测 11.21MB/s、iperf3 94.15Mbps、ADR-0022 口径换算、SHA-256、边界与序 6 状态</div><div class="hc-foot"><span class="hc-meta">v1.0 · 架构/QA/评审组</span><span class="chip s-p0">P0 已校准</span></div></div></div></section><section class="hgroup"><h3>变更记录<span class="hc-num">1 份</span></h3><p class="hc-gdesc">每次代码变更的唯一记录入口</p><div class="hgrid"><div class="hcard" data-status="accepted" data-kind="root" data-search="changelog 更新日志 changelog keep a changelog 1.1.0 + semver 2.0.0；**每次代码变更必须先写这里**（`15` §10） 根目录 · 唯一变更真值源 现行"><div class="hc-top"><span class="hc-id">CHANGELOG</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/changelog">更新日志 CHANGELOG</a><div class="hc-desc">Keep a Changelog 1.1.0 + SemVer 2.0.0；**每次代码变更必须先写这里**（`15` §10）</div><div class="hc-foot"><span class="hc-meta">根目录 · 唯一变更真值源</span><span class="chip s-p0">唯一变更源</span></div></div></div></section><section class="hgroup"><h3>架构决策记录 ADR<span class="hc-num">23 份</span></h3><p class="hc-gdesc">一个决策一份记录，状态与影响面一目了然</p><div class="hgrid"><div class="hcard" data-status="accepted" data-kind="doc" data-search="ud-adr-00 adr 索引与演进时间线 全部架构决策记录（唯一决策真值源），含 0020 p0 实现基线 v0.5 · 全体 已批准"><div class="hc-top"><span class="hc-id">UD-ADR-00</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-index">ADR 索引与演进时间线</a><div class="hc-desc">全部架构决策记录（唯一决策真值源），含 0020 P0 实现基线</div><div class="hc-foot"><span class="hc-meta">v0.5 · 全体</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0001 核心语言选择 go，坚持纯 go 单二进制 影响文档：01、04、10、13 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0001</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0001">核心语言选择 Go，坚持纯 Go 单二进制</a><div class="hc-desc">影响文档：01、04、10、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0002 采用 resolver→resource→transport 统一流水线与单调度器 影响文档：03、04、05、07 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0002</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0002">采用 Resolver→Resource→Transport 统一流水线与单调度器</a><div class="hc-desc">影响文档：03、04、05、07</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0003 完全移除 aria2 二进制，只保留其 wire protocol 规范 影响文档：04、07、10 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0003</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0003">完全移除 aria2 二进制，只保留其 wire protocol 规范</a><div class="hc-desc">影响文档：04、07、10</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0004 bt 引擎进程内自研，不外包给 aria2 影响文档：04、10、16 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0004</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0004">BT 引擎进程内自研，不外包给 aria2</a><div class="hc-desc">影响文档：04、10、16</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0005 ed2k 采用 goed2k（mit，纯 go） 影响文档：10、16、12 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0005</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0005">ed2k 采用 goed2k（MIT，纯 Go）</a><div class="hc-desc">影响文档：10、16、12</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0006 metalink 自写纯 go 解析，撤回 libmetalink 影响文档：08、10 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0006</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0006">Metalink 自写纯 Go 解析，撤回 libmetalink</a><div class="hc-desc">影响文档：08、10</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0007 迅雷链接仅解码，不做 p2sp 影响文档：01、03、16 决策者 架构组 + 产品 + 法务 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0007</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0007">迅雷链接仅解码，不做 P2SP</a><div class="hc-desc">影响文档：01、03、16</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 产品 + 法务 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0008 sidecar 判定标准与零 sidecar 基线 影响文档：04、09、13 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0008</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0008">Sidecar 判定标准与零 sidecar 基线</a><div class="hc-desc">影响文档：04、09、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0009 telegram 改 gotd/td 纯 go，移除 telethon 影响文档：09、10 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0009</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0009">Telegram 改 gotd/td 纯 Go，移除 Telethon</a><div class="hc-desc">影响文档：09、10</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0010 视频站双层：lux 进程内 + yt-dlp 仅吐 json 影响文档：04、09 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0010</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0010">视频站双层：lux 进程内 + yt-dlp 仅吐 JSON</a><div class="hc-desc">影响文档：04、09</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0011 ffmpeg 降级为桌面可选 transcode 插件 影响文档：09、11、13 决策者 架构组 + 法务 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0011</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0011">ffmpeg 降级为桌面可选 Transcode 插件</a><div class="hc-desc">影响文档：09、11、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 法务 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0012 postprocessor 输入本地路径、输出 .part + 原子提交 影响文档：05、09、13 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0012</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0012">PostProcessor 输入本地路径、输出 .part + 原子提交</a><div class="hc-desc">影响文档：05、09、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0013 resource 在 p0 一次性纳入多文件与协议身份字段 影响文档：05、06、07、14 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0013</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0013">Resource 在 P0 一次性纳入多文件与协议身份字段</a><div class="hc-desc">影响文档：05、06、07、14</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0014 插件引擎 goja 起步，wazero/extism 可选硬隔离 影响文档：08、11 决策者 架构组 + 安全 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0014</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0014">插件引擎 goja 起步，wazero/Extism 可选硬隔离</a><div class="hc-desc">影响文档：08、11</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 安全 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0015 sqlite(modernc) + 系统钥匙串 影响文档：06、11 决策者 架构组 + 安全 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0015</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0015">SQLite(modernc) + 系统钥匙串</a><div class="hc-desc">影响文档：06、11</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 安全 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0016 核心为 daemon，ui 用 flutter/tauri 且可替换 影响文档：04、07、13 决策者 架构组 + 客户端 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0016</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0016">核心为 daemon，UI 用 Flutter/Tauri 且可替换</a><div class="hc-desc">影响文档：04、07、13</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 客户端 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0017 p2p 保持诚实 peerid，不承诺私有 tracker 准入 影响文档：11、16 决策者 架构组 + 产品 + 法务 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0017</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0017">P2P 保持诚实 PeerID，不承诺私有 tracker 准入</a><div class="hc-desc">影响文档：11、16</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 产品 + 法务 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0018 微信能力单独分发、默认不安装 影响文档：09、11、14 决策者 架构组 + 法务 + 产品 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0018</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0018">微信能力单独分发、默认不安装</a><div class="hc-desc">影响文档：09、11、14</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 法务 + 产品 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0019 rpc 兼容分 l0/l1/l2 三档，p0/p1 停在 l0 影响文档：07、14 决策者 架构组 + 产品 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0019</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0019">RPC 兼容分 L0/L1/L2 三档，P0/P1 停在 L0</a><div class="hc-desc">影响文档：07、14</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 + 产品 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span><span class="chip s-p0">P0 依据</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0020 声明 p0 实现基线、三处规范修正与范围外能力清单 影响文档：03–07、10–15、changelog 决策者 架构组 · accepted（2026-11-09 p0 里程碑评审批量批准） accepted（2026-11-09 p0 里程碑评审批量批准）"><div class="hc-top"><span class="hc-id">ADR-0020</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0020">声明 P0 实现基线、三处规范修正与范围外能力清单</a><div class="hc-desc">影响文档：03–07、10–15、CHANGELOG</div><div class="hc-foot"><span class="hc-meta">决策者 架构组 · Accepted（2026-11-09 P0 里程碑评审批量批准）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0021 l4 发布门禁与 p2p 礼仪范围冲突的裁决提案 影响文档：01、03、05、07、11、12、13、14、16、adr-0004/0017 决策者 项目发起人（2026-11-14 明确指令）；原提案拟由架构组 + 产品 + 法务评审签署 · accepted（路径 a；2026-11-14 依项目发起人指令裁决；2026-11-16 发起人指令复签，按 17 §1 p0 先例代行五角色，非实名会签，见 r5） accepted（路径 a；2026-11-14 依项目发起人指令裁决；2026-11-16 发起人指令复签，按 17 §1 p0 先例代行五角色，非实名会签，见 r5）"><div class="hc-top"><span class="hc-id">ADR-0021</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0021">L4 发布门禁与 P2P 礼仪范围冲突的裁决提案</a><div class="hc-desc">影响文档：01、03、05、07、11、12、13、14、16、ADR-0004/0017</div><div class="hc-foot"><span class="hc-meta">决策者 项目发起人（2026-11-14 明确指令）；原提案拟由架构组 + 产品 + 法务评审签署 · Accepted（路径 A；2026-11-14 依项目发起人指令裁决；2026-11-16 发起人指令复签，按 17 §1 P0 先例代行五角色，非实名会签，见 R5）</span></div></div><div class="hcard" data-status="accepted" data-kind="adr" data-search="adr-0022 nfr-perf-01 性能基准口径修订（适配隔离段百兆实测，门槛取链路上限 80%） 影响文档：12、13、14、18、adr-0021 决策者 项目发起人（用户）于 2026-11-16 明确选择「发起人裁决修订 nfr-perf-01 口径」 · accepted（项目发起人 2026-11-16 指令裁决；代行五角色，非实名会签，依 17 §1 p0 先例） accepted（项目发起人 2026-11-16 指令裁决；代行五角色，非实名会签，依 17 §1 p0 先例）"><div class="hc-top"><span class="hc-id">ADR-0022</span><span class="chip s-accepted">已决定</span></div><a class="hc-title" href="#/adr-0022">NFR-PERF-01 性能基准口径修订（适配隔离段百兆实测，门槛取链路上限 80%）</a><div class="hc-desc">影响文档：12、13、14、18、ADR-0021</div><div class="hc-foot"><span class="hc-meta">决策者 项目发起人（用户）于 2026-11-16 明确选择「发起人裁决修订 NFR-PERF-01 口径」 · Accepted（项目发起人 2026-11-16 指令裁决；代行五角色，非实名会签，依 17 §1 P0 先例）</span></div></div></div></section>
   <div class="hempty" id="homeEmpty">没有匹配的文档，试试其他关键词或筛选条件。</div>
 </section>
 
@@ -235,7 +239,19 @@ padding-top:14px;margin-top:18px}
     <code>tools/build_docs.py</code> 从 Markdown 生成，修改文档状态后重跑 <code>make docs</code> 即自动更新，
     不存在需要手工同步的第二份清单。</div>
 </section>
-</article><article class="doc" id="doc-readme" data-slug="readme"><div class="doc-head"><h1>文档总览与文档控制</h1><div class="doc-meta"><span class="badge">草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；L4 发布门禁已于 2026-11-16 真实通过 14/14，序 6 因 NFR-PERF-01 与复签仍开放；其余文档待逐篇评审）</span>文档编号：UD-DOC-00 ｜ 版本：v1.14 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；L4 发布门禁已于 2026-11-16 真实通过 14/14，序 6 因 NFR-PERF-01 与复签仍开放；其余文档待逐篇评审）** ｜ 日期：2026-11-16 ｜ 维护责任：架构组</div></div><blockquote>
+</article><article class="doc" id="doc-readme" data-slug="readme"><div class="doc-head"><h1>文档总览与文档控制</h1><div class="doc-meta"><span class="badge">草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过，序 6 仅余评审实名复签 / 法务与安全会签 / R-10 复评等治理项；其余文档待逐篇评审）</span>文档编号：UD-DOC-00 ｜ 版本：v1.15 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**，序 6 仅余评审实名复签 / 法务与安全会签 / R-10 复评等治理项；其余文档待逐篇评审）** ｜ 日期：2026-11-16 ｜ 维护责任：架构组</div></div><blockquote>
+<p><strong>v1.15 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机应用层基准 met=true；序 6 仅余治理项）</strong>：
+<code>cmd/udperf</code> 新增 <code>--serve</code> / <code>--url</code> 双机模式，主机 B 提供 1GiB HTTP Range
+数据、主机 A 用真实 <code>internal/transport/http</code> 下载并逐片校验。2026-11-16 实测：
+<strong>1GiB / 91.367s = 11.21MB/s，4096/4096 分片校验通过，<code>nfr_perf_01.met=true</code></strong>
+（ADR-0022 百兆段门槛 ≥10MB/s）；同链路 iperf3 单流 / 8 流均 <strong>94.15Mbps ≈
+11.22MB/s</strong>，应用层约为链路容量的 <strong>99.9%</strong>。报告见
+<a href="#/doc-20">20 NFR-PERF-01 双机应用层基准实测报告</a>，
+证据归档 <a href="evidence/nfr-perf-01-2026-11-16/"><code>docs/evidence/nfr-perf-01-2026-11-16/</code></a>。
+<strong>边界</strong>：这是百兆链路，<strong>不宣称原「千兆内网 ≥80MB/s」达标</strong>；链路升级后须按原口径重跑，
+ADR-0022 自动失效。<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>met=false</code>。
+技术验收项（L4 14/14 + NFR met）已全部满足，<strong>序 6 仍不关闭</strong>：评审组实名复签 /
+法务与安全会签 / <code>14</code> R-10 复评结论待补。门户文档数 <strong>45 → 46 篇</strong>。</p>
 <p><strong>v1.14 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；序 6 仍因 NFR-PERF-01 与复签开放；下文各版说明为更早时点值，保留不改）</strong>：
 双机隔离段实验室（主机 A <code>192.168.1.222</code> / 主机 B <code>192.168.1.221</code> + <code>192.168.1.239</code>）
 以真实外部 harness 执行 <code>BT-01..BT-14</code>，<strong>14/14 PASS</strong>、0 FAIL / 0 SKIPPED /
@@ -722,6 +738,13 @@ ADR-0020 时点说明与根 <code>README.md</code> / <code>CHANGELOG.md</code>�
 <td>双机拓扑与软件版本、可复跑命令、<code>BT-01..BT-14</code> 14/14 PASS 逐条证据、抓包归档与 SHA-256、审计结论、边界与未完成事项</td>
 </tr>
 <tr>
+<td>20</td>
+<td><a href="#/doc-20">NFR-PERF-01 双机应用层基准实测报告</a></td>
+<td>草案（实测报告；证据已归档，待评审组复核）</td>
+<td>架构/QA/评审组</td>
+<td>双机拓扑、1GiB / 4 连接 / 256KiB 分片实测 11.21MB/s、iperf3 94.15Mbps、ADR-0022 口径换算、SHA-256、边界与序 6 状态</td>
+</tr>
+<tr>
 <td>—</td>
 <td><a href="#/adr-index">ADR 索引</a></td>
 <td>已批准</td>
@@ -754,7 +777,7 @@ ADR-0020 时点说明与根 <code>README.md</code> / <code>CHANGELOG.md</code>�
 <tbody>
 <tr>
 <td>已交付</td>
-<td>P0 有条件通过（附加条件已关闭）、P1 WBS 8 / WBS 9 / WBS 7（BT / 磁力） / WBS 10（插件引擎）；<strong>WBS 11 互操作套件 v1 已交付</strong>（框架 + 自建 tracker + 9 条本地用例 + 证据链），<strong>L4 全矩阵已于 2026-11-16 在双机实验室真实执行并 14/14 PASS</strong>（见 <a href="#/doc-19">19</a>），序 6 仍因 NFR-PERF-01 双机应用层基准与评审实名复签 <strong>不关闭</strong>；另以本机 <strong>aria2-next 3.0.9</strong>（MotrixNext）与真实 <strong>libtorrent 2.1.1</strong>（Python 绑定，可选外部工具）作真实引擎产出 <strong>BX-01..BX-06 跨客户端证据</strong>（sha256 校验通过、6/6 PASS；其中 <code>BX-05</code> / <code>BX-06</code> 为 2026-11-15 新增的「我方做种 → 真实客户端下载」半向），为<strong>补充证据</strong>不计入 L4 门禁</td>
+<td>P0 有条件通过（附加条件已关闭）、P1 WBS 8 / WBS 9 / WBS 7（BT / 磁力） / WBS 10（插件引擎）；<strong>WBS 11 互操作套件 v1 已交付</strong>（框架 + 自建 tracker + 9 条本地用例 + 证据链），<strong>L4 全矩阵已于 2026-11-16 在双机实验室真实执行并 14/14 PASS</strong>（见 <a href="#/doc-19">19</a>），<strong>NFR-PERF-01 双机应用层基准同日均已实测 <code>met=true</code></strong>（11.21MB/s ≥ 10MB/s，见 <a href="#/doc-20">20</a>）；序 6 仅因评审实名复签 / 法务与安全会签 / R-10 复评等治理项 <strong>不关闭</strong>；另以本机 <strong>aria2-next 3.0.9</strong>（MotrixNext）与真实 <strong>libtorrent 2.1.1</strong>（Python 绑定，可选外部工具）作真实引擎产出 <strong>BX-01..BX-06 跨客户端证据</strong>（sha256 校验通过、6/6 PASS；其中 <code>BX-05</code> / <code>BX-06</code> 为 2026-11-15 新增的「我方做种 → 真实客户端下载」半向），为<strong>补充证据</strong>不计入 L4 门禁</td>
 <td><code>CHANGELOG.md</code>、<code>14</code> §11、<code>12</code> §3.1.1</td>
 </tr>
 <tr>
@@ -804,18 +827,18 @@ ADR-0020 时点说明与根 <code>README.md</code> / <code>CHANGELOG.md</code>�
 </tr>
 <tr>
 <td>评审准备</td>
-<td><a href="#/doc-18">18 序 6 评审与 L4 实验室准备材料包</a>（<code>v0.7</code>、<code>草案</code>）：§六 签署表已于 2026-11-16 按发起人指令复签（依 <code>17</code> §1 P0 先例代行五角色，<strong>非实名会签</strong>，见 ADR-0021 R5）；§七 / §九 已补真实 L4 执行结果与证据归档；<a href="#/doc-19">19 L4 实验室实测与发布门禁报告</a>（<code>v1.0</code>）给出逐条 PASS 证据、抓包与 SHA-256。NFR-PERF-01 双机应用层基准、评审组实名复签、法务 / 安全会签与 <code>14</code> R-10 复评仍待补；实验室搭建以 <code>tools/l4_lab_runbook.md</code> 为准</td>
-<td><code>docs/18</code> / <code>docs/19</code>、<code>docs/evidence/l4-2026-11-16/</code>、ADR-0021 R5 / R6、<code>12</code> §3.1.2 / §3.1.3</td>
+<td><a href="#/doc-18">18 序 6 评审与 L4 实验室准备材料包</a>（<code>v0.7</code>、<code>草案</code>）：§六 签署表已于 2026-11-16 按发起人指令复签（依 <code>17</code> §1 P0 先例代行五角色，<strong>非实名会签</strong>，见 ADR-0021 R5）；§七 / §九 已补真实 L4 执行结果与证据归档；<a href="#/doc-19">19 L4 实验室实测与发布门禁报告</a>（<code>v1.0</code>）给出逐条 PASS 证据、抓包与 SHA-256；<a href="#/doc-20">20 NFR-PERF-01 双机应用层基准实测报告</a>（<code>v1.0</code>）给出 11.21MB/s / <code>met=true</code> 与 iperf3 对照。评审组实名复签、法务 / 安全会签与 <code>14</code> R-10 复评仍待补；实验室搭建以 <code>tools/l4_lab_runbook.md</code> 为准</td>
+<td><code>docs/18</code> / <code>docs/19</code> / <code>docs/20</code>、<code>docs/evidence/l4-2026-11-16/</code>、<code>docs/evidence/nfr-perf-01-2026-11-16/</code>、ADR-0021 R5 / R6、<code>12</code> §3.1.2 / §3.1.3</td>
 </tr>
 <tr>
 <td>性能基准</td>
-<td><code>make perf</code> 产出 <code>dist/perf.json</code>：1GiB / 4 连接 / 256KiB 分片走真实 HTTP Range Transport，本机回环参考 <strong>885.83 MB/s（1.156s）</strong>；<strong><code>nfr_perf_01.met=false</code></strong>，回环不等于双机千兆内网达标；既有 32MiB 微基准仍为回归基线。<strong>ADR-0022（2026-11-16 发起人裁决）</strong>：NFR-PERF-01 门槛修订为「≥ 可用链路理论上限 × 80%」，当前百兆隔离段取 <strong>≥ 10MB/s</strong>（实测 94.1Mbps ≈ 11.8MB/s，非千兆）；<code>12</code> §5 原 80MB/s 为历史时点值保留不改，链路升级至真千顿时自动恢复原口径。<strong>2026-11-16 L4 14/14 PASS 不改变本项</strong>：该结果证明 BT 互操作，不是 1GiB 双机应用层吞吐基准；双机 <code>cmd/udperf</code> 证据产出前仍不得宣称 NFR-PERF-01 达标</td>
-<td><code>dist/perf.json</code>、<code>12</code> §5、ADR-0022、<code>docs/19</code> §七</td>
+<td>✅ <strong>NFR-PERF-01 已按 ADR-0022 达标（2026-11-16 双机）</strong>：1GiB / 4 连接 / 256KiB 分片走真实 HTTP Range Transport，<strong>11.21MB/s</strong>、4096/4096 分片校验通过，门槛 <strong>≥10MB/s</strong>（百兆段），<code>nfr_perf_01.met=true</code>；同链路 iperf3 单流 / 8 流均 <strong>94.15Mbps ≈ 11.22MB/s</strong>，应用层约为链路容量的 <strong>99.9%</strong>。证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>，报告 <a href="#/doc-20">20</a>。<strong>原「千兆内网 ≥80MB/s」口径未宣称达标</strong>，链路升级后须重跑、ADR-0022 自动失效；<code>make perf</code> 回环 <code>dist/perf.json</code> 仍固定 <code>met=false</code>。其余 §5 指标（1000 任务常驻内存、启动时间等）未测</td>
+<td><code>dist/perf_lab.json</code>、<code>docs/20</code>、<code>12</code> §5、ADR-0022</td>
 </tr>
 <tr>
 <td>下一个工作包</td>
-<td><strong>NFR-PERF-01 双机应用层基准</strong>：扩展 <code>cmd/udperf</code> 支持「主机 B 服务端 + 主机 A 真实 HTTP Range Transport 客户端」的 1GiB 实测，按 <strong>ADR-0022</strong> 口径（百兆段 ≥10MB/s）出证据并明确标注「非千兆」；随后完成评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评，才可关闭序 6。L4 侧已完成：14 条真实 harness、真实 external config、<code>make l4-run</code> 14/14、<code>make l4-audit</code> <code>CONSISTENT</code>、证据归档与文档同步</td>
-<td><code>14</code> §11（2026-11-16 注）、<code>12</code> §3.1/§5、<code>18</code> §八 / §九、<code>docs/19</code>、ADR-0021 R5/R6、ADR-0022</td>
+<td><strong>序 6 治理收口</strong>：技术验收项已全部满足（L4 <code>14/14</code> + NFR-PERF-01 <code>met=true</code>），剩余评审组<strong>实名复签</strong>、法务与安全会签、<code>14</code> R-10 反吸血风险复评结论。完成后按 <code>18</code> §九 最后一项在 <code>14</code> §11 与本节标记序 6 / WBS 11 关闭；在此之前不得写成「序 6 已关闭」。可选的后续技术项：Transmission 独立双向矩阵、真千兆链路上的原 80MB/s 口径重跑</td>
+<td><code>14</code> §11（2026-11-16 注）、<code>18</code> §九、<code>docs/19</code> / <code>docs/20</code>、ADR-0021 R5/R6、ADR-0022</td>
 </tr>
 </tbody>
 </table>
@@ -829,7 +852,9 @@ ADR-0020 时点说明与根 <code>README.md</code> / <code>CHANGELOG.md</code>�
 产品文案按 <code>16</code> §7 可写「兼容标准 BitTorrent 网络，可与主流客户端互通」，
 也可如实写「已在受控双机实验室按 <code>12</code> §3.1 通过 <code>BT-01..BT-14</code>（14/14）」；
 <strong>不得</strong>外推为「公网全矩阵通过」「所有客户端版本实测互通」「PT 站点准入」
-或「千兆内网性能达标」。<code>make interop-gate</code> 在无实验室环境时仍明确失败。
+或「千兆内网性能达标」。性能可如实写「在 100Mbps 隔离段按 ADR-0022 口径
+达到 11.21MB/s（门槛 ≥10MB/s）」，但<strong>不得</strong>写成「千兆 80MB/s 已达标」。
+<code>make interop-gate</code> 在无实验室环境时仍明确失败。
 <strong>补充证据边界</strong>：<code>libtorrent 2.1.1</code> 虽点名于 <code>BT-03</code>，BX-03 / BX-04 仍只是
 「对方做种 → 我方下载」的单向回环证据；<code>BT-03</code> 本次由真实 qBittorrent
 双向 PASS，<strong>不是</strong>由 BX 证据翻案。<code>dist/perf.json</code> 的回环 MB/s 仍
@@ -6879,7 +6904,13 @@ token·深度·piece 上限；按清单声明算法做整文件与逐片校验�
    <code>x/crypto/ssh</code>，扫描结论为「代码受影响 0 个漏洞」，属<strong>不可达</strong>告警，不阻塞发布；
    后续若引入 OpenPGP 能力须重新评估。该区分须以 <code>govulncheck</code> 的符号级结果为准，
    不得用「模块有告警」笼统放行，也不得用「代码没调用」掩盖可达路径。</li>
-</ol><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/11-安全与合规设计.md</code></div></article><article class="doc" id="doc-doc-12" data-slug="doc-12"><div class="doc-head"><h1>12 测试策略与测试计划</h1><div class="doc-meta"><span class="badge">草案（P0 评审门禁已采集证据；P1 WBS 7/8/9/10/11 用例已落地；L4 `BT-01..BT-14` 已于 2026-11-16 在双机实验室真实执行 14/14 PASS；NFR-PERF-01 双机应用层基准仍待执行）</span>文档编号：UD-DOC-12 ｜ 版本：v1.9 ｜ 状态：草案（P0 评审门禁已采集证据；P1 WBS 7/8/9/10/11 用例已落地；**L4 `BT-01..BT-14` 已于 2026-11-16 在双机实验室真实执行 14/14 PASS**；NFR-PERF-01 双机应用层基准仍待执行） ｜ 日期：2026-11-16 ｜ 上游：`03`、`07`、`16`</div></div><blockquote>
+</ol><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/11-安全与合规设计.md</code></div></article><article class="doc" id="doc-doc-12" data-slug="doc-12"><div class="doc-head"><h1>12 测试策略与测试计划</h1><div class="doc-meta"><span class="badge">草案（P0 评审门禁已采集证据；P1 WBS 7/8/9/10/11 用例已落地；L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS；NFR-PERF-01 双机应用层基准 11.21MB/s、`met=true`（ADR-0022））</span>文档编号：UD-DOC-12 ｜ 版本：v1.10 ｜ 状态：草案（P0 评审门禁已采集证据；P1 WBS 7/8/9/10/11 用例已落地；**L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS**；**NFR-PERF-01 双机应用层基准 11.21MB/s、`met=true`（ADR-0022）**） ｜ 日期：2026-11-16 ｜ 上游：`03`、`07`、`16`</div></div><blockquote>
+<p><strong>v1.10 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机应用层基准 met=true；下文各版说明为更早时点值，保留不改）</strong>：
+§5 追加双机实测：1GiB / 4 连接 / 256KiB 分片，<strong>11.21MB/s</strong>、4096/4096 分片校验，
+ADR-0022 百兆段门槛 ≥10MB/s，<code>nfr_perf_01.met=true</code>；iperf3 单流/8 流均
+94.15Mbps ≈ 11.22MB/s。证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>，报告 <code>docs/20</code>。
+<strong>原千兆 80MB/s 口径未宣称达标</strong>，链路升级后须重跑；回环 <code>dist/perf.json</code>
+仍固定 <code>met=false</code>。判据表与历史时点值不改。</p>
 <p><strong>v1.9 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；判据表原文不改；下文各版说明为更早时点值，保留不改）</strong>：
 双机隔离段实验室以真实 harness 执行 <code>BT-01..BT-14</code>，<strong>14/14 PASS</strong>、
 0 FAIL / 0 SKIPPED / 0 UNSUPPORTED，<code>release_gate_met=true</code>；§3.1 追加实测结果注，
@@ -7840,11 +7871,15 @@ v4 <code>&lt;url priority&gt;</code> 排序、v3 <code>preference</code> 反转�
 门槛修订为「≥ 可用链路理论上限 × 80%」，当前百兆链路取 <strong>≥ 10MB/s</strong>，
 证据须同时附双机 iperf3 实测速率并标注「非千兆内网」；验证强度下降风险
 由 ADR-0022 记录。链路升级至真千顿时本修订自动失效、恢复上表 80MB/s。</p>
-<p><strong>2026-11-16 L4 实测后的口径</strong>：<code>BT-01..BT-14</code> 的 14/14 PASS <strong>不改变</strong>
-NFR-PERF-01 的状态——本次只实测了链路能力（iperf3 94.1Mbps ≈ 11.8MB/s），
-<strong>尚未</strong>用 <code>cmd/udperf</code> 在双机间跑 1GiB 真实 HTTP Range Transport 应用层基准。
-<code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code>；在双机应用层证据产出前，
-不得宣称 NFR-PERF-01 达标，也不得用 L4 的 BT 传输结果替代该基准。</p>
+<p><strong>2026-11-16 NFR-PERF-01 双机实测结果（当前态）</strong>：<code>cmd/udperf</code> 已支持
+<code>--serve</code> / <code>--url</code> 双机模式。主机 B 提供 1GiB HTTP Range 数据，主机 A 用
+真实 <code>internal/transport/http</code> 下载并逐片校验：<strong>1GiB / 91.367s =
+11.21MB/s，4096/4096 分片通过，<code>nfr_perf_01.met=true</code></strong>（ADR-0022 百兆段
+门槛 ≥10MB/s）；同链路 iperf3 单流 / 8 流均 <strong>94.15Mbps ≈ 11.22MB/s</strong>，
+应用层约为链路容量的 <strong>99.9%</strong>。证据见 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>，
+报告见 <code>docs/20</code>。<strong>边界</strong>：这是百兆链路，不宣称原「千兆内网 ≥80MB/s」达标；
+<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code>，
+不得用 <code>docs/20</code> 的双机结果替代 L4 的 BT 互操作判据，反之亦然。</p>
 </blockquote>
 <h2 id="h-doc-12--6">6. 安全与兼容性测试</h2>
 <ul>
@@ -8224,7 +8259,14 @@ NFR-PERF-01 的状态——本次只实测了链路能力（iperf3 94.1Mbps ≈ 
 </table>
 <p><strong>P0 门禁的实际范围说明</strong>：上表全部通过，但<strong>不等价于 §8 发布门禁全绿</strong>——互操作 L4、1000 任务性能、L1 AriaNg 套件未执行。WBS 11 只把 L4 的<strong>用例注册表与可复跑的本地回环子集</strong>建立起来，<code>§3.1</code> 的 <code>BT-01..BT-14</code> 仍全部为 <code>SKIPPED</code>/<code>UNSUPPORTED</code>，<strong>不得</strong>因上表新增 WBS 11 的 ✅ 行而误读为 L4 已通过；发布结论以 <code>dist/interop.json:release_gate_met</code> 为准。覆盖率阈值已于 2026-11-10 全部达标并把 <code>--strict</code> 接入 CI，不再记为债务。<code>03</code> §8 追踪矩阵中 P1+ 行保持空格是正确状态，不是遗漏。评审材料与「有条件通过」的结论见 <a href="#/doc-17"><code>17</code></a>。</p>
 <p><strong>本轮暴露并修复的真实缺陷</strong>（均有对应回归用例）：ULID 同毫秒单调性、<code>Authorization: Bearer</code> 脱敏漏值、<code>ed2k://</code> 被 <code>net/url</code> 拒绝、瞬时 503 重试时主循环提前退出、暂停/退出导致在途分片永久 failed、macOS <code>/var → /private/var</code> 路径误判、CLI 位置参数后的标志被忽略、敏感头明文落库、非回环监听无 token。</p>
-<p><strong>评审准备轮新增修复</strong>（见 <code>17</code> §4）：Go 1.27.2 <code>crypto/x509</code> 的 <code>GO-2026-6809</code> 漏洞（升至 1.27.3）、<code>EventBus.Dropped()</code> 从不累加、<code>TestULID</code> 时序导致的覆盖率抖动、BSD-2-Clause 被误判未识别、<code>GOSUMDB=off</code> 与 <code>GOTOOLCHAIN=auto</code> 冲突。详见 <a href="#/changelog">CHANGELOG.md</a>。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/12-测试策略与测试计划.md</code></div></article><article class="doc" id="doc-doc-13" data-slug="doc-13"><div class="doc-head"><h1>13 构建、发布与运维</h1><div class="doc-meta"><span class="badge">草案（P0 评审门禁已接入 CI；P1 WBS 10 插件配置、WBS 11 互操作套件已落地；L4 门禁已于 2026-11-16 真实执行 14/14 PASS）</span>文档编号：UD-DOC-13 ｜ 版本：v0.17 ｜ 状态：草案（P0 评审门禁已接入 CI；P1 WBS 10 插件配置、WBS 11 互操作套件已落地；**L4 门禁已于 2026-11-16 真实执行 14/14 PASS**） ｜ 日期：2026-11-16 ｜ 相关：`09`、`10`、`11`、`12`、`17`、`18`、`19`</div></div><blockquote>
+<p><strong>评审准备轮新增修复</strong>（见 <code>17</code> §4）：Go 1.27.2 <code>crypto/x509</code> 的 <code>GO-2026-6809</code> 漏洞（升至 1.27.3）、<code>EventBus.Dropped()</code> 从不累加、<code>TestULID</code> 时序导致的覆盖率抖动、BSD-2-Clause 被误判未识别、<code>GOSUMDB=off</code> 与 <code>GOTOOLCHAIN=auto</code> 冲突。详见 <a href="#/changelog">CHANGELOG.md</a>。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/12-测试策略与测试计划.md</code></div></article><article class="doc" id="doc-doc-13" data-slug="doc-13"><div class="doc-head"><h1>13 构建、发布与运维</h1><div class="doc-meta"><span class="badge">草案（P0 评审门禁已接入 CI；P1 WBS 10 插件配置、WBS 11 互操作套件已落地；L4 门禁 2026-11-16 双机 14/14 PASS；NFR-PERF-01 双机应用层 `met=true`（ADR-0022））</span>文档编号：UD-DOC-13 ｜ 版本：v0.18 ｜ 状态：草案（P0 评审门禁已接入 CI；P1 WBS 10 插件配置、WBS 11 互操作套件已落地；**L4 门禁 2026-11-16 双机 14/14 PASS**；**NFR-PERF-01 双机应用层 `met=true`（ADR-0022）**） ｜ 日期：2026-11-16 ｜ 相关：`09`、`10`、`11`、`12`、`17`、`18`、`19`、`20`</div></div><blockquote>
+<p><strong>v0.18 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机基准 met=true）</strong>：
+§3 新增 <code>make perf-lab</code>：主机 B 先 <code>udperf --serve</code> 提供 1GiB Range 数据，
+主机 A 用 <code>PERF_LAB_URL=... make perf-lab</code> 跑真实应用层基准并
+<code>--require-met</code> 判定。实测 <strong>11.21MB/s ≥ 10MB/s</strong>（ADR-0022 百兆段），
+<code>nfr_perf_01.met=true</code>；证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>，报告 <code>docs/20</code>。
+<code>make perf</code> 回环仍 <code>met=false</code>；<strong>原千兆 80MB/s 未宣称达标</strong>。
+已知差异段同步：L4 与 NFR 均为<strong>人工实验室执行、不接入 CI</strong>。</p>
 <p><strong>v0.17 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；下文各版说明为更早时点值，保留不改）</strong>：
 <code>make l4-run L4_CONFIG=tools/l4_external_config.lab.json L4_CASE_TIMEOUT=840s</code>
 在双机实验室执行 <code>BT-01..BT-14</code> <strong>14/14 PASS</strong>，证据
@@ -8446,6 +8488,7 @@ make test         # 单元 + 契约 + 集成
 make interop      # WBS 11 互操作套件（本地回环 9 例 + L4 门禁注册表），见 12 §3.1
 make interop-external # 真实外部引擎（aria2-next / libtorrent）补充证据；仅本机、不接入 CI
 make perf         # 1GiB 回环参考基准 → dist/perf.json（NOT NFR-PERF-01，CI 不跑）
+make perf-lab     # 双机 NFR-PERF-01：需 PERF_LAB_URL 指向对端 udperf --serve（CI 不跑）
 make interop-gate # L4 发布门禁（需外部真实客户端，未执行时明确失败，不接入 CI）
 make l4-preflight # L4 前置条件清点 → dist/l4_preflight.json（NOT L4 执行证据，不接入 CI）
 make l4-preflight-check # 同上但未齐备即非零退出（不接入 CI）
@@ -8908,7 +8951,13 @@ run <code>43791092155</code> 为 <strong><code>quality: success</code></strong>�
 （真实双机 L4 14/14 PASS + 14 条 harness 实装 + 证据归档）run <code>43871031642</code>
 为 <strong><code>quality: success</code></strong>；同样不改写上文更早原文。</p>
 </blockquote>
-<p><strong>已知差异</strong>：可复现构建镜像固定 digest、代码签名/公证、Android/iOS 目标、<strong>L4 真实客户端互操作外部矩阵（<code>BT-01..BT-14</code>）</strong>、<strong>NFR-PERF-01 双机应用层 1GiB 基准</strong> 均未纳入 CI。WBS 11 已把 <code>make interop</code> 的<strong>本地回环子集</strong>接入 CI，但其 <code>release_gate_met</code> 为 <code>false</code>，<strong>不得据此宣称 L4 或性能门禁通过</strong>。<strong>2026-11-16 更新</strong>：L4 矩阵已在双机实验室<strong>人工执行并 14/14 PASS</strong>，证据归档 <code>docs/evidence/l4-2026-11-16/</code>、报告 <code>docs/19</code>；该执行仍<strong>不接入 CI</strong>（真实实验室不可 CI 化）。NFR-PERF-01 双机应用层基准<strong>仍未执行</strong>，<code>dist/perf.json</code> 固定 <code>nfr_perf_01.met=false</code>。覆盖率阈值强制（<code>gates.py --strict</code>）已于 2026-11-10 纳入 CI（<code>make gates-strict</code>），当前 <strong>16 个受门禁包</strong>全部达标（WBS 9 新增 3 个、WBS 10 新增 <code>internal/plugin</code>、WBS 11 新增 <code>internal/interop</code>），当前态见 <code>12</code> §9 与 <code>docs/README</code> §三；<code>17</code> §5 为 P0 时点快照。构建时若默认代理不可达，可用 <code>GOPROXY=https://goproxy.cn,direct make build</code> 覆盖（<code>Makefile</code> 已支持）。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/13-构建发布与运维.md</code></div></article><article class="doc" id="doc-doc-14" data-slug="doc-14"><div class="doc-head"><h1>14 项目计划与风险管理</h1><div class="doc-meta"><span class="badge">草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；L4 `BT-01..BT-14` 已于 2026-11-16 真实执行 14/14 PASS，序 6 因 NFR-PERF-01 与复签仍开放）</span>文档编号：UD-DOC-14 ｜ 版本：v1.9 ｜ 状态：草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；**L4 `BT-01..BT-14` 已于 2026-11-16 真实执行 14/14 PASS**，序 6 因 NFR-PERF-01 与复签仍开放） ｜ 日期：2026-11-16</div></div><blockquote>
+<p><strong>已知差异</strong>：可复现构建镜像固定 digest、代码签名/公证、Android/iOS 目标、<strong>L4 真实客户端互操作外部矩阵（<code>BT-01..BT-14</code>）</strong>、<strong>NFR-PERF-01 双机应用层 1GiB 基准</strong> 均未纳入 CI。WBS 11 已把 <code>make interop</code> 的<strong>本地回环子集</strong>接入 CI，但其 <code>release_gate_met</code> 为 <code>false</code>，<strong>不得据此宣称 L4 或性能门禁通过</strong>。<strong>2026-11-16 更新</strong>：L4 矩阵已在双机实验室<strong>人工执行并 14/14 PASS</strong>，证据归档 <code>docs/evidence/l4-2026-11-16/</code>、报告 <code>docs/19</code>；该执行仍<strong>不接入 CI</strong>（真实实验室不可 CI 化）。NFR-PERF-01 双机应用层基准已于同日<strong>人工执行并 <code>met=true</code></strong>（11.21MB/s ≥ 10MB/s，<code>docs/20</code>），同样<strong>不接入 CI</strong>；<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code>，不得与双机证据混用。覆盖率阈值强制（<code>gates.py --strict</code>）已于 2026-11-10 纳入 CI（<code>make gates-strict</code>），当前 <strong>16 个受门禁包</strong>全部达标（WBS 9 新增 3 个、WBS 10 新增 <code>internal/plugin</code>、WBS 11 新增 <code>internal/interop</code>），当前态见 <code>12</code> §9 与 <code>docs/README</code> §三；<code>17</code> §5 为 P0 时点快照。构建时若默认代理不可达，可用 <code>GOPROXY=https://goproxy.cn,direct make build</code> 覆盖（<code>Makefile</code> 已支持）。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/13-构建发布与运维.md</code></div></article><article class="doc" id="doc-doc-14" data-slug="doc-14"><div class="doc-head"><h1>14 项目计划与风险管理</h1><div class="doc-meta"><span class="badge">草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`，序 6 仅余治理复签）</span>文档编号：UD-DOC-14 ｜ 版本：v1.10 ｜ 状态：草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；**L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`**，序 6 仅余治理复签） ｜ 日期：2026-11-16</div></div><blockquote>
+<p><strong>v1.10 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机基准 met=true；序 6 仅余治理项）</strong>：
+<code>cmd/udperf</code> 新增双机模式，主机 B 服务端 + 主机 A 真实 HTTP Range 客户端，
+1GiB 实测 <strong>11.21MB/s</strong>、4096/4096 分片校验，ADR-0022 百兆段门槛 ≥10MB/s，
+<code>nfr_perf_01.met=true</code>；报告 <code>docs/20</code>，证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>。
+§11 序 6 行同步为「技术验收项全部满足，仅余评审实名复签 / 法务与安全会签 /
+R-10 复评」。<strong>不宣称原千兆 80MB/s 达标</strong>。</p>
 <p><strong>v1.9 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；序 6 仍未关闭）</strong>：
 双机实验室以真实 harness 执行 <code>BT-01..BT-14</code>，<strong>14/14 PASS</strong>、
 <code>release_gate_met=true</code>，<code>make l4-audit</code> 重算 <code>CONSISTENT</code> 9/9；报告见 <code>docs/19</code>，
@@ -9782,7 +9831,7 @@ WBS 10 后为 15 个门禁包（新增 <code>internal/plugin</code> 88.4%）、9
 <td>11</td>
 <td>◐ <strong>互操作套件 v1（2026-11-11，仅套件与证据链）</strong>：<code>internal/interop/</code> + <code>cmd/udinterop</code>，<code>BT-01..BT-14</code> L4 门禁注册表、自建 BEP 3 / BEP 15 tracker fixture、9 条 <code>L3-xx</code> 回环用例全部 PASS、<code>make interop</code> → <code>dist/interop.json</code> / <code>dist/INTEROP.md</code>（CI 跑并上传证据）</td>
 <td>序 2–5</td>
-<td><strong>L4 门禁已于 2026-11-16 真实通过</strong>：双机实验室执行 <code>BT-01..BT-14</code> <strong>14/14 PASS</strong>、<code>release_gate_met=true</code>，证据 <code>dist/l4_lab/interop.json</code> 归档于 <code>docs/evidence/l4-2026-11-16/</code>，<code>make l4-audit</code> 为 <code>CONSISTENT</code> 9/9（见 <code>docs/19</code>）。<strong>序 6 仍不关闭</strong>：NFR-PERF-01 双机应用层 1GiB 基准未执行（<code>cmd/udperf</code> 仅回环模式，<code>nfr_perf_01.met=false</code>），评审组实名复签 / 法务与安全会签 / R-10 复评仍待补。历史时点值：2026-11-11 套件交付时 L4 为 0/14；2026-11-13 起补充证据 <code>BX-01..BX-06</code> 均单向回环、不计入 L4；16 个门禁包 / 90 链接模块（零新增依赖）、<code>make gates-strict</code> 6 PASS / 0 WARN / 0 FAIL、<code>go test -race ./...</code> 全绿；另发现并修复两处生产数据竞态（<code>transport/bt.waitInfo</code> 元数据发布序、<code>scheduler.Close()</code> / dispatch 的 WaitGroup 生命周期，均补回归用例）；<strong>续包（2026-11-13）</strong>：<code>BX-01..BX-04</code> 4/4 PASS（真实 aria2-next + <code>libtorrent 2.1.1</code>，单向回环补充证据、不计入 L4）、<strong>L4 判据与 ADR-0004 不做种边界的形式冲突已登记待评审</strong>、<code>make perf</code> 1GiB 回环参考基准（<code>nfr_perf_01.met=false</code>）；<strong>二次校准（2026-11-13）</strong>：该表述属误归属，阻塞根因已定档为未签署范围缩减并转 ADR-0021 待评审，<code>make l4-preflight</code> 只清点条件、L4 仍 0/14</td>
+<td><strong>L4 门禁已于 2026-11-16 真实通过</strong>：双机实验室执行 <code>BT-01..BT-14</code> <strong>14/14 PASS</strong>、<code>release_gate_met=true</code>，证据 <code>dist/l4_lab/interop.json</code> 归档于 <code>docs/evidence/l4-2026-11-16/</code>，<code>make l4-audit</code> 为 <code>CONSISTENT</code> 9/9（见 <code>docs/19</code>）。<strong>序 6 仅余治理项</strong>：NFR-PERF-01 双机应用层 1GiB 基准已于 2026-11-16 实测 <strong>11.21MB/s ≥ 10MB/s、<code>met=true</code></strong>（ADR-0022，<code>docs/20</code>），技术验收项全部满足；仍待评审组实名复签 / 法务与安全会签 / R-10 复评，故暂不标记关闭。历史时点值：2026-11-11 套件交付时 L4 为 0/14；2026-11-13 起补充证据 <code>BX-01..BX-06</code> 均单向回环、不计入 L4；16 个门禁包 / 90 链接模块（零新增依赖）、<code>make gates-strict</code> 6 PASS / 0 WARN / 0 FAIL、<code>go test -race ./...</code> 全绿；另发现并修复两处生产数据竞态（<code>transport/bt.waitInfo</code> 元数据发布序、<code>scheduler.Close()</code> / dispatch 的 WaitGroup 生命周期，均补回归用例）；<strong>续包（2026-11-13）</strong>：<code>BX-01..BX-04</code> 4/4 PASS（真实 aria2-next + <code>libtorrent 2.1.1</code>，单向回环补充证据、不计入 L4）、<strong>L4 判据与 ADR-0004 不做种边界的形式冲突已登记待评审</strong>、<code>make perf</code> 1GiB 回环参考基准（<code>nfr_perf_01.met=false</code>）；<strong>二次校准（2026-11-13）</strong>：该表述属误归属，阻塞根因已定档为未签署范围缩减并转 ADR-0021 待评审，<code>make l4-preflight</code> 只清点条件、L4 仍 0/14</td>
 </tr>
 </tbody>
 </table>
@@ -9939,10 +9988,11 @@ config → 拓扑签署 → <code>make l4-run --require-external</code> → NFR-
 14 条 harness 已实装并接入 <code>tools/l4_external_config.lab.json</code>；双机实验室执行
 <code>BT-01..BT-14</code> <strong>14/14 PASS</strong>、0 FAIL / 0 SKIPPED / 0 UNSUPPORTED，
 <code>release_gate_met=true</code>，<code>make l4-audit</code> 重算 <code>CONSISTENT</code> 9/9。证据归档
-<code>docs/evidence/l4-2026-11-16/</code>，报告 <code>docs/19</code>。<strong>序 6 仍开放</strong>：
-NFR-PERF-01 双机应用层 1GiB 基准未执行（<code>dist/perf.json</code> 仍 <code>met=false</code>）、
-评审组实名复签 / 法务与安全会签 / R-10 复评仍待补。不得据 14/14 宣称
-公网全矩阵 / PT / 千兆性能达标。</p>
+<code>docs/evidence/l4-2026-11-16/</code>，报告 <code>docs/19</code>。同日 NFR-PERF-01 双机应用层
+1GiB 基准也已完成：<strong>11.21MB/s ≥ 10MB/s、<code>met=true</code></strong>（ADR-0022），报告 <code>docs/20</code>、
+证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>。<strong>技术验收项全部满足，序 6 仅余
+评审组实名复签 / 法务与安全会签 / R-10 复评</strong>；不得据 14/14 + NFR 宣称
+公网全矩阵 / PT / 千兆 80MB/s 达标。</p>
 </blockquote><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/14-项目计划与风险管理.md</code></div></article><article class="doc" id="doc-doc-15" data-slug="doc-15"><div class="doc-head"><h1>15 开发规范与协作流程</h1><div class="doc-meta"><span class="badge">草案（P0 评审门禁已接入；CI 偶发失败处置口径已补记）</span>文档编号：UD-DOC-15 ｜ 版本：v0.6 ｜ 状态：草案（P0 评审门禁已接入；CI 偶发失败处置口径已补记） ｜ 日期：2026-11-14</div></div><blockquote>
 <p><strong>v0.6 变更 / 2026-11-14 时点口径（ADR-0021 路径 A；下文 v0.5 及更早说明为提案期时点值，保留不改）</strong>：
 项目发起人明确指令「按 A 方案补齐」后，<a href="#/adr-0021">ADR-0021</a>
@@ -10878,7 +10928,15 @@ v0.3 仅补充本口径声明与两处时点标注，<strong>不改变评审结�
 <pre><code class="language-bash">make build
 go install golang.org/x/vuln/cmd/govulncheck@latest
 GOVULNCHECK=&quot;$(go env GOPATH)/bin/govulncheck&quot; make gates
-</code></pre><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/17-P0里程碑评审材料.md</code></div></article><article class="doc" id="doc-doc-18" data-slug="doc-18"><div class="doc-head"><h1>18 序 6 评审与 L4 实验室准备材料包</h1><div class="doc-meta"><span class="badge">草案（路径 A 已裁决并复签：2026-11-16 发起人指令按 P0 先例代行，非实名会签；BT-02/BT-11 已翻转 gateExternal；真实 L4 矩阵已于 2026-11-16 执行并 14/14 PASS；NFR-PERF-01 双机应用层基准仍未执行，序 6 仍开放）</span>文档编号：UD-DOC-18 ｜ 版本：v0.7 ｜ 状态：**草案（路径 A 已裁决并复签：2026-11-16 发起人指令按 P0 先例代行，非实名会签；BT-02/BT-11 已翻转 gateExternal；**真实 L4 矩阵已于 2026-11-16 执行并 14/14 PASS**；NFR-PERF-01 双机应用层基准仍未执行，序 6 仍开放）** ｜ 日期：2026-11-16 ｜ 维护责任：架构组 ｜ 上游：[ADR-0021](adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md)、[ADR-0022](adr/ADR-0022-NFR-PERF-01性能口径修订.md)、[12](12-测试策略与测试计划.md) §3.1.2 / §3.1.3 / §3.1.4 / §5、[14](14-项目计划与风险管理.md) §11、[15](15-开发规范与协作流程.md) §4、[19](19-L4实验室实测与发布门禁报告.md)</div></div><blockquote>
+</code></pre><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/17-P0里程碑评审材料.md</code></div></article><article class="doc" id="doc-doc-18" data-slug="doc-18"><div class="doc-head"><h1>18 序 6 评审与 L4 实验室准备材料包</h1><div class="doc-meta"><span class="badge">草案（路径 A 已裁决并复签：2026-11-16 发起人指令按 P0 先例代行，非实名会签；BT-02/BT-11 已翻转 gateExternal；L4 矩阵 14/14 PASS、NFR-PERF-01 `met=true`；技术验收项全部满足，序 6 仅余治理复签）</span>文档编号：UD-DOC-18 ｜ 版本：v0.8 ｜ 状态：**草案（路径 A 已裁决并复签：2026-11-16 发起人指令按 P0 先例代行，非实名会签；BT-02/BT-11 已翻转 gateExternal；**L4 矩阵 14/14 PASS、NFR-PERF-01 `met=true`**；技术验收项全部满足，序 6 仅余治理复签）** ｜ 日期：2026-11-16 ｜ 维护责任：架构组 ｜ 上游：[ADR-0021](adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md)、[ADR-0022](adr/ADR-0022-NFR-PERF-01性能口径修订.md)、[12](12-测试策略与测试计划.md) §3.1.2 / §3.1.3 / §3.1.4 / §5、[14](14-项目计划与风险管理.md) §11、[15](15-开发规范与协作流程.md) §4、[19](19-L4实验室实测与发布门禁报告.md)、[20](20-NFR-PERF-01双机应用层基准实测报告.md)</div></div><blockquote>
+<p><strong>v0.8 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机基准 met=true；序 6 仅余治理项）</strong>：
+§八 状态由「未执行」更新为「2026-11-16 已执行」：<code>cmd/udperf --serve/--url</code>
+双机模式，1GiB / 4 连接 / 256KiB 分片实测 <strong>11.21MB/s</strong>、4096/4096 分片校验，
+ADR-0022 百兆段门槛 ≥10MB/s，<strong><code>nfr_perf_01.met=true</code></strong>；iperf3 单流/8 流均
+94.15Mbps ≈ 11.22MB/s。报告 <a href="#/doc-20">20</a>，
+证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>。§九 勾选 NFR 项；§十 第 5 条
+追加「回环仍 false / 双机证据为 true」的区分。<strong>技术验收项已全部满足，
+序 6 仍待评审实名复签 / 法务与安全会签 / R-10 复评后才可关闭。</strong></p>
 <p><strong>v0.7 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；序 6 仍未关闭）</strong>：
 §七 状态由「未执行」更新为「2026-11-16 已执行」：双机实验室用真实 harness
 执行 <code>BT-01..BT-14</code>，<strong>14/14 PASS</strong>、<code>release_gate_met=true</code>；
@@ -11416,7 +11474,7 @@ iperf3 / chrony + 预编译 chihaya），主机 A <code>192.168.1.222</code> 与
 <p>用示例 stub 跑 <code>make l4-run</code> 必须保持 <strong>0/14 PASS 并明确失败</strong>；
 四目标（<code>l4-preflight</code> / <code>l4-preflight-check</code> / <code>l4-run</code> / <code>l4-audit</code>）均<strong>不接入 CI</strong>。</p>
 </blockquote>
-<h2 id="h-doc-18--nfr-perf-01">八、NFR-PERF-01 双机基准执行方案（草案，<strong>未执行</strong>）</h2>
+<h2 id="h-doc-18--nfr-perf-01-2026-11-16">八、NFR-PERF-01 双机基准执行方案（2026-11-16 已执行；方案原文保留）</h2>
 <table>
 <thead>
 <tr>
@@ -11457,7 +11515,15 @@ iperf3 / chrony + 预编译 chihaya），主机 A <code>192.168.1.222</code> 与
 发起人裁决修订 NFR-PERF-01 门槛为「<strong>≥ 可用链路理论上限 × 80%</strong>」，当前百兆段取
 <strong>≥ 10MB/s</strong>；证据须同时记录 iperf3 实测速率并标注「非千兆内网」，不得冒充千兆达标。
 验证强度下降风险由 ADR-0022 显式记录，待评审复签复核；链路升级至真千顿时本修订
-自动失效、恢复上表 80MB/s 口径。本方案<strong>仍未执行</strong>。</p>
+自动失效、恢复上表 80MB/s 口径。</p>
+<p><strong>2026-11-16 执行结果（当前态）</strong>：<code>cmd/udperf</code> 已扩展 <code>--serve</code> / <code>--url</code> 双机模式。
+主机 B（<code>192.168.1.221</code>）提供 1GiB HTTP Range 数据，主机 A（<code>192.168.1.222</code>）
+用真实 <code>internal/transport/http</code> 下载并逐片校验：<strong>1GiB / 91.367s = 11.21MB/s，
+4096/4096 分片通过，<code>nfr_perf_01.met=true</code></strong>（门槛 ≥10MB/s）；
+同链路 iperf3 单流 / 8 流均 <strong>94.15Mbps ≈ 11.22MB/s</strong>，应用层约为链路 99.9%。
+报告 <a href="#/doc-20">20</a>，证据
+<code>docs/evidence/nfr-perf-01-2026-11-16/</code>。<strong>这是百兆链路，不宣称原千兆 80MB/s 达标</strong>；
+<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>met=false</code>，两者不得混用。</p>
 </blockquote>
 <h2 id="h-doc-18--_6">九、签署后收口清单</h2>
 <ul>
@@ -11473,8 +11539,10 @@ iperf3 / chrony + 预编译 chihaya），主机 A <code>192.168.1.222</code> 与
       <code>release_gate_met=true</code>；证据归档 <code>docs/evidence/l4-2026-11-16/</code>，报告 <code>docs/19</code>）</li>
 <li><input type="checkbox" checked disabled> <code>make l4-audit</code> 对归档证据包结论为 <code>CONSISTENT</code>（完整性，非 L4 通过），失败项已闭环
       （2026-11-16：<code>CONSISTENT</code> 9/9、0 FAIL，重算 <code>release_gate_met=true</code>）</li>
-<li><input type="checkbox" disabled> §八 NFR-PERF-01 双机基准达标
-      （仅实测链路 iperf3 94.1Mbps ≈ 11.8MB/s；<code>cmd/udperf</code> 双机应用层 1GiB 基准未执行）</li>
+<li><input type="checkbox" checked disabled> §八 NFR-PERF-01 双机基准达标
+      （2026-11-16：1GiB / 91.367s = <strong>11.21MB/s</strong>，4096/4096 分片校验，
+      <code>nfr_perf_01.met=true</code>，ADR-0022 百兆段门槛 ≥10MB/s；iperf3
+      单流/8 流 94.15Mbps ≈ 11.22MB/s。报告 <code>docs/20</code>）</li>
 <li><input type="checkbox" checked disabled> 全量文档 / 门禁 / CI 证据同步（2026-11-16：<code>docs/19</code> + 证据归档 + 门户 45 篇；
       <code>make gates-strict</code> 6 PASS / 0 WARN / 0 FAIL；<code>eda8a6c</code> run <code>43871031642</code>
       = <code>quality: success</code>）。<strong>注意</strong>：<code>make interop-gate</code> 本身仍不带真实
@@ -11492,7 +11560,10 @@ iperf3 / chrony + 预编译 chihaya），主机 A <code>192.168.1.222</code> 与
 <li><code>SKIPPED</code> / <code>UNSUPPORTED</code> 绝不计 PASS；<strong>豁免 ≠ PASS</strong>，<code>PRESENT ≠ PASS</code>。</li>
 <li><code>BX-01..BX-06</code>（2026-11-15 起）都是单向回环补充证据，<strong>不计入 L4</strong>；<code>libtorrent</code> 点名于 <code>BT-03</code>
    不代表该判据通过，<code>BX-05</code> / <code>BX-06</code> 的我方做种半向同样不等于 <code>BT-02</code> / <code>BT-03</code> 通过。</li>
-<li><code>make perf</code> 的回环 MB/s <strong>不得</strong>当作 NFR-PERF-01 达标（文件固定 <code>met=false</code>）。</li>
+<li><code>make perf</code> 的回环 MB/s <strong>不得</strong>当作 NFR-PERF-01 达标（文件固定 <code>met=false</code>）。
+   <strong>2026-11-16 执行后时点口径</strong>：双机应用层证据
+   <code>docs/evidence/nfr-perf-01-2026-11-16/nfr_perf_01.json</code> 的 <code>met=true</code>
+   才是本次达标依据；回环 <code>dist/perf.json</code> 仍为 <code>false</code>，两者不得混用。</li>
 <li><code>17</code> / ADR-0020 已签署证据与各文档历史版本说明中的时点数值<strong>不改写</strong>，
    只允许追加带日期的「时点口径」注。</li>
 <li>本文的签署表原为留白模板，<strong>空白表未填写签署前不具备效力</strong>（2026-11-16 起
@@ -11544,7 +11615,9 @@ release gate: true (BT-01..BT-14 全部 PASS)
 </ul>
 <p><strong>边界</strong>：这只证明本项目在<strong>该受控实验室拓扑与所列软件版本</strong>下通过了
 <code>12</code> §3.1 的 L4 判据；<strong>不</strong>等于公网全矩阵、全部客户端版本、PT 站点或
-千兆链路已达标。NFR-PERF-01 的双机应用层基准仍未执行（见 §七）。</p>
+千兆链路已达标。NFR-PERF-01 的双机应用层基准已于同日单独执行并达标
+（11.21MB/s ≥ 10MB/s，见 <a href="#/doc-20">20</a>），
+但它与 L4 是<strong>两条独立判据</strong>，不能互相替代。</p>
 <h2 id="h-doc-19--_2">二、实验室拓扑与环境</h2>
 <table>
 <thead>
@@ -11794,8 +11867,8 @@ release gate: true (BT-01..BT-14 全部 PASS)
 <tbody>
 <tr>
 <td>NFR-PERF-01 双机应用层基准</td>
-<td><strong>未执行</strong></td>
-<td>已测得链路 iperf3 94.1Mbps ≈ 11.8MB/s；ADR-0022 的百兆段门槛为 ≥10MB/s，但 <code>cmd/udperf</code> 目前只有回环模式，尚无双机「真实 HTTP Range Transport 1GiB」证据；<code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code></td>
+<td>✅ <strong>已执行并达标</strong></td>
+<td>2026-11-16 双机实测 1GiB / 91.367s = <strong>11.21MB/s</strong>、4096/4096 分片校验，<code>nfr_perf_01.met=true</code>（ADR-0022 百兆段门槛 ≥10MB/s）；iperf3 单流/8 流 94.15Mbps ≈ 11.22MB/s。见 <a href="#/doc-20">20</a>，证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code></td>
 </tr>
 <tr>
 <td>评审组实名复签 / 法务与安全会签</td>
@@ -11827,7 +11900,278 @@ release gate: true (BT-01..BT-14 全部 PASS)
 <a href="#/doc-18"><code>18</code></a> §七 / §八 / §九 / §十 ·
 <a href="#/adr-0021">ADR-0021</a> ·
 <a href="#/adr-0022">ADR-0022</a> ·
-<a href="#/readme"><code>docs/README</code> §三</a> · <a href="#/changelog"><code>CHANGELOG</code></a></p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/19-L4实验室实测与发布门禁报告.md</code></div></article><article class="doc" id="doc-changelog" data-slug="changelog"><div class="doc-head"><h1>Changelog</h1><div class="doc-meta"></div></div><p>All notable changes to this project will be documented in this file.</p>
+<a href="#/readme"><code>docs/README</code> §三</a> · <a href="#/changelog"><code>CHANGELOG</code></a></p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/19-L4实验室实测与发布门禁报告.md</code></div></article><article class="doc" id="doc-doc-20" data-slug="doc-20"><div class="doc-head"><h1>20 NFR-PERF-01 双机应用层基准实测报告</h1><div class="doc-meta"><span class="badge">草案（实测报告；证据已归档，待评审组复核）</span>文档编号：UD-DOC-20 ｜ 版本：v1.0 ｜ 状态：**草案（实测报告；证据已归档，待评审组复核）** ｜ 日期：2026-11-16 ｜ 维护责任：架构组 / QA ｜ 上游：[12](12-测试策略与测试计划.md) §5、[14](14-项目计划与风险管理.md) §11、[18](18-序6评审与L4实验室准备材料包.md) §八 / §九、[ADR-0022](adr/ADR-0022-NFR-PERF-01性能口径修订.md)、[19](19-L4实验室实测与发布门禁报告.md)</div></div><blockquote>
+<p><strong>本报告记录一次真实双机应用层基准</strong>，不是评审签署表。结论只在
+<strong>ADR-0022 修订后的口径</strong>下成立：门槛为「≥ 可用链路理论上限 × 80%」，
+当前百兆隔离段取 <strong>≥ 10MB/s</strong>。原「千兆内网 1GiB ≥ 80MB/s」是历史时点值，
+在本百兆链路上<strong>不适用、也未宣称达到</strong>；链路升级至真千顿时自动恢复原口径。</p>
+</blockquote>
+<h2 id="h-doc-20--_1">一、结论摘要</h2>
+<p>2026-11-16T13:16:02Z，主机 B 用真实 HTTP Range 服务端提供 1GiB 确定性数据，
+主机 A 用项目真实 <code>internal/transport/http</code> Range Transport 下载并逐片校验：</p>
+<pre><code class="language-text">1 GiB (1073741824 bytes) in 91.367 s = 11.21 MB/s
+chunks verified: 4096 / 4096
+bytes verified: 1073741824 / 1073741824
+nfr_perf_01.met = true   (threshold &gt;= 10.00 MB/s, ADR-0022)
+</code></pre>
+<ul>
+<li>应用层吞吐 <strong>11.21 MB/s</strong>，同链路 iperf3 实测 <strong>94.15Mbps ≈ 11.22 MB/s</strong>
+  （单流与 8 流一致），应用层达到链路容量的 <strong>约 99.9%</strong>。</li>
+<li>ADR-0022 的 80% 门槛在当前链路约为 <strong>8.98 MB/s</strong>；本次采用更保守的
+  <strong>10 MB/s</strong>（约为链路的 89%）仍达标，因此结论不依赖「刚好压线」。</li>
+<li>证据归档于 <a href="evidence/nfr-perf-01-2026-11-16/"><code>docs/evidence/nfr-perf-01-2026-11-16/</code></a>：
+  <code>nfr_perf_01.json</code>、<code>iperf3-P1.json</code>、<code>iperf3-P8.json</code>、<code>link.json</code>、
+  <code>SHA256SUMS</code>。</li>
+</ul>
+<h2 id="h-doc-20--_2">二、拓扑与环境</h2>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>地址</th>
+<th>作用</th>
+<th>关键版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主机 B</td>
+<td>隔离段 <code>192.168.1.221/24</code>（另有 <code>192.168.1.239/32</code>）；控制面 NAT SSH <code>112.5.60.4:54022</code></td>
+<td><code>udperf --serve</code>：提供 1GiB <code>perf.bin</code>，支持 HTTP Range</td>
+<td>Ubuntu 23.x，kernel <code>6.2.0-39-generic</code>，iperf3 3.12</td>
+</tr>
+<tr>
+<td>主机 A</td>
+<td>隔离段 <code>192.168.1.222/24</code>；控制面 SSH <code>192.168.34.222</code></td>
+<td><code>udperf --url</code>：真实 <code>internal/transport/http</code> 下载并逐片校验</td>
+<td>Ubuntu 23.x，kernel <code>6.2.0-39-generic</code>，iperf3 3.12</td>
+</tr>
+<tr>
+<td>控制面</td>
+<td>macOS 工作站</td>
+<td>部署交叉编译的 <code>udperf</code>、触发两端命令</td>
+<td>Go 1.27.4，<code>linux/amd64</code>，<code>CGO_ENABLED=0</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>两机同处 <code>192.168.1.0/24</code>，保留外网出口用于控制与安装；<strong>不宣称物理断网</strong>。</li>
+<li>链路为百兆：iperf3 单流 / 8 流均约 <strong>94.15Mbps</strong>，非千兆。</li>
+</ul>
+<h2 id="h-doc-20--_3">三、可复跑命令</h2>
+<ol>
+<li><strong>构建与部署</strong>（控制面）：</li>
+</ol>
+<p><code>bash
+   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o udperf ./cmd/udperf
+   scp udperf root@192.168.34.222:/root/l4lab/bin/udperf
+   scp -P 54022 udperf root@112.5.60.4:/root/l4lab/bin/udperf</code></p>
+<ol start="2">
+<li><strong>主机 B 起服务端</strong>：</li>
+</ol>
+<p><code>bash
+   /root/l4lab/bin/udperf --serve \
+     --listen 192.168.1.221:18080 --bytes 1073741824</code></p>
+<p>首行输出 <code>{"schema":"ud.perf-serve/v1","url":"http://192.168.1.221:18080/perf.bin",...}</code>。</p>
+<ol start="3">
+<li><strong>主机 A 跑应用层基准</strong>：</li>
+</ol>
+<p><code>bash
+   /root/l4lab/bin/udperf \
+     --url http://192.168.1.221:18080/perf.bin \
+     --bytes 1073741824 --connections 4 \
+     --min-mb-s 10 --require-met \
+     --out /root/l4lab/evidence/nfr_perf_01_dualhost.json</code></p>
+<p>控制面也可用 <code>make perf-lab PERF_LAB_URL=http://192.168.1.221:18080/perf.bin</code>。</p>
+<ol start="4">
+<li><strong>链路对照（iperf3）</strong>：</li>
+</ol>
+<p><code>bash
+   # 主机 B
+   iperf3 -s
+   # 主机 A
+   iperf3 -c 192.168.1.221 -t 10 -P 1 --json
+   iperf3 -c 192.168.1.221 -t 10 -P 8 --json</code></p>
+<h2 id="h-doc-20--_4">四、实测数据</h2>
+<h3 id="h-doc-20--41-udperfv1">4.1 应用层（<code>ud.perf/v1</code>）</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工作量</td>
+<td>1GiB（<code>1073741824</code> 字节），4 连接，256KiB 分片</td>
+</tr>
+<tr>
+<td>传输路径</td>
+<td><code>internal/transport/http</code> 真实 Range 路径</td>
+</tr>
+<tr>
+<td>服务端</td>
+<td>主机 B <code>udperf --serve</code>，64KiB 确定性重复模式</td>
+</tr>
+<tr>
+<td>耗时</td>
+<td><code>91.367s</code>（<code>elapsed_ms=91367</code>）</td>
+</tr>
+<tr>
+<td>吞吐</td>
+<td><strong>11.207 MB/s</strong></td>
+</tr>
+<tr>
+<td>字节校验</td>
+<td><code>1073741824 / 1073741824</code></td>
+</tr>
+<tr>
+<td>分片校验</td>
+<td><code>4096 / 4096</code></td>
+</tr>
+<tr>
+<td>门槛</td>
+<td><code>≥ 10.00 MB/s</code>（ADR-0022，百兆段）</td>
+</tr>
+<tr>
+<td>判定</td>
+<td><strong><code>nfr_perf_01.met=true</code></strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="h-doc-20--42-iperf3-312">4.2 链路容量（iperf3 3.12）</h3>
+<table>
+<thead>
+<tr>
+<th>流数</th>
+<th>发送</th>
+<th>接收</th>
+<th>接收 MB/s</th>
+<th>重传</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>94.49Mbps</td>
+<td><strong>94.15Mbps</strong></td>
+<td><strong>11.224</strong></td>
+<td>75</td>
+</tr>
+<tr>
+<td>8</td>
+<td>95.27Mbps</td>
+<td><strong>94.14Mbps</strong></td>
+<td><strong>11.223</strong></td>
+<td>2418</td>
+</tr>
+</tbody>
+</table>
+<p>单流与 8 流接收速率一致，说明瓶颈是链路物理限速（约 100Mbps），
+不是 TCP 窗口或并发不足。</p>
+<h3 id="h-doc-20--43">4.3 口径换算</h3>
+<p><strong>单位说明</strong>：本项目 <code>udperf</code> 沿用既有记法，<code>MB/s = 1024 × 1024 字节/秒</code>
+（即 MiB/s），<code>1GiB / 91.367s</code> 与 <code>iperf3</code> 的换算都按此口径。按十进制 MB
+（10⁶ 字节）表示时，94.15Mbps 约为 <strong>11.77MB/s</strong>；ADR-0022 中的
+「94.1Mbps ≈ 11.8MB/s」即十进制表述，与本报告的 11.22MB/s 不矛盾。</p>
+<ul>
+<li>链路容量取 iperf3 接收值 <strong>11.223 MB/s</strong>（1024² 记法）。</li>
+<li>ADR-0022 的 80%：<code>11.223 × 0.8 = 8.978 MB/s</code>。</li>
+<li>本次采用门槛 <strong>10 MB/s</strong>（约为链路容量的 89.1%），比 80% 更严格。</li>
+<li>应用层 <strong>11.207 MB/s ÷ 11.223 MB/s ≈ 99.9%</strong>，高于门槛 12.1%。</li>
+</ul>
+<h2 id="h-doc-20--_5">五、证据与校验和</h2>
+<p>目录：<a href="evidence/nfr-perf-01-2026-11-16/"><code>docs/evidence/nfr-perf-01-2026-11-16/</code></a></p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>内容</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nfr_perf_01.json</code></td>
+<td>应用层基准完整报告（<code>ud.perf/v1</code>）</td>
+<td><code>418b5200deabafe761a4c7127ca3559a097751f83f7b49795936cfb54cd52b09</code></td>
+</tr>
+<tr>
+<td><code>iperf3-P1.json</code></td>
+<td>单流原始 JSON</td>
+<td><code>4eb22f151eacddd5867098ef63676d69c105db6c42b099c4cddb74752226c898</code></td>
+</tr>
+<tr>
+<td><code>iperf3-P8.json</code></td>
+<td>8 流原始 JSON</td>
+<td><code>9f426fd48310c3542d090e89fd9ae2b8bf28ed2a4308dc06fbf6b2f60d2196d1</code></td>
+</tr>
+<tr>
+<td><code>link.json</code></td>
+<td>链路容量汇总（<code>ud.lab-link/v1</code>）</td>
+<td><code>fbdfb47a11e1718bc205b8bb44df1a830c38b2c4b4ccb1097177e6247fb68fa7</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="h-doc-20--_6">六、边界与不宣称事项</h2>
+<ol>
+<li><strong>不是千兆达标</strong>：链路实测 94.15Mbps，结论只在 ADR-0022 的百兆段门槛下成立；
+   <strong>不宣称</strong>「千兆内网 ≥ 80MB/s」已达成。链路升级至真千兆后，必须按原
+   80MB/s 口径重跑，ADR-0022 的修订自动失效。</li>
+<li><strong>不是公网条件</strong>：两机在隔离段直连，没有 ISP、跨路由、丢包抖动等公网因素；
+   不宣称公网下载速度。</li>
+<li><strong>单次实测</strong>：本报告是一次可复跑的确定性测量，不是长期稳定性/长稳压测；
+   1000 任务常驻内存、并发信号量等其余 §5 指标不在本报告范围。</li>
+<li><strong>不替代 L4</strong>：<code>BT-01..BT-14</code> 是互操作判据，本报告是 HTTP Range 吞吐判据；
+   <code>docs/19</code> 的 14/14 不能替代本报告，反之亦然。</li>
+<li><strong>回环参考仍为 <code>met=false</code></strong>：<code>make perf</code> 的 <code>dist/perf.json</code> 继续固定
+   <code>nfr_perf_01.met=false</code>；只有本报告的双机模式可以置 <code>true</code>。</li>
+<li><strong><code>udperf</code> 的 lab guard</strong>：双机模式为访问隔离段私网地址，显式关闭
+   <code>BlockPrivateNetworks</code> 且只允许目标端口、禁重定向；该放宽只存在于
+   <code>cmd/udperf</code> 实验室命令，不影响产品默认 SSRF 策略。</li>
+</ol>
+<h2 id="h-doc-20--6">七、序 6 状态</h2>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L4 <code>BT-01..BT-14</code></td>
+<td>✅ 2026-11-16 真实双机 <strong>14/14 PASS</strong>（<code>docs/19</code>）</td>
+</tr>
+<tr>
+<td>NFR-PERF-01（ADR-0022 口径）</td>
+<td>✅ 本报告 <strong>met=true</strong>，11.21 MB/s ≥ 10 MB/s</td>
+</tr>
+<tr>
+<td>NFR-PERF-01（原千兆 80MB/s 口径）</td>
+<td>⚠️ 当前百兆链路不适用；升级后重跑</td>
+</tr>
+<tr>
+<td>评审组实名复签 / 法务与安全会签</td>
+<td>⏳ 待补（现有复签为发起人指令代行、非实名）</td>
+</tr>
+<tr>
+<td><code>14</code> R-10 反吸血风险复评</td>
+<td>⏳ 结论仍待评审确认</td>
+</tr>
+</tbody>
+</table>
+<p>技术验收项已全部满足；<strong>序 6 的关闭仍需治理复签完成</strong>，在此之前不得把
+「14/14 + NFR met」写成「序 6 已关闭」。</p>
+<h2 id="h-doc-20--_7">八、关联文档</h2>
+<p><a href="#/doc-12"><code>12</code></a> §5 ·
+<a href="#/doc-13"><code>13</code></a> §3 / §12 ·
+<a href="#/doc-14"><code>14</code></a> §11 ·
+<a href="#/doc-18"><code>18</code></a> §八 / §九 / §十 ·
+<a href="#/doc-19"><code>19</code></a> ·
+<a href="#/adr-0022">ADR-0022</a> ·
+<a href="#/readme"><code>docs/README</code> §三</a> · <a href="#/changelog"><code>CHANGELOG</code></a></p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/20-NFR-PERF-01双机应用层基准实测报告.md</code></div></article><article class="doc" id="doc-changelog" data-slug="changelog"><div class="doc-head"><h1>Changelog</h1><div class="doc-meta"></div></div><p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/" target="_blank" rel="noopener noreferrer">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target="_blank" rel="noopener noreferrer">Semantic Versioning</a>.</p>
 <p>版本语义：<code>0.x</code> 阶段为 P0 骨架期，次版本号对应里程碑（0.1.x = P0），修订号对应构建批次。
@@ -11891,6 +12235,38 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
 </ul>
 <h3 id="h-changelog--added">Added</h3>
 <ul>
+<li><strong>NFR-PERF-01 双机应用层基准达标：<code>cmd/udperf</code> 双机模式 + 11.21MB/s 实测（2026-11-16）</strong>：</li>
+<li><strong>代码</strong>：<code>cmd/udperf</code> 新增 <code>--serve</code> / <code>--listen</code> / <code>--advertise</code>
+    （对端提供 1GiB 确定性 HTTP Range 数据）、<code>--url</code>（用真实
+    <code>internal/transport/http</code> 下载远端 fixture）、<code>--min-mb-s</code> 与
+    <code>--require-met</code>（ADR-0022 门槛与退出码）。默认回环模式行为与
+    <code>nfr_perf_01.met=false</code> 完全不变。</li>
+<li><strong>安全边界</strong>：双机模式为访问隔离段私网地址，使用<strong>仅限本命令</strong>的
+    <code>SSRFGuard</code>（<code>BlockPrivateNetworks=false</code>、只允许目标端口、禁重定向）；
+    回环模式仍用严格 <code>NewDevGuard</code>。新增 <code>cmd/udperf/main_test.go</code>：
+    门槛边界、私网/端口守卫、pattern 确定性 3 组回归。</li>
+<li><strong>Makefile</strong>：新增 <code>perf-lab</code>（<code>PERF_LAB_URL</code> / <code>PERF_LAB_MIN_MB_S</code>），
+    不接入 CI；<code>make perf</code> 仍是回环参考。</li>
+<li><strong>实测</strong>：主机 B（<code>192.168.1.221</code>）<code>udperf --serve --bytes 1073741824</code>，
+    主机 A（<code>192.168.1.222</code>）<code>--url ... --connections 4 --min-mb-s 10
+    --require-met</code>：<strong>1GiB / 91.367s = 11.21MB/s，4096/4096 分片校验，
+    <code>nfr_perf_01.met=true</code></strong>。同链路 iperf3 3.12 单流 / 8 流接收均
+    <strong>94.15Mbps ≈ 11.22MB/s</strong>，应用层约为链路容量的 <strong>99.9%</strong>。</li>
+<li><strong>边界</strong>：这是 <strong>100Mbps 隔离段</strong>，按 ADR-0022「≥ 可用链路 × 80%」
+    取保守门槛 <strong>≥10MB/s</strong>（80% 约为 8.98MB/s）；<strong>不宣称</strong>原
+    「千兆内网 ≥80MB/s」达标，链路升级后须重跑、ADR-0022 自动失效。
+    <code>make perf</code> 的 <code>dist/perf.json</code> 仍固定 <code>met=false</code>，与双机证据不得混用。</li>
+<li><strong>证据与文档</strong>：证据归档 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>
+    （<code>nfr_perf_01.json</code> / <code>iperf3-P1.json</code> / <code>iperf3-P8.json</code> / <code>link.json</code> /
+    <code>SHA256SUMS</code>），新增 <a href="#/doc-20">20 NFR-PERF-01 双机应用层基准实测报告</a>；
+    同步 <code>docs/README</code> <strong>v1.15</strong>（门户 <strong>46 篇</strong>）、<code>12</code> <strong>v1.10</strong>、
+    <code>13</code> <strong>v0.18</strong>、<code>14</code> <strong>v1.10</strong>、<code>18</code> <strong>v0.8</strong>、<code>19</code> §七、根 <code>README.md</code>、
+    <code>tools/build_docs.py</code>（GROUPS / 横幅 / doc-20）。</li>
+<li><strong>本机门禁</strong>：<code>make lint</code> / <code>make test</code> / <code>go test -race ./...</code> 全绿；
+    <code>make build</code> 六平台成功；<code>make gates-strict</code> <strong>6 PASS / 0 WARN / 0 FAIL</strong>
+    （90 个链接模块、0 copyleft / 0 未识别、<code>no known vulnerabilities</code>）。</li>
+<li><strong>序 6 状态</strong>：技术验收项（L4 14/14 + NFR <code>met=true</code>）<strong>已全部满足</strong>；
+    仅余评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评，<strong>序 6 暂不标记关闭</strong>。</li>
 <li><strong>L4 真实实验室 14/14 PASS：14 条 harness 实装 + 双机执行 + 证据归档（2026-11-16）</strong>：</li>
 <li><strong>harness 实装</strong>：<code>cmd/udinteropx</code> 新增 <code>--l4-case BT-XX</code> /
     <code>UD_INTEROP_L4_CASE</code> 模式（<code>cmd/udinteropx/l4.go</code>），逐条输出单行 JSON 判定
@@ -14912,7 +15288,7 @@ L4 判据、不修改任何产品代码与门禁语义。在评审签署前，<c
 <li><input type="checkbox" disabled> 评审组复签时复核本 ADR 的验证强度下降风险</li>
 </ul><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/adr/ADR-0022-NFR-PERF-01性能口径修订.md</code></div></article><article class="doc" id="doc-root-readme" data-slug="root-readme"><div class="doc-head"><h1>Universal Downloader（通用下载器）</h1><div class="doc-meta"></div></div><p>跨平台的统一下载引擎：把 <strong>BT / 磁力 / ed2k / HTTP(S) / FTP(S) / SFTP / Metalink / 迅雷链接 / 视频网站 / Telegram / 微信</strong> 等来源，收敛到一条流水线、一个调度器、一份状态。</p>
 <blockquote>
-<p><strong>当前阶段：P0「有条件通过」的附加条件已于 2026-11-10 全部关闭，P1 进行中（WBS 8 / 9 / 7 / 10 已交付，WBS 11 互操作套件 v1 已交付；ADR-0021 路径 A 已落地并于 2026-11-16 按发起人指令复签（非实名会签，见其决议记录 R5），真实双机实验室已部署（双机同处 <code>192.168.1.0/24</code>、iperf3 实测 94.1Mbps，本机已装真实 chihaya、<code>l4-preflight</code> PRESENT 1 / MISSING 5 / UNVERIFIED 3、方案见 <code>tools/l4_lab_runbook.md</code>）；</strong>2026-11-16 两项发起人裁决<strong>：<code>BT-02</code>/<code>BT-11</code> 注册表由 <code>productGap</code> 翻转为 <code>gateExternal</code>（本地现 14 SKIPPED / 0 UNSUPPORTED，仅 verified upload 才 PASS）、ADR-0022 将 NFR-PERF-01 门槛修订为「≥ 可用链路理论上限 × 80%」（百兆段 ≥10MB/s，原千兆 80MB/s 时点值保留不改）；</strong>L4 真实客户端矩阵已于 2026-11-16 在双机实验室真实执行 <code>BT-01..BT-14</code>，14/14 PASS、<code>release_gate_met=true</code><strong>（报告 <a href="#/doc-19"><code>docs/19</code></a>，证据 <a href="docs/evidence/l4-2026-11-16/"><code>docs/evidence/l4-2026-11-16/</code></a>），NFR-PERF-01 双机应用层基准仍未执行，序 6 仍开放）。</strong> 当前态：<strong>16 个门禁包</strong>全部达标、<strong>90 个链接模块</strong> 0 copyleft / 0 未识别，<code>make gates-strict</code> 本机 <strong>6 PASS / 0 WARN / 0 FAIL</strong>（CI 于 2026-11-13 的 <code>cover</code> 步骤曾因 WAL 偶发 <code>SQLITE_BUSY</code> 失败，已在 <code>internal/store</code> 以有界事务重放修复，CI run <code>43399289527</code> / <code>43400218985</code> 均 <code>quality: success</code>；后续 <code>679a26e</code> run <code>43402970475</code> 与 <code>c3fbc70</code> run <code>43567640194</code> 于 2026-11-14 核验亦均 <code>quality: success</code>，另有被取代的 API 推送尝试 run <code>43566313113</code> 为 <code>failure</code>，属推送方式问题、非 flake 亦非门禁回归；后续 <code>84871b0</code> run <code>43570105065</code>、<code>0ca9164</code> run <code>43580889196</code> 与 <code>9395343</code> run <code>43595391886</code> 于 2026-11-14 核验亦均 <code>quality: success</code>，另 <code>915f783</code> run <code>43604236428</code> 于 2026-11-14 核验为 <code>quality: success</code>、<code>6ee661f</code> run <code>43695083832</code> 于 2026-11-15 核验为 <code>quality: success</code>，详见 <code>CHANGELOG</code> 与 <code>13</code> §4），<code>make interop</code> 本地 9 例全绿；本机 <strong>aria2-next 3.0.9 + 真实 libtorrent 2.1.1 的 BX-01..BX-06 跨客户端证据（6/6 PASS，sha256 校验，均单向回环补充、不计入 L4 门禁；BX-05 / BX-06 为我方做种半向）</strong>；<code>make perf</code> 产出 1GiB 回环参考基准（固定 <code>nfr_perf_01.met=false</code>）；唯一速查见 <a href="#/readme"><code>docs/README</code> §三</a>，进度真值源为 <a href="#/changelog"><code>CHANGELOG</code></a> 与 <a href="#/doc-14"><code>docs/14</code> §11</a>。
+<p><strong>当前阶段：P0「有条件通过」的附加条件已于 2026-11-10 全部关闭，P1 进行中（WBS 8 / 9 / 7 / 10 已交付，WBS 11 互操作套件 v1 已交付；ADR-0021 路径 A 已落地并于 2026-11-16 按发起人指令复签（非实名会签，见其决议记录 R5），真实双机实验室已部署（双机同处 <code>192.168.1.0/24</code>、iperf3 实测 94.1Mbps，本机已装真实 chihaya、<code>l4-preflight</code> PRESENT 1 / MISSING 5 / UNVERIFIED 3、方案见 <code>tools/l4_lab_runbook.md</code>）；</strong>2026-11-16 两项发起人裁决<strong>：<code>BT-02</code>/<code>BT-11</code> 注册表由 <code>productGap</code> 翻转为 <code>gateExternal</code>（本地现 14 SKIPPED / 0 UNSUPPORTED，仅 verified upload 才 PASS）、ADR-0022 将 NFR-PERF-01 门槛修订为「≥ 可用链路理论上限 × 80%」（百兆段 ≥10MB/s，原千兆 80MB/s 时点值保留不改）；</strong>L4 真实客户端矩阵已于 2026-11-16 在双机实验室真实执行 <code>BT-01..BT-14</code>，14/14 PASS、<code>release_gate_met=true</code><strong>（报告 <a href="#/doc-19"><code>docs/19</code></a>，证据 <a href="docs/evidence/l4-2026-11-16/"><code>docs/evidence/l4-2026-11-16/</code></a>），NFR-PERF-01 双机应用层基准同日实测 <strong>11.21MB/s ≥ 10MB/s、<code>met=true</code></strong>（ADR-0022 百兆段口径，报告 <a href="#/doc-20"><code>docs/20</code></a>），序 6 仅余评审实名复签 / 法务与安全会签 / R-10 复评）。</strong> 当前态：<strong>16 个门禁包</strong>全部达标、<strong>90 个链接模块</strong> 0 copyleft / 0 未识别，<code>make gates-strict</code> 本机 <strong>6 PASS / 0 WARN / 0 FAIL</strong>（CI 于 2026-11-13 的 <code>cover</code> 步骤曾因 WAL 偶发 <code>SQLITE_BUSY</code> 失败，已在 <code>internal/store</code> 以有界事务重放修复，CI run <code>43399289527</code> / <code>43400218985</code> 均 <code>quality: success</code>；后续 <code>679a26e</code> run <code>43402970475</code> 与 <code>c3fbc70</code> run <code>43567640194</code> 于 2026-11-14 核验亦均 <code>quality: success</code>，另有被取代的 API 推送尝试 run <code>43566313113</code> 为 <code>failure</code>，属推送方式问题、非 flake 亦非门禁回归；后续 <code>84871b0</code> run <code>43570105065</code>、<code>0ca9164</code> run <code>43580889196</code> 与 <code>9395343</code> run <code>43595391886</code> 于 2026-11-14 核验亦均 <code>quality: success</code>，另 <code>915f783</code> run <code>43604236428</code> 于 2026-11-14 核验为 <code>quality: success</code>、<code>6ee661f</code> run <code>43695083832</code> 于 2026-11-15 核验为 <code>quality: success</code>，详见 <code>CHANGELOG</code> 与 <code>13</code> §4），<code>make interop</code> 本地 9 例全绿；本机 <strong>aria2-next 3.0.9 + 真实 libtorrent 2.1.1 的 BX-01..BX-06 跨客户端证据（6/6 PASS，sha256 校验，均单向回环补充、不计入 L4 门禁；BX-05 / BX-06 为我方做种半向）</strong>；<code>make perf</code> 产出 1GiB 回环参考基准（固定 <code>nfr_perf_01.met=false</code>）；唯一速查见 <a href="#/readme"><code>docs/README</code> §三</a>，进度真值源为 <a href="#/changelog"><code>CHANGELOG</code></a> 与 <a href="#/doc-14"><code>docs/14</code> §11</a>。
 仓库已包含可运行的 Go 代码：HTTP(S) / FTP(S) / SFTP 直链与 BT / 磁力均能走完
 <code>Resolver → Resource → Transport → PostProcessor → Store</code> 全流水线。
 <strong>P1 WBS 8 已交付（2026-11-10）</strong>：<code>thunder://</code> / <code>flashget://</code> / <code>qqdl://</code> 解码与 Metalink
@@ -14958,8 +15334,13 @@ BEP 15 UDP tracker（compact IPv4/IPv6、passkey、故障注入）、独立 seed
 <code>BT-03</code> 完成真实双向，<code>BT-04</code> 走隔离段本地真实 DHT，<code>BT-08</code> / <code>BT-14</code> 有抓包归档。
 报告见 <a href="#/doc-19"><code>docs/19</code></a>，原始证据与 SHA-256 见
 <a href="docs/evidence/l4-2026-11-16/"><code>docs/evidence/l4-2026-11-16/</code></a>。
-<strong>边界</strong>：受控实验室、指定客户端版本，不等于公网全矩阵 / PT / 千兆性能达标；
-NFR-PERF-01 双机应用层基准仍未执行，序 6 仍开放。</p>
+<strong>边界</strong>：受控实验室、指定客户端版本，不等于公网全矩阵 / PT / 千兆性能达标。
+同日 NFR-PERF-01 双机应用层基准也已执行：1GiB / 91.367s = <strong>11.21MB/s</strong>、
+4096/4096 分片校验，ADR-0022 百兆段门槛 ≥10MB/s，<code>nfr_perf_01.met=true</code>；
+iperf3 单流/8 流均 94.15Mbps ≈ 11.22MB/s。报告
+<a href="#/doc-20"><code>docs/20</code></a>，证据
+<a href="docs/evidence/nfr-perf-01-2026-11-16/"><code>docs/evidence/nfr-perf-01-2026-11-16/</code></a>。
+<strong>不宣称原千兆 80MB/s 达标</strong>；技术验收项已全部满足，序 6 仅余治理复签。</p>
 <p><strong>2026-11-16 时点口径（上文 12 SKIPPED / 2 UNSUPPORTED 为套件 v1 时点值保留不改）</strong>：
 发起人裁决翻转 <code>BT-02</code> / <code>BT-11</code> 注册表为 <code>gateExternal</code>（由隔离段真实 harness 判定，
 仅 verified upload 才 PASS），本地 <code>make interop</code> 现为 <strong>23 例：9 PASS / 0 FAIL /
@@ -15220,14 +15601,14 @@ go run ./cmd/udctl show &lt;id&gt;
 <li><code>MemoryCredentialStore</code> 是进程内参考实现，<code>mem://</code> 引用在 daemon 重启后失效；OS 钥匙串适配器待 P1。</li>
 <li>非回环监听必须配置 <code>remoteToken</code>（否则拒绝启动），且目前只有 Bearer 鉴权，无 TLS / Origin 校验。</li>
 <li><code>postProcess</code> 只支持 <code>none</code>；最小 UI 是契约验证占位件（OPEN-02 已定档 Flutter，正式 UI 不进入 P1 编码范围）。</li>
-<li>CycloneDX SBOM / <code>govulncheck</code> / 许可证扫描 / 覆盖率报告 / 回滚演练已由 <code>make gates-strict</code> 执行，覆盖率全部达标；WBS 11 起互操作套件 v1 的<strong>本地自动化部分</strong>已由 <code>make interop</code> 执行，但 <code>BT-01..BT-14</code> L4 真实客户端矩阵与 NFR-PERF-01 千兆内网性能基准<strong>仍未执行</strong>，发布门禁未通过（见 <code>dist/INTEROP.md</code>、<code>docs/17</code> §3/§5）。</li>
+<li>CycloneDX SBOM / <code>govulncheck</code> / 许可证扫描 / 覆盖率报告 / 回滚演练已由 <code>make gates-strict</code> 执行，覆盖率全部达标；WBS 11 起互操作套件 v1 的<strong>本地自动化部分</strong>已由 <code>make interop</code> 执行；<code>BT-01..BT-14</code> L4 真实客户端矩阵已于 2026-11-16 在双机实验室 <strong>14/14 PASS</strong>（<code>docs/19</code>），NFR-PERF-01 双机应用层基准同日 <strong><code>met=true</code></strong>（11.21MB/s ≥ 10MB/s，ADR-0022，<code>docs/20</code>）。技术验收项已满足，序 6 仅余评审实名复签等治理项；<strong>不宣称公网全矩阵 / PT / 千兆 80MB/s 达标</strong>。</li>
 </ol>
 <p>完整清单见 <a href="#/doc-11"><code>docs/11</code> §10</a> 与 <a href="#/doc-14"><code>docs/14</code> §9</a>。</p>
 <h2 id="h-root-readme--_5">许可证</h2>
 <p><strong>代码：MPL-2.0</strong>（2026-11-09 定档，见 <a href="LICENSE"><code>LICENSE</code></a>）；<strong>文档：CC-BY-4.0</strong>。发布二进制须随附 <code>LICENSE</code> 与 <code>THIRD_PARTY_NOTICES.md</code>，修改过的 MPL 文件按 MPL-2.0 提供并记录修改清单。依赖许可证矩阵见 <code>docs/10-技术选型与依赖清单.md</code> §4，P0 实际锁定依赖见其 §7。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>README.md</code></div></article></div></main>
 </div>
 <script>
-const ALIASES = {"01-项目章程": "doc-01", "02-术语表": "doc-02", "03-需求规格说明书-srs": "doc-03", "04-架构设计说明书-sad": "doc-04", "05-详细设计说明书-lld": "doc-05", "06-数据模型与存储设计": "doc-06", "16-互操作性与兼容性设计": "doc-16", "07-接口规范-api": "doc-07", "08-扩展与插件开发规范": "doc-08", "09-sidecar与外部依赖契约": "doc-09", "10-技术选型与依赖清单": "doc-10", "11-安全与合规设计": "doc-11", "12-测试策略与测试计划": "doc-12", "13-构建发布与运维": "doc-13", "14-项目计划与风险管理": "doc-14", "15-开发规范与协作流程": "doc-15", "17-p0里程碑评审材料": "doc-17", "18-序6评审与l4实验室准备材料包": "doc-18", "19-l4实验室实测与发布门禁报告": "doc-19", "adr-readme": "adr-index", "adr-adr-0001-核心语言选择go": "adr-0001", "adr-adr-0002-统一流水线与单调度器": "adr-0002", "adr-adr-0003-完全移除aria2二进制": "adr-0003", "adr-adr-0004-bt引擎选用anacrolix-torrent": "adr-0004", "adr-adr-0005-ed2k引擎选用goed2k": "adr-0005", "adr-adr-0006-metalink纯go解析": "adr-0006", "adr-adr-0007-迅雷链接仅解码不支持p2sp": "adr-0007", "adr-adr-0008-sidecar边界与最小集合": "adr-0008", "adr-adr-0009-telegram改用gotd-td": "adr-0009", "adr-adr-0010-视频站双层解析策略": "adr-0010", "adr-adr-0011-ffmpeg降级为可选后处理插件": "adr-0011", "adr-adr-0012-postprocessor本地文件契约": "adr-0012", "adr-adr-0013-resource协议身份字段一次性建模": "adr-0013", "adr-adr-0014-插件引擎goja起步": "adr-0014", "adr-adr-0015-sqlite与系统钥匙串": "adr-0015", "adr-adr-0016-daemon加可替换ui": "adr-0016", "adr-adr-0017-p2p诚实身份与pt非承诺": "adr-0017", "adr-adr-0018-微信能力隔离为可选插件": "adr-0018", "adr-adr-0019-p0不实现aria2-rpc兼容层": "adr-0019", "adr-adr-0020-p0实现基线与范围声明": "adr-0020", "adr-adr-0021-l4门禁与p2p礼仪范围冲突裁决提案": "adr-0021", "adr-adr-0022-nfr-perf-01性能口径修订": "adr-0022"};
+const ALIASES = {"01-项目章程": "doc-01", "02-术语表": "doc-02", "03-需求规格说明书-srs": "doc-03", "04-架构设计说明书-sad": "doc-04", "05-详细设计说明书-lld": "doc-05", "06-数据模型与存储设计": "doc-06", "16-互操作性与兼容性设计": "doc-16", "07-接口规范-api": "doc-07", "08-扩展与插件开发规范": "doc-08", "09-sidecar与外部依赖契约": "doc-09", "10-技术选型与依赖清单": "doc-10", "11-安全与合规设计": "doc-11", "12-测试策略与测试计划": "doc-12", "13-构建发布与运维": "doc-13", "14-项目计划与风险管理": "doc-14", "15-开发规范与协作流程": "doc-15", "17-p0里程碑评审材料": "doc-17", "18-序6评审与l4实验室准备材料包": "doc-18", "19-l4实验室实测与发布门禁报告": "doc-19", "20-nfr-perf-01双机应用层基准实测报告": "doc-20", "adr-readme": "adr-index", "adr-adr-0001-核心语言选择go": "adr-0001", "adr-adr-0002-统一流水线与单调度器": "adr-0002", "adr-adr-0003-完全移除aria2二进制": "adr-0003", "adr-adr-0004-bt引擎选用anacrolix-torrent": "adr-0004", "adr-adr-0005-ed2k引擎选用goed2k": "adr-0005", "adr-adr-0006-metalink纯go解析": "adr-0006", "adr-adr-0007-迅雷链接仅解码不支持p2sp": "adr-0007", "adr-adr-0008-sidecar边界与最小集合": "adr-0008", "adr-adr-0009-telegram改用gotd-td": "adr-0009", "adr-adr-0010-视频站双层解析策略": "adr-0010", "adr-adr-0011-ffmpeg降级为可选后处理插件": "adr-0011", "adr-adr-0012-postprocessor本地文件契约": "adr-0012", "adr-adr-0013-resource协议身份字段一次性建模": "adr-0013", "adr-adr-0014-插件引擎goja起步": "adr-0014", "adr-adr-0015-sqlite与系统钥匙串": "adr-0015", "adr-adr-0016-daemon加可替换ui": "adr-0016", "adr-adr-0017-p2p诚实身份与pt非承诺": "adr-0017", "adr-adr-0018-微信能力隔离为可选插件": "adr-0018", "adr-adr-0019-p0不实现aria2-rpc兼容层": "adr-0019", "adr-adr-0020-p0实现基线与范围声明": "adr-0020", "adr-adr-0021-l4门禁与p2p礼仪范围冲突裁决提案": "adr-0021", "adr-adr-0022-nfr-perf-01性能口径修订": "adr-0022"};
 const navItems = [...document.querySelectorAll('.nav-item')];
 const docs = [...document.querySelectorAll('.doc')];
 const main = document.getElementById('main');

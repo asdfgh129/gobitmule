@@ -1,0 +1,22 @@
+{
+  "schema": "ud.lab-link/v1",
+  "tool": "iperf3 3.12",
+  "path": "host A 192.168.1.222 -> host B 192.168.1.221",
+  "measured_at": "2026-11-16",
+  "streams": {
+    "P1": {
+      "bits_per_second_sent": 94487520.8123127,
+      "bits_per_second_received": 94150914.29026625,
+      "MB_per_s_received": 11.223663603099137,
+      "retransmits": 75,
+      "seconds": 10.005083
+    },
+    "P8": {
+      "bits_per_second_sent": 95268151.53803916,
+      "bits_per_second_received": 94144085.89470823,
+      "MB_per_s_received": 11.222849594915894,
+      "retransmits": 2418,
+      "seconds": 10.00667
+    }
+  }
+}

@@ -22,7 +22,7 @@ PLATFORMS := \
 	linux/amd64 linux/arm64 \
 	windows/amd64 windows/arm64
 
-.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
+.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf perf-lab rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
 
 all: lint test build docs
 
@@ -80,10 +80,21 @@ bench:
 	$(PYTHON) tools/gates.py bench
 
 # 1 GiB loopback reference measurement over the real HTTP Range Transport.
-# This is NOT NFR-PERF-01 (which needs a two-host gigabit LAN); dist/perf.json
-# always records nfr_perf_01.met=false. CI does not run this target.
+# This is NOT NFR-PERF-01; dist/perf.json always records nfr_perf_01.met=false.
+# CI does not run this target.
 perf:
 	$(GO) run ./cmd/udperf --out $(DIST)/perf.json
+
+# Two-host NFR-PERF-01 lab run (docs/12 §5, ADR-0022). Start the peer first:
+#   udperf --serve --listen <peer-ip>:18080
+# then point PERF_LAB_URL at http://<peer-ip>:18080/perf.bin. Only this mode
+# can set nfr_perf_01.met=true; CI never runs it.
+PERF_LAB_URL ?=
+PERF_LAB_MIN_MB_S ?= 10
+
+perf-lab:
+	@test -n "$(PERF_LAB_URL)" || { echo "perf-lab: set PERF_LAB_URL=http://<peer-ip>:18080/perf.bin"; exit 2; }
+	$(GO) run ./cmd/udperf --url $(PERF_LAB_URL) --bytes 1073741824 --connections 4 --min-mb-s $(PERF_LAB_MIN_MB_S) --require-met --out $(DIST)/perf_lab.json
 
 rollback-drill:
 	$(PYTHON) tools/gates.py rollback
