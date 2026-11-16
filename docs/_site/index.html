@@ -251,7 +251,9 @@ padding-top:14px;margin-top:18px}
 <strong>边界</strong>：这是百兆链路，<strong>不宣称原「千兆内网 ≥80MB/s」达标</strong>；链路升级后须按原口径重跑，
 ADR-0022 自动失效。<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>met=false</code>。
 技术验收项（L4 14/14 + NFR met）已全部满足，<strong>序 6 仍不关闭</strong>：评审组实名复签 /
-法务与安全会签 / <code>14</code> R-10 复评结论待补。门户文档数 <strong>45 → 46 篇</strong>。</p>
+法务与安全会签 / <code>14</code> R-10 复评结论待补。门户文档数 <strong>45 → 46 篇</strong>。
+<strong>CI</strong>：本包 <code>38bd52c</code> run <code>43875659670</code> 为 <strong><code>quality: success</code></strong>；
+CI 不执行双机基准。</p>
 <p><strong>v1.14 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；序 6 仍因 NFR-PERF-01 与复签开放；下文各版说明为更早时点值，保留不改）</strong>：
 双机隔离段实验室（主机 A <code>192.168.1.222</code> / 主机 B <code>192.168.1.221</code> + <code>192.168.1.239</code>）
 以真实外部 harness 执行 <code>BT-01..BT-14</code>，<strong>14/14 PASS</strong>、0 FAIL / 0 SKIPPED /
@@ -792,7 +794,7 @@ ADR-0020 时点说明与根 <code>README.md</code> / <code>CHANGELOG.md</code>�
 </tr>
 <tr>
 <td>严格门禁</td>
-<td><code>make gates-strict</code> <strong>6 PASS / 0 WARN / 0 FAIL</strong>（本机；CI 于 2026-11-13 的 run <code>43393512271</code> 曾因 WAL 偶发 <code>SQLITE_BUSY</code> 在 <code>cover</code> 步骤 <strong>5 PASS / 0 WARN / 1 FAIL</strong>，已修复，CI run <code>43399289527</code>（代码修复）与 <code>43400218985</code>（文档复验）均 <code>quality: success</code>（严格门禁 6 PASS / 0 WARN / 0 FAIL）；后续 <code>679a26e</code> run <code>43402970475</code> 与 <code>c3fbc70</code> run <code>43567640194</code> 于 2026-11-14 核验亦均 <code>quality: success</code>，被取代的 API 推送尝试 run <code>43566313113</code> 为 <code>failure</code>（非 flake、非门禁回归，详见 v1.6 变更）；后续 <code>84871b0</code> run <code>43570105065</code> 与 <code>0ca9164</code> run <code>43580889196</code> 于 2026-11-14 核验亦均 <code>quality: success</code>（见 v1.7 / v1.8 时点口径）；后续 <code>9395343</code> run <code>43595391886</code> 于 2026-11-14 核验为 <code>quality: success</code>（见 v1.9 时点口径）；后续 <code>915f783</code> run <code>43604236428</code> 于 2026-11-14 核验为 <code>quality: success</code>（见 v1.10 时点口径）；后续 <code>6ee661f</code> run <code>43695083832</code> 于 2026-11-15 核验亦为 <code>quality: success</code>（见 v1.11 时点口径）；后续 <code>c2aaaa4</code> run <code>43696583823</code> 与 <code>e893c82</code> run <code>43789016799</code> 于 2026-11-16 核验均为 <code>quality: success</code>（见 v1.12 时点口径）；后续 <code>1f15649</code> run <code>43791092155</code> 于 2026-11-16 核验亦为 <code>quality: success</code>（见 v1.13 时点口径）；后续 <code>eda8a6c</code> run <code>43871031642</code> 于 2026-11-16 核验亦为 <code>quality: success</code>（见 v1.14 时点口径））</td>
+<td><code>make gates-strict</code> <strong>6 PASS / 0 WARN / 0 FAIL</strong>（本机；CI 于 2026-11-13 的 run <code>43393512271</code> 曾因 WAL 偶发 <code>SQLITE_BUSY</code> 在 <code>cover</code> 步骤 <strong>5 PASS / 0 WARN / 1 FAIL</strong>，已修复，CI run <code>43399289527</code>（代码修复）与 <code>43400218985</code>（文档复验）均 <code>quality: success</code>（严格门禁 6 PASS / 0 WARN / 0 FAIL）；后续 <code>679a26e</code> run <code>43402970475</code> 与 <code>c3fbc70</code> run <code>43567640194</code> 于 2026-11-14 核验亦均 <code>quality: success</code>，被取代的 API 推送尝试 run <code>43566313113</code> 为 <code>failure</code>（非 flake、非门禁回归，详见 v1.6 变更）；后续 <code>84871b0</code> run <code>43570105065</code> 与 <code>0ca9164</code> run <code>43580889196</code> 于 2026-11-14 核验亦均 <code>quality: success</code>（见 v1.7 / v1.8 时点口径）；后续 <code>9395343</code> run <code>43595391886</code> 于 2026-11-14 核验为 <code>quality: success</code>（见 v1.9 时点口径）；后续 <code>915f783</code> run <code>43604236428</code> 于 2026-11-14 核验为 <code>quality: success</code>（见 v1.10 时点口径）；后续 <code>6ee661f</code> run <code>43695083832</code> 于 2026-11-15 核验亦为 <code>quality: success</code>（见 v1.11 时点口径）；后续 <code>c2aaaa4</code> run <code>43696583823</code> 与 <code>e893c82</code> run <code>43789016799</code> 于 2026-11-16 核验均为 <code>quality: success</code>（见 v1.12 时点口径）；后续 <code>1f15649</code> run <code>43791092155</code> 于 2026-11-16 核验亦为 <code>quality: success</code>（见 v1.13 时点口径）；后续 <code>eda8a6c</code> run <code>43871031642</code> 于 2026-11-16 核验亦为 <code>quality: success</code>（见 v1.14 时点口径）；后续 <code>38bd52c</code> run <code>43875659670</code> 于 2026-11-16 核验亦为 <code>quality: success</code>（见 v1.15 时点口径））</td>
 <td><code>dist/gates.json</code>、<code>.github/workflows/ci.yml</code>、<code>13</code> §4</td>
 </tr>
 <tr>
@@ -8266,7 +8268,8 @@ v4 <code>&lt;url priority&gt;</code> 排序、v3 <code>preference</code> 反转�
 <code>--require-met</code> 判定。实测 <strong>11.21MB/s ≥ 10MB/s</strong>（ADR-0022 百兆段），
 <code>nfr_perf_01.met=true</code>；证据 <code>docs/evidence/nfr-perf-01-2026-11-16/</code>，报告 <code>docs/20</code>。
 <code>make perf</code> 回环仍 <code>met=false</code>；<strong>原千兆 80MB/s 未宣称达标</strong>。
-已知差异段同步：L4 与 NFR 均为<strong>人工实验室执行、不接入 CI</strong>。</p>
+已知差异段同步：L4 与 NFR 均为<strong>人工实验室执行、不接入 CI</strong>。
+<strong>CI 结论</strong>：本包 <code>38bd52c</code> run <code>43875659670</code> 为 <strong><code>quality: success</code></strong>。</p>
 <p><strong>v0.17 变更 / 2026-11-16 时点口径（L4 真实实验室 14/14 PASS；下文各版说明为更早时点值，保留不改）</strong>：
 <code>make l4-run L4_CONFIG=tools/l4_external_config.lab.json L4_CASE_TIMEOUT=840s</code>
 在双机实验室执行 <code>BT-01..BT-14</code> <strong>14/14 PASS</strong>，证据
@@ -8950,6 +8953,9 @@ run <code>43791092155</code> 为 <strong><code>quality: success</code></strong>�
 <p><strong>后续提交 CI 结论补记（<code>13</code> v0.17，2026-11-16 核验）</strong>：<code>eda8a6c</code>
 （真实双机 L4 14/14 PASS + 14 条 harness 实装 + 证据归档）run <code>43871031642</code>
 为 <strong><code>quality: success</code></strong>；同样不改写上文更早原文。</p>
+<p><strong>后续提交 CI 结论补记（<code>13</code> v0.18，2026-11-16 核验）</strong>：<code>38bd52c</code>
+（NFR-PERF-01 双机应用层 11.21MB/s 达标 + <code>cmd/udperf</code> 双机模式）
+run <code>43875659670</code> 为 <strong><code>quality: success</code></strong>；同样不改写上文更早原文。</p>
 </blockquote>
 <p><strong>已知差异</strong>：可复现构建镜像固定 digest、代码签名/公证、Android/iOS 目标、<strong>L4 真实客户端互操作外部矩阵（<code>BT-01..BT-14</code>）</strong>、<strong>NFR-PERF-01 双机应用层 1GiB 基准</strong> 均未纳入 CI。WBS 11 已把 <code>make interop</code> 的<strong>本地回环子集</strong>接入 CI，但其 <code>release_gate_met</code> 为 <code>false</code>，<strong>不得据此宣称 L4 或性能门禁通过</strong>。<strong>2026-11-16 更新</strong>：L4 矩阵已在双机实验室<strong>人工执行并 14/14 PASS</strong>，证据归档 <code>docs/evidence/l4-2026-11-16/</code>、报告 <code>docs/19</code>；该执行仍<strong>不接入 CI</strong>（真实实验室不可 CI 化）。NFR-PERF-01 双机应用层基准已于同日<strong>人工执行并 <code>met=true</code></strong>（11.21MB/s ≥ 10MB/s，<code>docs/20</code>），同样<strong>不接入 CI</strong>；<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code>，不得与双机证据混用。覆盖率阈值强制（<code>gates.py --strict</code>）已于 2026-11-10 纳入 CI（<code>make gates-strict</code>），当前 <strong>16 个受门禁包</strong>全部达标（WBS 9 新增 3 个、WBS 10 新增 <code>internal/plugin</code>、WBS 11 新增 <code>internal/interop</code>），当前态见 <code>12</code> §9 与 <code>docs/README</code> §三；<code>17</code> §5 为 P0 时点快照。构建时若默认代理不可达，可用 <code>GOPROXY=https://goproxy.cn,direct make build</code> 覆盖（<code>Makefile</code> 已支持）。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-16 · 源文件 <code>docs/13-构建发布与运维.md</code></div></article><article class="doc" id="doc-doc-14" data-slug="doc-14"><div class="doc-head"><h1>14 项目计划与风险管理</h1><div class="doc-meta"><span class="badge">草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`，序 6 仅余治理复签）</span>文档编号：UD-DOC-14 ｜ 版本：v1.10 ｜ 状态：草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；**L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`**，序 6 仅余治理复签） ｜ 日期：2026-11-16</div></div><blockquote>
 <p><strong>v1.10 变更 / 2026-11-16 时点口径（NFR-PERF-01 双机基准 met=true；序 6 仅余治理项）</strong>：
@@ -12114,6 +12120,9 @@ nfr_perf_01.met = true   (threshold &gt;= 10.00 MB/s, ADR-0022)
 </tr>
 </tbody>
 </table>
+<p><strong>CI 边界</strong>：代码提交 <code>38bd52c</code> 的 CI run <code>43875659670</code> 为 <code>quality: success</code>
+（lint / 测试 / 六平台构建 / 严格门禁 / 本地回环套件 / 文档链接校验），
+但 <strong>CI 不执行本报告的双机基准</strong>；<code>11.21MB/s</code> 只来自 2026-11-16 的人工实验室执行。</p>
 <h2 id="h-doc-20--_6">六、边界与不宣称事项</h2>
 <ol>
 <li><strong>不是千兆达标</strong>：链路实测 94.15Mbps，结论只在 ADR-0022 的百兆段门槛下成立；
@@ -12265,6 +12274,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
 <li><strong>本机门禁</strong>：<code>make lint</code> / <code>make test</code> / <code>go test -race ./...</code> 全绿；
     <code>make build</code> 六平台成功；<code>make gates-strict</code> <strong>6 PASS / 0 WARN / 0 FAIL</strong>
     （90 个链接模块、0 copyleft / 0 未识别、<code>no known vulnerabilities</code>）。</li>
+<li><strong>CI</strong>：<code>38bd52c</code> run <code>43875659670</code>（P0 CI）结论 <strong><code>success</code></strong>；
+    CI 只跑 lint / 测试 / 构建 / 门禁 / 本地回环套件，不执行双机基准。</li>
 <li><strong>序 6 状态</strong>：技术验收项（L4 14/14 + NFR <code>met=true</code>）<strong>已全部满足</strong>；
     仅余评审组实名复签 / 法务与安全会签 / <code>14</code> R-10 复评，<strong>序 6 暂不标记关闭</strong>。</li>
 <li><strong>L4 真实实验室 14/14 PASS：14 条 harness 实装 + 双机执行 + 证据归档（2026-11-16）</strong>：</li>

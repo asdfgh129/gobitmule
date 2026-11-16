@@ -96,6 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **本机门禁**：`make lint` / `make test` / `go test -race ./...` 全绿；
     `make build` 六平台成功；`make gates-strict` **6 PASS / 0 WARN / 0 FAIL**
     （90 个链接模块、0 copyleft / 0 未识别、`no known vulnerabilities`）。
+  - **CI**：`38bd52c` run `43875659670`（P0 CI）结论 **`success`**；
+    CI 只跑 lint / 测试 / 构建 / 门禁 / 本地回环套件，不执行双机基准。
   - **序 6 状态**：技术验收项（L4 14/14 + NFR `met=true`）**已全部满足**；
     仅余评审组实名复签 / 法务与安全会签 / `14` R-10 复评，**序 6 暂不标记关闭**。
 - **L4 真实实验室 14/14 PASS：14 条 harness 实装 + 双机执行 + 证据归档（2026-11-16）**：

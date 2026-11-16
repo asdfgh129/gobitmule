@@ -128,6 +128,10 @@ nfr_perf_01.met = true   (threshold >= 10.00 MB/s, ADR-0022)
 | `iperf3-P8.json` | 8 流原始 JSON | `9f426fd48310c3542d090e89fd9ae2b8bf28ed2a4308dc06fbf6b2f60d2196d1` |
 | `link.json` | 链路容量汇总（`ud.lab-link/v1`） | `fbdfb47a11e1718bc205b8bb44df1a830c38b2c4b4ccb1097177e6247fb68fa7` |
 
+**CI 边界**：代码提交 `38bd52c` 的 CI run `43875659670` 为 `quality: success`
+（lint / 测试 / 六平台构建 / 严格门禁 / 本地回环套件 / 文档链接校验），
+但 **CI 不执行本报告的双机基准**；`11.21MB/s` 只来自 2026-11-16 的人工实验室执行。
+
 ## 六、边界与不宣称事项
 
 1. **不是千兆达标**：链路实测 94.15Mbps，结论只在 ADR-0022 的百兆段门槛下成立；
