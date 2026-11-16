@@ -110,7 +110,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `12` **v1.9**、`13` **v0.17**、`14` **v1.9**、`18` **v0.7**、
     `tools/build_docs.py`（GROUPS / 横幅 / doc-19）+ 门户重建、根 `README.md`。
   - **本机门禁**：`make lint` / `make test` / `go test -race ./...` 全绿；
-    `make build` 与 `make gates-strict` 结果见下方 CI 结论补记。
+    `make build` 六平台成功；`make gates-strict` **6 PASS / 0 WARN / 0 FAIL**
+    （90 个链接模块、0 copyleft / 0 未识别、`no known vulnerabilities`）。
+  - **CI**：`eda8a6c` run `43871031642`（P0 CI）结论 **`success`**，
+    含 gofmt/vet/架构守卫、单元与集成测试、六平台构建、严格门禁、
+    WBS 11 回环套件与门户链接校验。
 - **BT-02/BT-11 注册表翻转 + ADR-0022 性能口径修订（2026-11-16；零 L4 证据）**：
   - **注册表翻转**：依发起人裁决，`internal/interop/suite.go:Registry()` 将
     `BT-02`（与 qBittorrent 双向：对方下载 / 我方做种）与
