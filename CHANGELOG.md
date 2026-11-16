@@ -92,6 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     12 条真实 harness 实装、真实 external config、双机拓扑实测与 NFR-PERF-01 均为
     后续工作包。文档同步 `docs/README` **v1.12** / `14` **v1.7** / `18` **v0.5** /
     ADR-0021（R5）/ `adr/README` / 根 `README.md`。
+  - **已核验 CI 结论补记**（滚动时点口径）：`c2aaaa4` run `43696583823` 与本包
+    `e893c82` run `43789016799` 经核验均为 **`quality: success`**；不改写历史时点值。
 - **回环证据重试语义校准与已核验 CI 结论补记（2026-11-15，序 6 续包；零 L4 证据）**：
   - **缺陷修复**：`cmd/udinteropx/main.go` 的 `runWithLoopbackRetry` 原先在
     「首次 `FAIL` → 二次 `SKIPPED` / `UNSUPPORTED`」时仍追加「第 2/2 次真实执行通过」，
