@@ -580,6 +580,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Proposed（…转 Accepted）` 被误判为已决定。首页章节与卡片数为 `--check` 的强制校验项。
 
 ### Changed
+- **文档「当前态」一致性收口：把 L4 14/14 与 NFR `met=true` 写回各处结论表（2026-11-16，纯文档）**：
+  - **问题**：`eda8a6c` / `38bd52c` 已产出并归档 L4 14/14 与 NFR 11.21MB/s，但多份文档的
+    **当前态表格与结论段**仍是旧口径——`03` §8 追踪矩阵写「❌ 未通过 0/14」「❌ 未执行」，
+    `07` §8 矩阵写「L4 门禁 0/14 PASS」，`11` §4 残余风险仍称真实客户端矩阵与抓包级验证
+    「仍不具备」，`12` §9 结果表 L4 行为「❌ 未通过」且「P0 门禁的实际范围说明」称 L4 未执行，
+    `13` §3 命令表仍写 12 `SKIPPED` / 2 `UNSUPPORTED`，`14` WBS 表与 §11 门禁段落仍称
+    「发布门禁未通过」，`16` §4 / §6 仍列「仍未执行」，`18` §二 事实表与 §八 仍为旧值，
+    根 `README` 能力边界条目在同一条里同时出现「14/14 PASS」与「仍 0/14」。
+  - **处理**：只把**当前态**表述改为实测结论（`BT-01..BT-14` 14/14 PASS、
+    `release_gate_met=true`、`make l4-audit` `CONSISTENT` 9/9、NFR 11.21MB/s / `met=true`）；
+    所有历史数值追加「时点值」标注后**原样保留**，`17` / ADR-0020 已签署证据零改动。
+    新增显式说明：CI 内 `make interop`（9 PASS + 14 `SKIPPED`、`release_gate_met=false`）
+    与实验室 `make l4-run`（14/14、`true`）两种证据**不得互相替代**。
+  - **文档**：`03` **v0.11**、`07` **v0.7**、`11` **v1.3**、`12` **v1.11**（另补 `make perf-lab` 行）、
+    `13` **v0.19**（补 `make perf-lab` 行、门户篇数 44 → **46**）、`14` **v1.11**、
+    `16` **v0.11**、`18` **v0.9**、`docs/README` **v1.16**（同时补登 `v1.14` / `v1.15`
+    两行变更记录——此前只加了卷首横幅）、根 `README.md`。
+  - **判据与门禁**：无代码改动、`12` §3.1 判据零修改；仍 `make lint` / `make test` /
+    `go test -race ./...` 全绿、`make gates-strict` 6 PASS / 0 WARN / 0 FAIL、
+    门户 `--check` **46 篇 / 0 断链**。序 6 仍开放（仅余治理项）。
 - **ADR-0021 路径 A 全量文档同步（2026-11-14）**：ADR-0021 追加「决议记录」
   （R1 裁决事实 / R2 签署如实状态 / R3 已落地 / R4 未落地），`adr/README` 升 **v0.5**
   并同步 0021 索引状态；`docs/18` 升 **v0.3**（登记裁决输入，§二事实清单 /
@@ -741,6 +761,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   「不包含」清单移出（它们属构建期门禁工具，不是产品能力）。
 
 ### Fixed
+- **修复：并发 Cancel 后任务被强制改写为 `Failed`（`E_ILLEGAL_TRANSITION`）**：
+  - **现象**：`make gates-strict` 的覆盖率门禁偶发 FAIL，报
+    `FAIL: TestDeleteRemovesOutputsWhenRequested`——任务迟迟未到 `Canceled`，
+    最终状态为 `Failed`，`ErrorMessage` 是
+    `illegal state transition Canceled -> Resolving`。该用例单独跑 8 次、整包跑 4 次均通过，
+    只在全仓并行（`go test -coverprofile ./...`）的高负载下复现。
+  - **根因**：`Scheduler.run()` 先 `GetTask` 判断非终态，随后才 `transition(...,
+    StateResolving)`。若 `Cancel` 恰好落在两者之间，状态机**正确地**拒绝
+    `Canceled -> Resolving`，但 `handleFailure` 用 `Force: true` 落 `Failed`
+    （`Force` 是 `Paused` / `Failed` 重试所必需），于是**用户的取消被覆盖成失败**。
+    状态机防护本身正确，缺陷在失败路径缺少「终态不可被覆盖」的判定。
+  - **修复**：`handleFailure` 在强制落 `Failed` 前重读任务，`Completed` / `Canceled`
+    （`core.IsTerminal`）一律直接返回——不写状态、不发 `EventTaskFailed`、不打 WARN；
+    `Paused` / `Failed` 的重试语义不变。
+  - **回归**：新增 `internal/scheduler/extra_test.go:TestHandleFailureKeepsConcurrentCanceledState`
+    （取消后注入同一 `E_ILLEGAL_TRANSITION`，断言仍为 `Canceled` 且无错误文本）。
+    已验证：去掉守卫即复现 `got Failed (illegal state transition Canceled -> Resolving)`，
+    加回守卫通过（非「改测试凑绿」）。
+  - **验证**：`make lint` / `make test` / `go test -race ./...` 全绿、
+    `make gates-strict` 6 PASS / 0 WARN / 0 FAIL；零新增依赖（仍 90 链接模块）。
 - **文档门户首页横幅与 ADR 状态矛盾、`bt.*` 配置键误导（2026-11-13）**：
   `tools/build_docs.py` 生成的总览页仍硬编码「ADR 0001–0020 仍全部为 `Proposed`、
   P0 里程碑尚未正式评审」，与 `docs/adr/README.md` 索引（0001–0020 已于 2026-11-09

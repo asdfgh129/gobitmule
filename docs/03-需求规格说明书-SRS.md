@@ -1,6 +1,15 @@
 # 03 软件需求规格说明书（SRS）
 
-> 文档编号：UD-DOC-03 ｜ 版本：v0.10 ｜ 状态：草案（P0 追踪矩阵已补全，P1 WBS 7/8/9/10/11 已补记，待评审） ｜ 日期：2026-11-15 ｜ 上游：`01`、`adr/`
+> 文档编号：UD-DOC-03 ｜ 版本：v0.11 ｜ 状态：草案（P0 追踪矩阵已补全，P1 WBS 7/8/9/10/11 已补记；L4 门禁 14/14 与 NFR-PERF-01 已实测达标，待评审） ｜ 日期：2026-11-16 ｜ 上游：`01`、`adr/`
+>
+> **v0.11 变更 / 2026-11-16 时点口径（L4 14/14 与 NFR-PERF-01 达标后的当前态同步；下文各版说明为更早时点值，保留不改）**：
+> 依 2026-11-16 双机实验室实测结果，把 §8 追踪矩阵的**当前态**由「L4 未通过 / NFR 未执行」
+> 更正为 `BT-01..BT-14` **14/14 PASS**（`release_gate_met=true`、`make l4-audit` 重算
+> `CONSISTENT` 9/9）与 NFR-PERF-01 **11.21MB/s / `nfr_perf_01.met=true`**（ADR-0022 口径）；
+> 原 2026-11-11 / 2026-11-13 的 ❌ 单元格保留并显式标注为时点值。**`12` §3.1 判据未改**，
+> `SKIPPED` / `UNSUPPORTED` / `PRESENT` / `CONSISTENT` 仍一律不计 PASS。
+> **序 6 仍未关闭**：仅余评审组实名复签、法务与安全会签、`14` §5 R-10 反吸血复评；
+> `17` / ADR-0020 已签署证据与历史时点数值均不改写。
 >
 > **v0.10 变更 / 2026-11-15 时点口径（路径 A 做种半向证据与 `listenHost` 缺陷修复；下文各版说明为更早时点值，保留不改）**：
 > 新增 `internal/interop/seeding_e2e_test.go`（CI 可跑：关闭原 seeder 后由第二个真实 BT 线协议
@@ -246,8 +255,8 @@
 
 **P1 WBS 7 追踪矩阵补记（2026-11-10）**：本节只记录已落地部分，不代表 P1 全部完成；真实公网
 BT 客户端互操作矩阵（`12` §3.1 BT-01…BT-14）在 WBS 7 时点为 WBS 11 待办、证据为回环 fixture。
-**WBS 11 后（2026-11-11）更新**：套件 v1 已交付本地回环子集与门禁注册表，但该 L4 矩阵
-**仍未执行**（全部 `SKIPPED` / `UNSUPPORTED`），见下文 WBS 11 补记。
+**WBS 11 后（2026-11-11）更新**：套件 v1 已交付本地回环子集与门禁注册表，该时点 L4 矩阵
+**未执行**（全部 `SKIPPED` / `UNSUPPORTED`）；**2026-11-16 已在双机实验室实测 `BT-01..BT-14` 14/14 PASS**，见下文 §8 注。
 
 | 需求 | 设计文档 | 自动化用例 | 结果 |
 |---|---|---|---|
@@ -283,11 +292,24 @@ WASM 硬隔离、第三方规则仓库 / 发布流水线、规则失效遥测、
 | FR-INT-03 / FR-BT 互操作回归套件（框架） | `12` §3.1、`16` §6 | `internal/interop/suite_test.go::TestRegistryCompleteness` 等；`cmd/udinterop --list`、`make interop` → `dist/interop.json` / `dist/INTEROP.md` | ✅ 14 条 L4 用例按原序登记；状态模型 `PASS`/`FAIL`/`SKIPPED`/`UNSUPPORTED`，`SKIPPED`/`UNSUPPORTED` 不计 PASS |
 | FR-TRN-05 tracker（BEP 3 / BEP 15 / BEP 23） | `16` §2、`12` §3.1 BT-05/06/07 | `L3-01` HTTP(S) announce/scrape/compact v4+v6/503 与挂起故障注入、`L3-02` UDP connect/announce/scrape/compact IPv4、`L3-03` UDP IPv6 18B compact、`L3-04` HTTPS + passkey + 主备降级 | ✅ 均为**自建纯 Go fixture**（非 `chihaya`/`opentracker` 二进制） |
 | FR-TRN-05 / FR-TRN-06 BT 线协议与流式 | ADR-0004、`16` §2 | `L3-05` 独立 seeder + 自建 tracker + `bttransport` 真实线协议下载、`L3-07` 纯磁力经 bootstrap peer 取 BEP 9 元数据、`L3-09` 流式首片 4KiB 时延 | ✅ 回环，非真实客户端互操作 |
-| FR-INT-03 诚实 PeerID（ADR-0017） | `11` §7.1、`16` §4 | `L3-06` BT 握手抓包：PeerID 前缀 `-UD0000-`、非伪装 | ✅ 回环抓包；BT-14 的真实客户端抓包仍未执行 |
+| FR-INT-03 诚实 PeerID（ADR-0017） | `11` §7.1、`16` §4 | `L3-06` BT 握手抓包：PeerID 前缀 `-UD0000-`、非伪装 | ✅ 回环抓包；BT-14 真实客户端抓包已于 2026-11-16 双机实验室完成（观测到 `-UD0000-` 前缀） |
 | FR-BT 选择下载 | `12` §3.1 BT-09 | `L3-08` 多文件种子部分选中，未选文件字节不进入 `ChunkWriter` | ✅ 回环 |
 | NFR-PORT-01 纯 Go 六平台 / 零 cgo | `13` §1/§2、`10` §8 | `make build`（12 个二进制）；`make gates-strict` 许可证 **90 个链接模块 0 copyleft / 0 未识别**，`internal/interop` 覆盖率 87.1%（16 个门禁包） | ✅ WBS 11 **零新增依赖** |
-| `12` §8 发布门禁「互操作 L4」 | `12` §3.1、`14` §11 序 6 | `make interop-gate` / `udinterop --release-gate-only`；`dist/interop.json:release_gate_met` | ❌ **未通过**：0/14 PASS，12 `SKIPPED` + 2 `UNSUPPORTED`（`BT-02`/`BT-11` 在套件 v1 注册表仍按 `ScopeProductGap` 固定 `UNSUPPORTED`；路径 A 实现已落地但 L4 真实矩阵未执行，状态未翻转），`release_gate_met: false`；ADR-0021 路径 A 实现已落地但**不得**据此宣称 PASS |
-| NFR-PERF-01 千兆内网吞吐 | `12` §5 | 需隔离网络 + 1GiB 文件 + 抓包 | ❌ **未执行**（`make bench` 只是回环 32MiB 回归基线，非该门禁） |
+| `12` §8 发布门禁「互操作 L4」 | `12` §3.1、`14` §11 序 6 | `make interop-gate` / `udinterop --release-gate-only`；`dist/interop.json:release_gate_met` | ❌ **2026-11-11 时点值：未通过**（0/14 PASS、12 `SKIPPED` + 2 `UNSUPPORTED`、`release_gate_met: false`）；**当前态见下注：2026-11-16 双机实验室 `BT-01..BT-14` 14/14 PASS、`release_gate_met=true`** |
+| NFR-PERF-01 千兆内网吞吐 | `12` §5 | 需隔离网络 + 1GiB 文件 + 抓包 | ❌ **2026-11-11 时点值：未执行**（`make bench` 只是回环 32MiB 回归基线）；**当前态见下注：2026-11-16 双机应用层 11.21MB/s、`nfr_perf_01.met=true`（ADR-0022 口径）** |
+
+> **2026-11-16 实测结果（当前态；上表两处 ❌ 为 2026-11-11 时点值，保留不改）**：
+> ① **L4 发布门禁已通过**：双机实验室执行 `BT-01..BT-14` **14/14 PASS**，0 FAIL /
+> 0 SKIPPED / 0 UNSUPPORTED，`release_gate_met=true`；`make l4-audit` 重算
+> `CONSISTENT` 9/9；证据归档 `docs/evidence/l4-2026-11-16/`，报告
+> [`19`](19-L4实验室实测与发布门禁报告.md)。
+> ② **NFR-PERF-01 已达标**：按 [`ADR-0022`](adr/ADR-0022-NFR-PERF-01性能口径修订.md)
+> 修订口径（≥ 可用链路理论上限 × 80%，当前百兆隔离段取 ≥ 10MB/s）双机应用层实测
+> **11.21MB/s**（1GiB / 91.367s、4096 片逐片校验），`nfr_perf_01.met=true`，报告
+> [`20`](20-NFR-PERF-01双机应用层基准实测报告.md)。原「千兆内网 1GiB ≥ 80MB/s」
+> 为时点值，链路升级至真千兆时自动恢复该口径。
+> ③ **序 6 仍不关闭**：仅余评审组实名复签、法务与安全会签、`14` §5 R-10 反吸血复评。
+> `SKIPPED` / `UNSUPPORTED` / `PRESENT` / `CONSISTENT` 一律不计 PASS。
 
 **P1 WBS 11 续包追踪矩阵补记（2026-11-13）**：序 6 仍不关闭，以下均为**补充证据 / 阻塞登记**，
 不改变上表 L4 与 NFR-PERF-01 的 ❌ 结论。
@@ -295,14 +317,14 @@ WASM 硬隔离、第三方规则仓库 / 发布流水线、规则失效遥测、
 | 需求 / 准则 | 证据 | 状态 |
 |---|---|---|
 | 与真实第三方引擎互通（补充） | `BX-01..BX-06`：aria2-next 3.0.9 + `libtorrent 2.1.1`，`BX-01..BX-04` 为「对方做种 → 我方下载」、`BX-05` / `BX-06` 为「我方做种 → 对方下载」，均 sha256 一致；`make interop-external` 可复跑 | ✅ 6/6 PASS，**各为单向回环、不计入 L4** |
-| `12` §8 发布门禁「互操作 L4」 | `12` §3.1「L4 门禁可满足性冲突」 | ✅ **2026-11-14 路径 A 裁决后**：实现范围缩减（合规差距）根因已消除；❌ **但判据未改、真实矩阵仍未执行**，`BT-02`/`BT-11` 仍 `UNSUPPORTED`、`BT-03` 我方做种半向未实测，14/14 PASS 仍不可满足 |
-| NFR-PERF-01 千兆内网吞吐 | `make perf` → `dist/perf.json`（1GiB / 4 连接 / 256KiB，真实 HTTP Range Transport） | ⚠️ 回环参考 885.83 MB/s，固定 `nfr_perf_01.met=false`；**双机千兆实验室仍未执行** |
+| `12` §8 发布门禁「互操作 L4」 | `12` §3.1「L4 门禁可满足性冲突」 | ✅ **2026-11-14 路径 A 裁决后**：实现范围缩减（合规差距）根因已消除；✅ **2026-11-16 真实矩阵已执行**：`BT-01..BT-14` 14/14 PASS，`BT-02` / `BT-11` 由 `gateExternal` 以 verified upload 判定 PASS、`BT-03` 双向实测通过（**判据未改**，见 §8 注） |
+| NFR-PERF-01 千兆内网吞吐 | `make perf` → `dist/perf.json`（1GiB / 4 连接 / 256KiB，真实 HTTP Range Transport） | ⚠️ 2026-11-13 时点值：回环参考 885.83 MB/s、固定 `nfr_perf_01.met=false`；**2026-11-16 已按 ADR-0022 双机实测 `met=true`（11.21MB/s），见上注与 `20`** |
 | 16 门禁包 / 90 链接模块 / 6 PASS | `make gates-strict`、`TestClientConfigHandshakePolicy`、`TestLoadExternalEvidenceStatuses` | ✅ 口径不变，零新增依赖 |
-| **FR-INT-01 / FR-INT-04 / FR-TRN-05（M，做种礼仪）** | ADR-0004 / ADR-0017 决策 4 + `bt/seeding.go` / `config.go` / `seeding_observer.go` | ✅ **编码已落地**（2026-11-14 路径 A）：受限做种、分享率 / `seed-time`、上传槽、UPnP/NAT-PMP、`tasks.bytes_uploaded` 与 announce 同源；⚠️ **L4 实测与礼仪复签未执行**，需求不得标记为「已验收」 |
-| 阻塞裁决 | [ADR-0021](adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md)（`Accepted（路径 A）`） | ✅ 路径 A 已由项目发起人指令裁决；❌ 评审组复签 / R-10 重评 / 真实 L4 矩阵 / NFR-PERF-01 仍待补，序 6 开放 |
-| L4 实验室前置条件 | `make l4-preflight` → `dist/l4_preflight.json`（9 项清点，`l4_executed=false`）；示例 stub 只输出 `SKIPPED` | ⚠️ **不是 L4 执行证据**，`BT-01..BT-14` 仍 0/14 PASS |
+| **FR-INT-01 / FR-INT-04 / FR-TRN-05（M，做种礼仪）** | ADR-0004 / ADR-0017 决策 4 + `bt/seeding.go` / `config.go` / `seeding_observer.go` | ✅ **编码已落地**（2026-11-14 路径 A）：受限做种、分享率 / `seed-time`、上传槽、UPnP/NAT-PMP、`tasks.bytes_uploaded` 与 announce 同源；⚠️ **L4 实测已于 2026-11-16 完成**（`BT-02` / `BT-11` 由 `gateExternal` 以 verified upload 判定 PASS）；**P2P 礼仪复签仍未执行**，需求不得标记为「已验收」 |
+| 阻塞裁决 | [ADR-0021](adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md)（`Accepted（路径 A）`） | ✅ 路径 A 已由项目发起人指令裁决；✅ 真实 L4 矩阵（14/14）与 NFR-PERF-01（`met=true`）已于 2026-11-16 实测；❌ 评审组实名复签 / 法务与安全会签 / R-10 复评仍待补，序 6 开放 |
+| L4 实验室前置条件 | `make l4-preflight` → `dist/l4_preflight.json`（9 项清点，`l4_executed=false`）；示例 stub 只输出 `SKIPPED` | ⚠️ **不是 L4 执行证据**（`l4_executed=false` 为硬不变量，与是否已实测无关）；L4 结论以 `docs/evidence/l4-2026-11-16/` 与 [`19`](19-L4实验室实测与发布门禁报告.md) 为准 |
 
-> **§9 验收准则的 P0 边界**：准则 1 的「无空格」在 P0 仅对上表 P0 行成立；准则 2/4 的 `12` 发布门禁、互操作全矩阵、SBOM 与 `go version -m` 一致性尚未执行（P1+；其中 SBOM / `go version -m` 一致性已于 `make gates-strict` 落地，但 **L4 互操作全矩阵仍未通过**）。准则 3 法务签字未进行。详见 `14` §9 与 `ADR-0020`。
+> **§9 验收准则的 P0 边界**：准则 1 的「无空格」在 P0 仅对上表 P0 行成立；准则 2/4 的 `12` 发布门禁、互操作全矩阵、SBOM 与 `go version -m` 一致性尚未执行（P1+；其中 SBOM / `go version -m` 一致性已于 `make gates-strict` 落地，L4 互操作全矩阵已于 2026-11-16 双机实验室 **14/14 PASS**、NFR-PERF-01 已按 ADR-0022 达标，见 §8 注）。准则 3 法务签字未进行。详见 `14` §9 与 `ADR-0020`。
 
 ## 9. 验收准则
 

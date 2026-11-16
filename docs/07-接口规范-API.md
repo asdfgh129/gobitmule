@@ -1,7 +1,14 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.6 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地） ｜ 日期：2026-11-14 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021
+> 文档编号：UD-DOC-07 ｜ 版本：v0.7 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14） ｜ 日期：2026-11-16 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
+> **v0.7 变更 / 2026-11-16 时点口径（§8 矩阵 L4 结论同步；下文各版说明为更早时点值，保留不改）**：
+> `cmd/udinterop` 的 §8 矩阵行由「L4 门禁 0/14 PASS」更正为 2026-11-16 双机实验室
+> `BT-01..BT-14` **14/14 PASS、`release_gate_met: true`**，并显式区分「实验室
+> `make l4-run` 结论」与「CI 内 `make interop` 的 9 PASS + 14 `SKIPPED`」两种口径，
+> 二者不可互相替代。**L0 REST / WS / CLI 契约零改动**：`--l4-case` 只是
+> `cmd/udinteropx` 的实验室入口，不进入 `udctl` 或 daemon API。
+>
 > **v0.6 变更 / 2026-11-14 时点口径（ADR-0021 路径 A；下文 v0.5 及更早
 > 说明为 2026-11-13 时点值，保留不改）**：`bt.*` **已生效**，由
 > `internal/app/daemon.go` 注入 `bttransport.SeedingPolicy`；新增
@@ -245,7 +252,7 @@ udctl daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
 | §2 内联凭据头拒绝 | `api.validateTaskOptions` | `TestInlineCredentialHeadersRejected` |
 | §3 CLI 子集 | `cmd/udctl/main.go` | 端到端冒烟（见 `CHANGELOG.md`） |
 | §3 `plugin` 离线子命令（P1 WBS 10） | `cmd/udctl/plugin.go` + `internal/plugin/fixture.go` | `cmd/udctl/plugin_test.go:TestPluginCommandScaffoldLifecycle` / `TestPluginCommandSignVerifyTestList` / `TestPluginCommandUsageErrors`；`internal/plugin/fixture_test.go:TestRunFixtureOfflineReplay` |
-| 独立诊断 CLI（P1 WBS 11，非 L0 契约） | `cmd/udinterop/main.go` + `internal/interop/{suite,cases,httptracker,udptracker}.go` | `internal/interop/*_test.go`；`make interop` → `dist/interop.json` / `dist/INTEROP.md`（CI 运行并上传）。**L4 门禁 0/14 PASS，`release_gate_met: false`** |
+| 独立诊断 CLI（P1 WBS 11，非 L0 契约） | `cmd/udinterop/main.go` + `internal/interop/{suite,cases,httptracker,udptracker}.go` | `internal/interop/*_test.go`；`make interop` → `dist/interop.json` / `dist/INTEROP.md`（CI 运行并上传）。**L4 门禁已于 2026-11-16 双机实验室 `BT-01..BT-14` 14/14 PASS，`release_gate_met: true`**（该结论来自 `make l4-run` 产物，证据见 [`19`](19-L4实验室实测与发布门禁报告.md) 与 `docs/evidence/l4-2026-11-16/`）。**注意不可混用**：CI 内的 `make interop` 无外部配置，仍为 9 PASS + 14 `SKIPPED`、`release_gate_met: false` |
 | L4 前置条件清点 CLI（P1 序 6 续，非 L0 契约） | `cmd/udl4preflight/main.go` + `internal/interop/preflight.go` | `internal/interop/preflight_test.go:TestPreflight*`；`make l4-preflight` → `dist/l4_preflight.json`（`l4_executed=false`、`release_gate_met=false` 硬不变量）。**不是 L4 执行证据**，CI 不运行 |
 | §4 WebSocket 事件 | `internal/api/ws.go` + `core.EventBus` | `TestWebSocketEventDelivery` |
 | §5 L1 facade | **未实现**（ADR-0019，符合预期） | `/jsonrpc` 返回 404 |

@@ -481,3 +481,32 @@ func TestChunkWriterReleasePublishesAndRetries(t *testing.T) {
 		t.Fatalf("cancellation must keep the chunk retryable, got %s", chunks[0].State)
 	}
 }
+
+// A Cancel that lands between run()'s task read and the Resolving transition makes
+// that transition fail with E_ILLEGAL_TRANSITION. handleFailure must not then force
+// the task back to Failed: the user's Cancel is authoritative and terminal.
+func TestHandleFailureKeepsConcurrentCanceledState(t *testing.T) {
+	h := newHarness(t, 1024)
+	ctx := context.Background()
+	id := h.add(t, core.TaskOptions{MaxConnections: 1})
+	if err := h.s.Cancel(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	h.waitState(t, id, core.StateCanceled, 5*time.Second)
+
+	late := core.Err(core.E_ILLEGAL_TRANSITION, "illegal state transition %s -> %s",
+		core.StateCanceled, core.StateResolving)
+	h.s.handleFailure(ctx, id, late)
+
+	task, err := h.st.GetTask(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.State != core.StateCanceled {
+		t.Fatalf("terminal Canceled must win over a late failure, got %s (%s)",
+			task.State, task.ErrorMessage)
+	}
+	if task.ErrorMessage != "" {
+		t.Fatalf("failure must not be attached to a cancelled task: %q", task.ErrorMessage)
+	}
+}

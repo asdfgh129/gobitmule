@@ -770,6 +770,16 @@ func (s *Scheduler) handleFailure(ctx context.Context, id core.TaskID, err error
 	}
 	e := core.AsError(err)
 	dbCtx := context.WithoutCancel(ctx)
+	// A concurrent Cancel / Delete may land between the step that failed and this
+	// handler, e.g. run() reads the task, then Cancel writes StateCanceled, then the
+	// Resolving transition fails with E_ILLEGAL_TRANSITION. Completed / Canceled are
+	// terminal, but the write below needs Force for legitimate Paused / Failed
+	// retries, so the guard has to be explicit: without it a user-cancelled task
+	// would be resurrected as Failed carrying "illegal state transition" text.
+	// Regression: TestHandleFailureKeepsConcurrentCanceledState.
+	if cur, gerr := s.st.GetTask(dbCtx, id); gerr == nil && core.IsTerminal(cur.State) {
+		return
+	}
 	_ = s.st.UpdateState(dbCtx, id, store.StateUpdate{
 		To: core.StateFailed, ErrorKind: e.Kind.String(),
 		ErrorMessage: security.Redact(e.Message), Force: true,
