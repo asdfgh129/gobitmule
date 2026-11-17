@@ -72,7 +72,27 @@ func main() {
 	// internal/interop.runExternalCase). The normal BX-* mode below is untouched.
 	l4Case := flag.String("l4-case", os.Getenv("UD_INTEROP_L4_CASE"),
 		"run one real L4 lab harness case (BT-01..BT-14) and print a single JSON verdict")
+	peerMatrix := flag.String("peer-matrix", "",
+		"run the supplementary third-client bidirectional matrix (transmission) and print a JSON report")
+	peerMatrixOut := flag.String("peer-matrix-out", "dist/peer_matrix.json",
+		"write the peer-matrix report to this path")
 	flag.Parse()
+	if *peerMatrix != "" {
+		rep := runPeerMatrix(*peerMatrix)
+		blob, err := json.MarshalIndent(rep, "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "udinteropx: marshal peer matrix: %v\n", err)
+			os.Exit(2)
+		}
+		if err := os.MkdirAll(filepath.Dir(*peerMatrixOut), 0o755); err == nil {
+			_ = os.WriteFile(*peerMatrixOut, append(blob, '\n'), 0o644)
+		}
+		fmt.Println(string(blob))
+		if !rep.AllPass {
+			os.Exit(1)
+		}
+		return
+	}
 	if *l4Case != "" {
 		v := runL4Case(*l4Case)
 		blob, err := json.Marshal(v)

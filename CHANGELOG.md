@@ -66,6 +66,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **`docs/12` §5 单机性能基准：`cmd/udbench` + 实测结果（2026-11-17）**：
+  - **新增 `cmd/udbench`**（`ud.bench/v1`）：以**真实 `udd` 子进程 + 真实 REST API + 真实 HTTP Range
+    传输**测三项可在单机复跑的 §5 指标——1000 任务常驻内存增量（`VmRSS(1000 任务) − VmRSS(空载)`）、
+    含 1000 任务恢复的启动时间（`exec → /healthz`，因 `app.Run` 在 `net.Listen` 之前调用 `Recover()`，
+    该时间天然包含 FromDB 恢复）、任务创建→首字节 P99（200 次顺序创建、5ms 轮询、不含解析）。
+  - **实测（实验室主机 A，Linux，`CGO_ENABLED=0`）**：内存增量 **8.6MB**（≤300MB）、
+    启动 **261ms**（≤3s）、创建 P99 **45ms**（≤1s）；2h 长稳峰值增量
+    **12.5MB**，RSS 无单向增长趋势。
+  - **诚实边界**：`ffmpeg exec 开销` 与 `分片哈希不与转码互不饿死` **未执行**——P1 没有 ffmpeg
+    调用路径（`internal/postproc` 的 `Transcode` 是 P2 占位），不存在可测的 exec 开销；移动端 BT
+    内存需真机；链路吞吐另见 `docs/20`。工具在平台不可读 RSS 时把这些项标 `NOT_EXECUTED`
+    而不是编造数值，且**长稳窗口不足 2h 一律判 FAIL**。
+  - **回归**：`cmd/udbench/main_test.go` 6 条确定性用例（最近秩 P99、峰值而非末值、`shortDur`、
+    bench 配置必须保留回环 fixture 放行、长稳窗口 <2h 不得判达标、启动判据必须用 `/healthz` 时钟
+    且要求 1000 个任务全部回来）。
+  - **Makefile**：新增 `make bench-perf`（`BENCH_UDD` / `BENCH_TASKS` / `BENCH_SOAK` 可覆盖，不接入 CI）。
+  - **文档**：新增 [`docs/22`](docs/22-性能基准实测-单机可复跑项.md)；同步 `docs/12` §5 结果段、
+    `docs/13` §3、`docs/14` §11、`docs/README` v1.18、根 `README`；门户 **48 篇 / 0 断链**。
+  - **证据**：`docs/evidence/bench-2026-11-17/`（`bench.json`、`rss_series.txt`、`SHA256SUMS`）。
+- **第三客户端互操作矩阵：Transmission 3.00 双向实测 + 上传计数有界等待（2026-11-17）**：
+  - **背景**：`BT-03` 此前只由 qBittorrent（libtorrent 系）双向支撑，Transmission 3.00 虽已部署在
+    实验室主机 B，但从未单独跑过双向矩阵（`docs/19` §七 如实记为「未执行」）。
+  - **新增 `cmd/udinteropx/transmission.go`**（`--peer-matrix transmission`）：在隔离段上启动真实的
+    `transmission-daemon`（独立配置目录、按主机 B 空闲端口探测 RPC/peer 端口、RPC 白名单显式放行
+    主机 A），用 `torrent-add`（base64 metainfo）/ `torrent-get` / `torrent-verify` / `session-stats`
+    驱动，产出 `ud.peer-matrix/v1` 报告。`MX-TR-A`（Transmission 做种 → ud 下载，校验 sha256 与
+    做种端 `uploadedEver`）与 `MX-TR-B`（ud 路径 A 做种 → **先停原做种端** → 全新 Transmission 下载，
+    校验端侧落盘文件 sha256 与我方 `bytes_uploaded`）**两向均 PASS**。
+  - **判据边界**：不新增、不修改 `BT-01..BT-14` 判据与注册表，不改变 14/14 结论，不替代
+    `make l4-run`；`make peer-matrix` 与 `l4-run` / `perf-lab` 同级，**不接入 CI**。
+  - **顺带修复（真实缺陷）**：BT-02 / BT-03 与矩阵都曾在真实 leecher 刚完成的瞬间**单次采样**
+    `bytes_uploaded`，而该计数由传输层 200ms 统计节拍刷新，实测出现过 65536 &lt; 262144 的
+    **假 FAIL**。新增 `l4WaitUploaded`（有界轮询，上限 30–45s，观测取值序列写入
+    `evidence.bytes_uploaded_samples`），**判据仍是「≥ 载荷」，未放宽**；未在窗口内达到即如实 FAIL。
+    修复后 BT-02 / BT-03 各重跑一次仍 PASS。
+  - **实现踩坑（已固化进代码注释）**：Transmission 3.00 的 `-p` 是 **RPC 端口**、`-P` 才是 peer 端口
+    （用 `--port` 设 peer 端口会直接打印 usage 退出）；`-a` 是 RPC 白名单（默认仅 `127.0.0.1`，
+    不放行主机 A 会全部被拒）；RPC 首包 `409` + `X-Transmission-Session-Id` 必须回填重试；
+    远端命令行含配置目录路径，`pkill -f <path>` 会杀掉 SSH 会话自身且静默返回空 —— 清理只用 PID 文件。
+  - **回归**：`cmd/udinteropx/transmission_test.go` 6 条确定性用例（完成/做种判定、检查态不算做种、
+    409 会话协商、非 success 结果必须报错、未实装客户端必须 UNSUPPORTED）。
+  - **文档**：新增 [`docs/21`](docs/21-第三客户端互操作矩阵Transmission实测报告.md)；同步 `docs/19` §七、
+    `docs/16` §4、`docs/11` §4、`docs/12` §3.1.3 / §5、`docs/13` §3（新增 `make peer-matrix` 与
+    `make bench-perf` 行）、`docs/README` v1.17、根 `README`；门户 **47 篇 / 0 断链**。
+  - **证据**：`docs/evidence/peer-matrix-transmission-2026-11-17/`（`peer_matrix.json` +
+    `SHA256SUMS`，`all_pass=true`）。
 - **NFR-PERF-01 双机应用层基准达标：`cmd/udperf` 双机模式 + 11.21MB/s 实测（2026-11-16）**：
   - **代码**：`cmd/udperf` 新增 `--serve` / `--listen` / `--advertise`
     （对端提供 1GiB 确定性 HTTP Range 数据）、`--url`（用真实

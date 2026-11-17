@@ -1,0 +1,58 @@
+{
+  "schema": "ud.peer-matrix/v1",
+  "client": "transmission-daemon 3.00 (bb6b5a062e)",
+  "generated_at": "2026-11-17T00:49:33Z",
+  "home": "192.168.1.222",
+  "away": "192.168.1.221",
+  "cases": [
+    {
+      "id": "MX-TR-A",
+      "status": "PASS",
+      "detail": "真实 Transmission 做种 → ud 下载完成，sha256 一致且做种端 uploadedEver 覆盖载荷",
+      "evidence": {
+        "announce": "http://192.168.1.222:40857/announce",
+        "bytes": 262144,
+        "case": "MX-TR",
+        "infohash": "44b946a5b551dcc6025bd1ea1b276af8411e71cc",
+        "peer_host": "192.168.1.221",
+        "peer_host2": "192.168.1.239",
+        "seeder_percent_done": 1,
+        "seeder_port": 41774,
+        "seeder_status": "seeding",
+        "seeder_uploaded_ever": 262352,
+        "sha256_actual": "700138ed208215f2a2547149ef2c0d64c8c1efb0af613eb107cb2391ca376533",
+        "sha256_expected": "700138ed208215f2a2547149ef2c0d64c8c1efb0af613eb107cb2391ca376533",
+        "udp": "udp://192.168.1.222:40375/announce",
+        "work_dir": "/root/l4lab/evidence/MX-TR-1794876573559485363"
+      }
+    },
+    {
+      "id": "MX-TR-B",
+      "status": "PASS",
+      "detail": "ud 做种（ADR-0021 路径 A）→ 全新 Transmission 下载完成，端侧文件 sha256 一致且我方上传计数覆盖载荷",
+      "evidence": {
+        "announce": "http://192.168.1.222:40857/announce",
+        "bytes": 262144,
+        "case": "MX-TR",
+        "infohash": "44b946a5b551dcc6025bd1ea1b276af8411e71cc",
+        "leecher_downloaded_ever": 262144,
+        "leecher_percent_done": 1,
+        "leecher_port": 42232,
+        "leecher_status": "downloading",
+        "peer_host": "192.168.1.221",
+        "peer_host2": "192.168.1.239",
+        "remote_sha256_output": "700138ed208215f2a2547149ef2c0d64c8c1efb0af613eb107cb2391ca376533  /tmp/udl4-tr-MX-TR-leech-1794876602231310021/dl/mxtr.bin",
+        "sha256_actual": "700138ed208215f2a2547149ef2c0d64c8c1efb0af613eb107cb2391ca376533",
+        "sha256_expected": "700138ed208215f2a2547149ef2c0d64c8c1efb0af613eb107cb2391ca376533",
+        "ud_bytes_uploaded": 262144,
+        "ud_bytes_uploaded_samples": [
+          262144
+        ],
+        "udp": "udp://192.168.1.222:40375/announce",
+        "work_dir": "/root/l4lab/evidence/MX-TR-1794876573559485363"
+      }
+    }
+  ],
+  "all_pass": true,
+  "non_claim": "补充证据：本报告只证明 transmission-daemon 3.00 在隔离段与 ud 完成双向真实交换，不改变 BT-01..BT-14 判据、不替代 `make l4-run` 的官方 L4 结果；两个方向的文件字节均经 sha256 校验。"
+}

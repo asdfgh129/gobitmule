@@ -13,7 +13,7 @@ CDN is reachable; otherwise the diagram source remains readable as a code block.
 
 Navigation contract
 --------------------
-* Every document gets a STABLE ASCII slug: home / readme / doc-01..doc-20 /
+* Every document gets a STABLE ASCII slug: home / readme / doc-01..doc-22 /
   adr-index / adr-0001..adr-NNNN / changelog / root-readme. ADRs are discovered
   automatically from docs/adr/ADR-*.md, so adding an ADR needs no edit here.
   Non-ASCII fragments must be avoided: browsers percent-encode location.hash,
@@ -72,6 +72,8 @@ GROUPS = [
         "17-P0里程碑评审材料.md", "18-序6评审与L4实验室准备材料包.md",
         "19-L4实验室实测与发布门禁报告.md",
         "20-NFR-PERF-01双机应用层基准实测报告.md",
+        "21-第三客户端互操作矩阵Transmission实测报告.md",
+        "22-性能基准实测-单机可复跑项.md",
     ]),
     ("变更记录", ["@root:CHANGELOG.md"]),
 ]

@@ -1064,7 +1064,8 @@ func l4caseBT02(e *l4Env) l4Verdict {
 	if err != nil {
 		return l4Fail("qBittorrent leecher did not complete: "+err.Error(), e.ev())
 	}
-	started, uploaded, downloaded, ratio, stopped, reason := obs.snapshot()
+	started, _, downloaded, ratio, stopped, reason := obs.snapshot()
+	uploaded, uploadSeries := l4WaitUploaded(obs, int64(len(payload)), 30*time.Second)
 	_ = stopped
 	_ = reason
 	ev := e.ev()
@@ -1073,6 +1074,7 @@ func l4caseBT02(e *l4Env) l4Verdict {
 	ev["bytes"] = len(payload)
 	ev["seeding_started"] = started
 	ev["bytes_uploaded"] = uploaded
+	ev["bytes_uploaded_samples"] = uploadSeries
 	ev["seeding_downloaded"] = downloaded
 	ev["seeding_ratio"] = ratio
 	ev["leech_state"] = fmt.Sprint(leechInfo["state"])
@@ -1267,12 +1269,13 @@ func l4caseBT03(e *l4Env) l4Verdict {
 	if err != nil {
 		return l4Fail("half B leecher did not complete: "+err.Error(), e.ev())
 	}
-	_, uploaded, _, _, _, _ := obs.snapshot()
+	uploaded, uploadSeries := l4WaitUploaded(obs, int64(len(payload)), 30*time.Second)
 	ev := e.ev()
 	ev["infohash"] = ih
 	ev["bytes"] = len(payload)
 	ev["a_download_sha256_ok"] = true
 	ev["b_bytes_uploaded"] = uploaded
+	ev["b_bytes_uploaded_samples"] = uploadSeries
 	ev["b_leech_state"] = fmt.Sprint(leech["state"])
 	if uploaded < int64(len(payload)) {
 		return l4Fail("half B upload not verified", ev)
@@ -1743,6 +1746,31 @@ func l4caseBT13(e *l4Env) l4Verdict {
 		return l4Fail("sha256 mismatch", ev)
 	}
 	return l4Pass("真实 libtorrent v1+v2 hybrid 种子(qBittorrent) → 我方引擎经 v1 兼容层下载完成，sha256 一致（记录 v1/v2 双哈希）", ev)
+}
+
+// l4WaitUploaded polls the seeding observer until the reported upload counter
+// reaches want, or the deadline expires. The counter is eventually consistent:
+// the transport refreshes it from a 200ms stats ticker, so a sample taken the
+// instant a real leecher finishes can still lag by a few chunks. Polling does
+// not weaken the criterion — PASS still requires the whole payload to be
+// accounted for — it only keeps a correct run from failing on a stale sample.
+// The distinct observed values are returned as evidence.
+func l4WaitUploaded(o *l4SeedObserver, want int64, timeout time.Duration) (int64, []int64) {
+	deadline := time.Now().Add(timeout)
+	series := []int64{}
+	last := int64(-1)
+	for time.Now().Before(deadline) {
+		_, up, _, _, _, _ := o.snapshot()
+		if up != last {
+			series = append(series, up)
+			last = up
+		}
+		if up >= want {
+			return up, series
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return last, series
 }
 
 func l4WaitSeedStarted(o *l4SeedObserver, timeout time.Duration) bool {

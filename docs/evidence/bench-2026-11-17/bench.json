@@ -1,0 +1,107 @@
+{
+  "schema": "ud.bench/v1",
+  "generated_at": "2026-11-17T01:12:59Z",
+  "host": {
+    "os": "linux",
+    "arch": "amd64",
+    "num_cpu": 1,
+    "kernel": "6.2.0-39-generic",
+    "note": "Linux ubuntu23 6.2.0-39-generic #40-Ubuntu SMP PREEMPT_DYNAMIC Tue Nov 14 14:18:00 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux"
+  },
+  "udd_binary": "/root/l4lab/bin/udd",
+  "tasks": 1000,
+  "soak_seconds": 7200,
+  "metrics": [
+    {
+      "id": "NFR-PERF-CREATE-P99",
+      "name": "任务创建→开始传输 P99",
+      "target": "≤ 1s",
+      "measured": "P50 18ms / P99 45ms / max 47ms（200 次顺序创建，轮询粒度 5ms）",
+      "status": "PASS",
+      "met": true,
+      "detail": "不含解析：输入为直连 HTTP fixture；每次创建后等到 bytesDone\u003e0 再取消，测的是调度分发链路本身"
+    },
+    {
+      "id": "NFR-PERF-MEM-1000",
+      "name": "1000 任务常驻内存增量",
+      "target": "≤ 300MB",
+      "measured": "8.6MB（空载 23.2MB → 1000 任务 31.9MB）",
+      "status": "PASS",
+      "met": true,
+      "detail": "1000 个任务同时驻留（trickle 传输中，5 个并发槽位，其余在调度队列），RSS 取 linux"
+    },
+    {
+      "id": "NFR-PERF-STARTUP",
+      "name": "启动时间（含 1000 任务恢复）",
+      "target": "≤ 3s",
+      "measured": "261ms 到 /healthz（恢复完成才监听）；另 1ms 到 GET /tasks 计数 = 1000",
+      "status": "PASS",
+      "met": true,
+      "detail": "冷启动：进程 exec → /healthz 200。app.Run 在 net.Listen 之前调用 Recover()，故该时间已含 1000 个任务的 FromDB 恢复；同时断言 /tasks 总数为 1000"
+    },
+    {
+      "id": "NFR-PERF-MEM-SOAK",
+      "name": "1000 任务长稳内存增量",
+      "target": "≤ 300MB（长稳 2h）",
+      "measured": "峰值增量 12.5MB（23.2MB → 35.7MB）",
+      "status": "PASS",
+      "met": true,
+      "detail": "长稳 2h，采样 240 次（间隔 30s），峰值增量 12.5MB"
+    },
+    {
+      "id": "NFR-PERF-FFMPEG",
+      "name": "ffmpeg exec 开销",
+      "target": "单次 200–500ms 可接受",
+      "measured": "未执行",
+      "status": "NOT_EXECUTED",
+      "met": false,
+      "detail": "P1 没有 ffmpeg 调用路径：internal/postproc 的 Transcode 仅是同接口占位（P2 落地），因此不存在可测的 exec 开销；实验室主机也未安装 ffmpeg，不伪造数值"
+    },
+    {
+      "id": "NFR-PERF-HASH-CPU",
+      "name": "分片哈希 CPU 占用（不与转码互相饿死）",
+      "target": "并发信号量验证",
+      "measured": "未执行",
+      "status": "NOT_EXECUTED",
+      "met": false,
+      "detail": "判据要求哈希与真实转码并发执行并观测彼此进度；P1 无转码实现（P2），无法构造该并发场景"
+    },
+    {
+      "id": "NFR-PERF-MOBILE-BT",
+      "name": "移动端 BT 内存",
+      "target": "≤ 150MB",
+      "measured": "未执行",
+      "status": "NOT_EXECUTED",
+      "met": false,
+      "detail": "需要真机（Android/iOS）安装并运行 BT 会话；本环境无移动设备"
+    },
+    {
+      "id": "NFR-PERF-01",
+      "name": "HTTP 单任务吞吐（链路）",
+      "target": "见 ADR-0022（当前百兆段 ≥10MB/s）",
+      "measured": "见 docs/20（11.21MB/s，met=true）",
+      "status": "NOT_EXECUTED",
+      "met": false,
+      "detail": "由 cmd/udperf 双机模式测量，不在本工具内重复；本工具只做单机可复跑项"
+    }
+  ],
+  "raw": {
+    "baseline_ready_ms": 42,
+    "create_latency_max_ms": 46.9,
+    "create_latency_p50_ms": 17.7,
+    "create_latency_poll_ms": 5,
+    "create_latency_samples": 200,
+    "fixture_base": "http://127.0.0.1:35735",
+    "rss_1000_mb": 31.9,
+    "rss_empty_mb": 23.3,
+    "soak_peak_increment_mb": 12.5,
+    "soak_rss_last_mb": 35.7,
+    "soak_rss_max_mb": 35.7,
+    "soak_rss_min_mb": 31,
+    "soak_samples": 240,
+    "startup_ready_ms": 261,
+    "startup_restored_ms": 1,
+    "tasks_restored": 1000
+  },
+  "non_claim": "本报告只覆盖 docs/12 §5 中可在单机（真实 udd 进程 + 真实 REST API + 真实 HTTP 传输）复跑的指标；千兆/百兆链路吞吐见 docs/20 与 cmd/udperf，ffmpeg 与移动端指标未执行，不得据本报告宣称 §5 全表达标。"
+}

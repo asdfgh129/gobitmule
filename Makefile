@@ -22,7 +22,7 @@ PLATFORMS := \
 	linux/amd64 linux/arm64 \
 	windows/amd64 windows/arm64
 
-.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf perf-lab rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
+.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf perf-lab bench-perf peer-matrix rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
 
 all: lint test build docs
 
@@ -98,6 +98,25 @@ perf-lab:
 
 rollback-drill:
 	$(PYTHON) tools/gates.py rollback
+
+# docs/12 §5 single-host benchmarks: 1000-task resident memory, startup with
+# restore, and create->first-byte P99. Drives the REAL daemon binary over the
+# REAL REST API; CI never runs it (a full run soaks for BENCH_SOAK).
+#   go build -o udd ./cmd/udd && make bench-perf
+BENCH_UDD ?= ./udd
+BENCH_TASKS ?= 1000
+BENCH_SOAK ?= 2h
+
+bench-perf:
+	$(GO) run ./cmd/udbench --udd $(BENCH_UDD) --tasks $(BENCH_TASKS) --soak $(BENCH_SOAK) --out $(DIST)/bench.json
+
+# Supplementary third-client bidirectional matrix (BT-03 supplementary
+# evidence, NOT the L4 release gate). Needs the isolated lab: host A plus the
+# peer host running transmission-daemon 3.00. CI never runs it.
+PEER_MATRIX_CLIENT ?= transmission
+
+peer-matrix:
+	$(GO) run ./cmd/udinteropx --peer-matrix $(PEER_MATRIX_CLIENT) --peer-matrix-out $(DIST)/peer_matrix.json
 
 gates:
 	$(PYTHON) tools/gates.py all
