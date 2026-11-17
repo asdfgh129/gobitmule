@@ -94,6 +94,64 @@ type TelemetryConfig struct {
 	Enabled bool `yaml:"enabled" json:"enabled"`
 }
 
+// EventsConfig bounds audit-log growth (docs/06 §7: "保留策略可配（默认 7 天 /
+// 10 万条），定期清理"). Both limits are enforced independently, so a burst of
+// events can never outgrow maxRows and an idle daemon can never keep ancient
+// rows forever. At least one limit must be non-zero: an unbounded `events` table
+// is a disk-filling bug, so the daemon fails closed instead of accepting it.
+type EventsConfig struct {
+	// RetentionDays deletes events older than this many days (0 = no age limit).
+	RetentionDays int `yaml:"retentionDays" json:"retentionDays"`
+	// MaxRows keeps only the newest N rows (0 = no row cap).
+	MaxRows int `yaml:"maxRows" json:"maxRows"`
+	// PruneInterval is the janitor cadence. Empty = default (1h).
+	PruneInterval string `yaml:"pruneInterval" json:"pruneInterval"`
+}
+
+// EffectivePruneInterval returns the janitor cadence, falling back to 1h.
+func (e EventsConfig) EffectivePruneInterval() time.Duration {
+	if e.PruneInterval == "" {
+		return time.Hour
+	}
+	d, err := time.ParseDuration(e.PruneInterval)
+	if err != nil || d <= 0 {
+		return time.Hour
+	}
+	return d
+}
+
+// CutoffMillis converts the retention window into an absolute timestamp. It
+// returns 0 when there is no age-based limit, which PruneEvents reads as
+// "skip the age sweep".
+func (e EventsConfig) CutoffMillis(now time.Time) int64 {
+	if e.RetentionDays <= 0 {
+		return 0
+	}
+	return now.Add(-time.Duration(e.RetentionDays) * 24 * time.Hour).UnixMilli()
+}
+
+func (e EventsConfig) Validate() error {
+	if e.RetentionDays < 0 {
+		return errors.New("retentionDays must be >= 0")
+	}
+	if e.MaxRows < 0 {
+		return errors.New("maxRows must be >= 0")
+	}
+	if e.RetentionDays == 0 && e.MaxRows == 0 {
+		return errors.New("requires retentionDays or maxRows > 0 (unbounded audit log)")
+	}
+	if e.PruneInterval != "" {
+		d, err := time.ParseDuration(e.PruneInterval)
+		if err != nil {
+			return fmt.Errorf("pruneInterval: %w", err)
+		}
+		if d < time.Minute || d > 24*time.Hour {
+			return errors.New("pruneInterval must be within 1m..24h")
+		}
+	}
+	return nil
+}
+
 // Config is the full on-disk schema (docs/13 §7). Only the P0-relevant fields
 // are consumed today; the rest are documented reservations.
 type Config struct {
@@ -107,6 +165,7 @@ type Config struct {
 	BT          BTConfig        `yaml:"bt" json:"bt"`
 	ED2K        ED2KConfig      `yaml:"ed2k" json:"ed2k"`
 	Plugins     PluginsConfig   `yaml:"plugins" json:"plugins"`
+	Events      EventsConfig    `yaml:"events" json:"events"`
 	Telemetry   TelemetryConfig `yaml:"telemetry" json:"telemetry"`
 }
 
@@ -142,6 +201,8 @@ func Defaults() Config {
 		Plugins: PluginsConfig{
 			VerifySignature: true, Runtime: "goja", ReloadInterval: "30s",
 		},
+		// docs/06 §7 defaults: 7 days / 100k rows, swept hourly.
+		Events:    EventsConfig{RetentionDays: 7, MaxRows: 100_000, PruneInterval: "1h"},
 		Telemetry: TelemetryConfig{Enabled: false},
 	}
 }
@@ -249,6 +310,9 @@ func (c Config) Validate() error {
 	}
 	if err := c.Plugins.Validate(); err != nil {
 		return fmt.Errorf("plugins: %w", err)
+	}
+	if err := c.Events.Validate(); err != nil {
+		return fmt.Errorf("events: %w", err)
 	}
 	// ADR-0021 path A: a bounded seeding obligation must always be able to
 	// terminate. Both targets being zero with seedEnabled=true would seed

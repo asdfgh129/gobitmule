@@ -78,3 +78,23 @@ SQLite 明确**不为该错误调用 busy handler**（CI run `43393512271` 的 `
   不足以支撑任何性能结论；本项改动的目的是**落实决策 ③ 的事务粒度**，不是性能声明。
 - **仍未落实**：决策 ④ 的系统钥匙串适配器（当前只有 `MemoryCredentialStore`）与 `06` §7 的
   `events` 保留清理，均仍为开放项。
+
+## 实现落地注续（2026-11-17，`06` §7 的 `events` 保留清理；不修改上述决策）
+
+上一条落地注末尾把「`06` §7 的 `events` 保留清理」列为仍未落实项，本注关闭该条：
+
+- `store.PruneEvents(ctx, beforeTS, maxRows)`：**一个事务**内先删 `ts < beforeTS` 的过期事件、
+  再按主键把表削到最新 `maxRows` 条（用 `ORDER BY id DESC LIMIT 1 OFFSET maxRows-1`
+  定位保留边界，不做 `NOT IN` 全表重扫），返回 `DeletedByAge` / `DeletedByCount` / `Remaining`。
+  两个上限独立生效，`0` 表示该半条策略关闭。
+- `internal/app/janitor.go`：daemon 启动时先清一次（长时间未启动的实例不必等一个节拍），
+  之后按 `events.pruneInterval` 执行；清理失败只记 warn 并在下一节拍重试，**不阻塞数据面**。
+  关闭顺序：janitor 的 stop defer 晚于 `st.Close()` 注册，因此先停 janitor 再关库。
+- 配置：`events.retentionDays`（默认 7）/ `events.maxRows`（默认 100000）/
+  `events.pruneInterval`（默认 1h）。**两者都为 0 时 `Validate` 拒绝启动**——
+  无界审计日志是磁盘风险，按 fail-closed 处理，与决策 ⑤「不信任内存态」同一取向。
+- 验证：`store/events_prune_test.go` 5 条（按时间 / 按条数 / 先时间后条数 / 三种空操作 /
+  取消上下文不产生部分提交）、`app/janitor_test.go` 3 条（注入时钟的保留判定、
+  启动即清且可停止、失败只报错不致命）、`config/events_test.go` 9 个用例。
+- **仍未落实**：决策 ④ 的系统钥匙串适配器（当前只有 `MemoryCredentialStore`），
+  以及 `06` §10「P0 偏差」里 `task_options` / `resources.headers` 的 500ms 聚合。

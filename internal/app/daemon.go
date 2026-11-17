@@ -172,6 +172,20 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 	defer st.Close()
+
+	// docs/06 §7: keep the audit log bounded. The janitor stops before
+	// st.Close() because this defer is registered later (LIFO).
+	janCtx, janCancel := context.WithCancel(ctx)
+	janDone := make(chan struct{})
+	janitor := newEventJanitor(st, cfg.Events, log)
+	go func() {
+		defer close(janDone)
+		janitor.run(janCtx)
+	}()
+	defer func() {
+		janCancel()
+		<-janDone
+	}()
 	guard := security.NewSSRFGuard(cfg.Security)
 	mgr := config.NewManager(cfg, nil)
 	creds := security.NewMemoryCredentialStore()

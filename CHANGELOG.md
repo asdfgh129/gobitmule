@@ -66,6 +66,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **`events` 审计日志保留清理（2026-11-17，兑现 `06` §7 / ADR-0015 实现债第二项）**：
+  - **此前状态**：`06` §7 写着「`events` 保留策略可配（默认 7 天 / 10 万条），定期清理」，
+    §10 的「P0 偏差」也登记过，但代码里**没有任何清理路径**，审计表只增不减。
+  - **实现**：新增 `store.PruneEvents(ctx, beforeTS, maxRows)`，在**一个事务**内先删
+    `ts < beforeTS` 的过期事件、再把表削到最新 `maxRows` 条（用
+    `ORDER BY id DESC LIMIT 1 OFFSET maxRows-1` 定位保留边界，不做 `NOT IN` 全表重扫），
+    返回 `DeletedByAge` / `DeletedByCount` / `Remaining` 三个计数，便于日志区分
+    「按时间删了多少」与「按条数削了多少」。两个上限独立生效，`0` 关闭该半条策略。
+  - **调度**：新增 `internal/app/janitor.go`，daemon 启动时**先清一次**（长期未启动的实例
+    不必等一个节拍），之后按 `events.pruneInterval` 执行；清理失败只记 warn 并在下个节拍
+    重试，**不阻塞数据面**。关闭顺序为先停 janitor 再 `st.Close()`。
+  - **配置**：`events.retentionDays`（默认 7）/ `events.maxRows`（默认 100000）/
+    `events.pruneInterval`（默认 1h，1m..24h）。**两者都为 0 时 `Validate` 拒绝启动**
+    （`events: requires retentionDays or maxRows > 0`）——无界审计日志会撑爆磁盘，属 fail-closed。
+    需重启生效（不在 `PATCH /config` 热补丁白名单内）。
+  - **回归**：`store/events_prune_test.go` 5 条（按时间 / 按条数 / 先时间后条数 /
+    三种空操作 / 取消上下文不产生部分提交）、`app/janitor_test.go` 3 条（注入时钟的保留判定、
+    启动即清且可停止、失败只报错不致命）、`config/events_test.go` 9 个用例。
+  - **文档**：`06` v0.4（§7 注 + §10 实现基线与收口注）、`13` §7 新增 `events.*` 配置表
+    与示例、ADR-0015 追加第二条实现落地注、`config.example.yaml`；`docs/README` v1.21。
+  - **仍开放**：ADR-0015 决策 ④ 系统钥匙串适配器、`task_options` / `resources.headers`
+    的 500ms 聚合（`06` §10 P0 偏差条）。
 - **`docs/12` §5 单机性能基准：`cmd/udbench` + 实测结果（2026-11-17）**：
   - **新增 `cmd/udbench`**（`ud.bench/v1`）：以**真实 `udd` 子进程 + 真实 REST API + 真实 HTTP Range
     传输**测三项可在单机复跑的 §5 指标——1000 任务常驻内存增量（`VmRSS(1000 任务) − VmRSS(空载)`）、

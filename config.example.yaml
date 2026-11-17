@@ -55,5 +55,12 @@ plugins:
   trustedKeys: []            # base64 Ed25519 公钥；也可由 UD_PLUGIN_KEYS 提供（逗号分隔）
   insecure: false            # 本地开发跳过签名校验；非回环监听时禁止
   reloadInterval: "30s"      # 热更新轮询间隔（1s..24h）
+# events.* 审计日志保留策略（docs/06 §7，2026-11-17 生效）：两个上限独立生效，
+# 先按时间删过期、再削到最新 N 条，同一事务提交；清理失败只记 warn、下个节拍重试。
+# 两项都填 0 会被 config.Validate 拒绝启动（无界审计日志会撑爆磁盘）。
+events:
+  retentionDays: 7           # 删除早于 N 天的审计事件（0 = 不按时间清理）
+  maxRows: 100000            # 只保留最新 N 条（0 = 不限条数）
+  pruneInterval: "1h"        # 清理节拍（1m..24h）；空 = 默认 1h
 telemetry:
   enabled: false
