@@ -69,8 +69,13 @@ func TestFileBackendDeleteMissingIsNoop(t *testing.T) {
 }
 
 // File writes must fail loudly when the directory is not writable: a silent
-// fall-back would lose credentials the user believes are persisted.
+// fall-back would lose credentials the user believes are persisted. Root (and
+// capability holders) bypass permission checks, so on such hosts this scenario
+// cannot be exercised and is skipped rather than falsely reported.
 func TestFileBackendPutFailsWhenDirUnwritable(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses permission checks: NOT_EXECUTED on this host")
+	}
 	dir := t.TempDir()
 	be, err := newFileBackend(dir)
 	if err != nil {
@@ -180,3 +185,58 @@ func (e fakeExitErr) Error() string { return "fake exit" }
 func errFakeExit(code int) error { return fakeExitErr{code: code} }
 
 func msgHas(s, sub string) bool { return strings.Contains(s, sub) }
+
+// If the target name is taken by a directory, the atomic rename must fail
+// loudly and clean up its temp file instead of leaving debris.
+func TestFileBackendPutFailsWhenTargetIsDirectory(t *testing.T) {
+	_, dir := newFileStore(t)
+	// A valid-format id that collides with a directory.
+	id := "00112233445566778899aabbccddeeff"
+	if err := os.Mkdir(filepath.Join(dir, id), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	be, err := newFileBackend(filepath.Dir(dir))
+	if err != nil {
+		t.Fatalf("newFileBackend: %v", err)
+	}
+	err = be.put(context.Background(), id, "s3cret")
+	if err == nil {
+		t.Fatal("publishing over a directory must fail")
+	}
+	var ce *core.Error
+	if !errors.As(err, &ce) || ce.Code != core.E_INTERNAL {
+		t.Fatalf("err = %v, want E_INTERNAL", err)
+	}
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Fatalf("temp file left behind: %v", entries)
+		}
+	}
+}
+
+// A credential path that exists but is not a regular file must fail loudly:
+// stat succeeds, the mode guard passes (0700), and the read itself errors.
+// Root cannot produce this scenario (it reads anything), so it is skipped
+// rather than falsely reported there.
+func TestFileBackendGetFailsWhenPathIsDirectory(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses permission checks: NOT_EXECUTED on this host")
+	}
+	s, dir := newFileStore(t)
+	ctx := context.Background()
+	ref, err := s.Put(ctx, "s3cret")
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	id := strings.TrimPrefix(string(ref), "file://ud/cred/")
+	if err := os.Remove(filepath.Join(dir, id)); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, id), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if _, err := s.Get(ctx, ref); err == nil {
+		t.Fatal("reading a directory must fail")
+	}
+}
