@@ -103,10 +103,20 @@ type ControlPlane interface {
 	Close() error
 }
 
-// CredentialStore is the boundary to the OS keychain (ADR-0015). P0 ships an
-// in-process reference implementation; OS adapters are a later work item.
+// CredentialStore is the boundary to the OS keychain (ADR-0015). Implementations
+// range from the in-process fallback to a real OS secret store; see
+// CredentialBackendReporter for how that difference is published.
 type CredentialStore interface {
 	Put(ctx context.Context, secret string) (CredentialRef, error)
 	Get(ctx context.Context, ref CredentialRef) (string, error)
 	Delete(ctx context.Context, ref CredentialRef) error
+}
+
+// CredentialBackendReporter is implemented by credential stores that can name
+// the mechanism actually backing them ("macos-keychain", "windows-dpapi",
+// "linux-secret-service", "file", "memory"). GET /capabilities publishes that
+// name so an operator can tell an OS keychain from a permission-only file —
+// docs/06 §9 forbids presenting the latter as a keychain.
+type CredentialBackendReporter interface {
+	CredentialBackend() string
 }

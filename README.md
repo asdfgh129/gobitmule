@@ -11,7 +11,9 @@
 > 抓取、迅雷 P2SP / 高速通道 / 离线下载均**不支持**。
 > **P1 WBS 9 已交付（2026-11-10）**：FTP / FTPS（隐式与 `AUTH TLS` 显式）/ SFTP
 > 三个 Transport 落地，纯 Go、零 cgo、零新增 sidecar；FTP 被动数据连接逐条过 SSRF 数据通道
-> 规则，SFTP 主机密钥必须 pin。凭据经 `POST /api/v1/credentials` 写入后以 `credentialRef`
+> 规则，SFTP 主机密钥必须 pin。凭据经 `POST /api/v1/credentials` 写入 OS 钥匙串
+> （macOS Keychain / Windows DPAPI / Linux Secret Service；不可用时降级 0600 文件并在
+> `/capabilities` 如实上报，见 ADR-0015 ④）后以 `credentialRef`
 > 引用，明文不进 URL / 数据库 / 日志 / 事件。**P1 首版每个分片独立建会话（并发上限 8）**，
 > 连接池与 FTPS 数据通道 TLS session 复用属后续优化；不承诺完整 FTP/SFTP 生态。
 > **P1 WBS 7 已交付（2026-11-10）**：基于 `anacrolix/torrent v1.62.0` 的 BT / 磁力
@@ -233,7 +235,7 @@ go run ./cmd/udctl show <id>
 
 ## P0 已知限制
 
-1. `MemoryCredentialStore` 是进程内参考实现，`mem://` 引用在 daemon 重启后失效；OS 钥匙串适配器待 P1。
+1. ~~`MemoryCredentialStore` 是进程内参考实现~~ **2026-11-17 已落地 OS 钥匙串凭据适配器（ADR-0015 ④）**：macOS 走 `/usr/bin/security`（密钥经 stdin，不进 argv）、Windows 走纯 Go DPAPI、Linux 走 `secret-tool`（需装 libsecret-tools + session bus，否则降级）；实际后端经 `GET /api/v1/capabilities` 的 `credentials` 字段如实上报，`file`（0600 文件）**不是钥匙串**、`memory` 重启即失。Windows / Linux 真机路径未验证（仅交叉编译 + 单测）。
 2. 非回环监听必须配置 `remoteToken`（否则拒绝启动），且目前只有 Bearer 鉴权，无 TLS / Origin 校验。
 3. `postProcess` 只支持 `none`；最小 UI 是契约验证占位件（OPEN-02 已定档 Flutter，正式 UI 不进入 P1 编码范围）。
 4. CycloneDX SBOM / `govulncheck` / 许可证扫描 / 覆盖率报告 / 回滚演练已由 `make gates-strict` 执行，覆盖率全部达标；WBS 11 起互操作套件 v1 的**本地自动化部分**已由 `make interop` 执行；`BT-01..BT-14` L4 真实客户端矩阵已于 2026-11-16 在双机实验室 **14/14 PASS**（`docs/19`），NFR-PERF-01 双机应用层基准同日 **`met=true`**（11.21MB/s ≥ 10MB/s，ADR-0022，`docs/20`）。技术验收项已满足；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；**不宣称公网全矩阵 / PT / 千兆 80MB/s 达标**。

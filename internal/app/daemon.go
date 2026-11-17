@@ -188,7 +188,17 @@ func Run(ctx context.Context, opts Options) error {
 	}()
 	guard := security.NewSSRFGuard(cfg.Security)
 	mgr := config.NewManager(cfg, nil)
-	creds := security.NewMemoryCredentialStore()
+	// ADR-0015 decision ④: credentials go to the OS secret store when the host
+	// has one. The state directory is reused so the file/DPAPI backends keep
+	// their payload next to state.db and survive a restart; the chosen backend is
+	// logged and published through GET /capabilities (never inferred by callers).
+	creds, err := security.NewCredentialStore(security.CredentialStoreOptions{
+		Dir: filepath.Dir(dbPath),
+	})
+	if err != nil {
+		return fmt.Errorf("credential store: %w", err)
+	}
+	log.Info("credential store ready", "backend", creds.CredentialBackend())
 
 	// WBS 10: the rule channel is optional. With plugins.dir unset there is no
 	// plugin Resolver in the chain at all, so the P0/P1 behaviour is unchanged.

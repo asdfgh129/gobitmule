@@ -459,9 +459,16 @@ func (s *Scheduler) Recover(ctx context.Context) (int, error) {
 }
 
 func (s *Scheduler) Capabilities() core.Capabilities {
+	// The credential backend is published, not assumed: "file" and "memory" must
+	// never be mistaken for an OS keychain (ADR-0015 ④, docs/06 §9).
+	backend := "memory"
+	if r, ok := s.creds.(core.CredentialBackendReporter); ok && r != nil {
+		backend = r.CredentialBackend()
+	}
 	return core.Capabilities{
 		Resolvers: s.resolvers.Names(), Transports: s.transports.Names(),
 		PostProcessors: s.postprocs.Names(), Sidecars: []string{}, RPCLevel: "L0",
+		Credentials: backend,
 	}
 }
 

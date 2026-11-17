@@ -1,6 +1,18 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.23 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-17 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.24 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-17 ｜ 维护责任：架构组
+
+> **v1.24 变更 / 2026-11-17 时点口径（ADR-0015 决策 ④ 系统钥匙串适配器落地；下文各版说明为更早时点值，保留不改）**：
+> 凭据此前只有 `MemoryCredentialStore`（重启即失，`11` §10 残余风险第 1 条）。本版新增
+> `internal/security/keychain*.go`：macOS 走 `/usr/bin/security -i`（整条命令经 **stdin**，
+> 密钥永不进 argv）；Windows 走纯 Go `syscall` 调 DPAPI（`CRYPTPROTECT_UI_FORBIDDEN`）；
+> Linux 走 `secret-tool`（libsecret-tools CLI，**零新 Go 依赖**——原拟 godbus 直连 D-Bus，
+> 改为不重造协议，代价是需装 `libsecret-tools`）；两者不可用时降级 **0600 文件**并经
+> `GET /capabilities` 新增的 `credentials` 字段如实上报（`file` **明确不是钥匙串**，
+> `memory` 为兜底）。**诚实边界**：macOS 真机验证（转义往返 / 替换语义 / 删除后 not-found）；
+> Windows / Linux 仅交叉编译 + 单测，真机 `NOT_EXECUTED`。`06` v0.5 §6 / §10、`07` v0.9 §2、
+> `11` v1.4 §3 / §10 与 ADR-0015 落地注同步。ADR-0015 实现债仅余
+> `task_options` / `resources.headers` 的 500ms 聚合。
 
 > **v1.23 变更 / 2026-11-17 时点口径（HTTP 传输慢启动落地；下文各版说明为更早时点值，保留不改）**：
 > `05` §5「初始 1 连接，按吞吐逐步增至 `maxConnections`」此前未实现，`transport/http.Run`
@@ -431,7 +443,7 @@ graph TD
 | 证据完整性审计 | `make l4-audit` → `dist/l4_audit.json` / `dist/L4_AUDIT.md`（`ud.l4-evidence-audit/v1`）：9 项 `AUD-*` 独立重算**已产出**证据包的门禁覆盖、状态枚举、汇总计数与 `release_gate_met`；实测 stub 产物 `CONSISTENT` 且重算门禁 `false`，篡改副本 `INCONSISTENT`（`AUD-SUMMARY` / `AUD-GATE-VERDICT`）。**完整性结论 ≠ L4 通过**，恒 `l4_executed_by_audit=false`、不接入 CI、不替代 `make interop-gate` | `internal/interop/audit.go`、`cmd/udl4audit`、`12` §3.1.4、`13` §3/§12、`18` §7.3 / §7.4 / §十 |
 | 评审准备 | [18 序 6 评审与 L4 实验室准备材料包](18-序6评审与L4实验室准备材料包.md)（`v0.7`、`草案`）：§六 签署表已于 2026-11-16 按发起人指令复签（依 `17` §1 P0 先例代行五角色，**非实名会签**，见 ADR-0021 R5）；§七 / §九 已补真实 L4 执行结果与证据归档；[19 L4 实验室实测与发布门禁报告](19-L4实验室实测与发布门禁报告.md)（`v1.0`）给出逐条 PASS 证据、抓包与 SHA-256；[20 NFR-PERF-01 双机应用层基准实测报告](20-NFR-PERF-01双机应用层基准实测报告.md)（`v1.0`）给出 11.21MB/s / `met=true` 与 iperf3 对照。[21 第三客户端互操作矩阵（Transmission）实测报告](21-第三客户端互操作矩阵Transmission实测报告.md)（`v1.0`）给出真实 Transmission 3.00 的双向证据与「不替代 L4」边界。评审组实名复签、法务 / 安全会签与 `14` R-10 复评仍待补；实验室搭建以 `tools/l4_lab_runbook.md` 为准 | `docs/18` / `docs/19` / `docs/20`、`docs/evidence/l4-2026-11-16/`、`docs/evidence/nfr-perf-01-2026-11-16/`、ADR-0021 R5 / R6、`12` §3.1.2 / §3.1.3 |
 | 性能基准 | ✅ **NFR-PERF-01 已按 ADR-0022 达标（2026-11-16 双机）**：1GiB / 4 连接 / 256KiB 分片走真实 HTTP Range Transport，**11.21MB/s**、4096/4096 分片校验通过，门槛 **≥10MB/s**（百兆段），`nfr_perf_01.met=true`；同链路 iperf3 单流 / 8 流均 **94.15Mbps ≈ 11.22MB/s**，应用层约为链路容量的 **99.9%**。证据 `docs/evidence/nfr-perf-01-2026-11-16/`，报告 [20](20-NFR-PERF-01双机应用层基准实测报告.md)。**原「千兆内网 ≥80MB/s」口径未宣称达标**，链路升级后须重跑、ADR-0022 自动失效；`make perf` 回环 `dist/perf.json` 仍固定 `met=false`。**§5 单机三项已于 2026-11-17 实测**（真实 `udd` 进程 + 真实 REST API，报告 [22](22-性能基准实测-单机可复跑项.md)）：1000 任务常驻内存增量 **8.6MB**（≤300MB）、含 1000 任务恢复启动 **261ms**（≤3s）、创建→首字节 P99 **45ms**（≤1s）、2h 长稳峰值增量 **12.5MB**；`ffmpeg exec 开销` / `分片哈希不与转码互相饿死` / 移动端 BT 内存**未执行**（P1 无 ffmpeg 调用路径 / 需真机） | `dist/perf_lab.json`、`docs/20` / `docs/22`、`12` §5、ADR-0022 |
-| 下一个工作包 | **ADR-0015 实现债收口**（序 6 已按发起人裁决关闭，技术侧不再有验收缺口）：已落地决策 ③ 分片进度批量刷盘（`38fd62e`）与 `06` §7 的 `events` 保留清理（`store.PruneEvents` + daemon janitor + `events.*` 配置，2026-11-17）；`POST /tasks` 内嵌预览与慢启动动态扩连均已于 2026-11-17 落地；**剩余决策 ④ 系统钥匙串适配器**（需先定零 cgo 平台策略：Windows DPAPI 纯 Go / macOS 只能调 `security` CLI / Linux D-Bus 或 0600 降级）。可选的后续技术项：~~Transmission 独立双向矩阵~~ **已于 2026-11-17 完成**（`MX-TR-A` / `MX-TR-B` 双向 PASS，见 `21`，不计入 L4）；真千兆链路上的原 80MB/s 口径重跑按项目发起人 2026-11-17 指示**略过**（本环境无千兆链路）；`12` §5 单机三项已于同日实测（见 `22`），`ffmpeg` 两项与移动端 BT 内存随 P2 / 真机补测 | `14` §11、`18` §6.1 / §九、ADR-0015、`06` §7 / §10、`docs/19` / `docs/20` / `docs/21` / `docs/22` |
+| 下一个工作包 | **ADR-0015 实现债收口（近尾声）**：决策 ③ 分片进度批量刷盘（`38fd62e`）、`06` §7 `events` 保留清理、`POST /tasks` 内嵌预览、慢启动动态扩连、**决策 ④ 系统钥匙串适配器（2026-11-17，macOS 真机验证；Windows / Linux 交叉编译 + 单测，`file` 降级显式非钥匙串）** 均已落地；**仅余 `task_options` / `resources.headers` 的 500ms 批量聚合**（`06` §10 P0 偏差最后一条）。可选的后续技术项：真千兆链路上的原 80MB/s 口径重跑按项目发起人 2026-11-17 指示**略过**（本环境无千兆链路）；`12` §5 的 `ffmpeg` 两项与移动端 BT 内存随 P2 / 真机补测 | `14` §11、`18` §6.1 / §九、ADR-0015、`06` §6 / §7 / §10、`docs/19` / `docs/20` / `docs/21` / `docs/22` |
 
 > **禁止误读（2026-11-16 更新）**：L4 发布结论以**真实外部执行**的证据包为准——
 > `docs/evidence/l4-2026-11-16/interop.json` 的 `release_gate_met: true` 与

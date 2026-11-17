@@ -98,3 +98,35 @@ SQLite 明确**不为该错误调用 busy handler**（CI run `43393512271` 的 `
   启动即清且可停止、失败只报错不致命）、`config/events_test.go` 9 个用例。
 - **仍未落实**：决策 ④ 的系统钥匙串适配器（当前只有 `MemoryCredentialStore`），
   以及 `06` §10「P0 偏差」里 `task_options` / `resources.headers` 的 500ms 聚合。
+
+## 实现落地注（2026-11-17，落实决策 ④，不修改上述已批准决策）
+
+决策 ④ 要求「凭据一律存系统钥匙串，DB 与日志只存 `credential_ref`」。本注记录三平台
+**零 cgo** 适配器的实际做法与边界（发起人已确认「零 cgo 三平台适配」路线）：
+
+- **macOS（`macos-keychain`）**：`/usr/bin/security` CLI。Security.framework 需要 cgo，
+  被 ADR-0001 排除；CLI 覆盖同一把登录钥匙串。写入走 `security -i` 把整条命令经
+  **stdin** 送入——Apple 自文档标注 `-p/-w` 走 argv 不安全（`ps` 全用户可见），而
+  「`-w` 置尾提示输入」需要 TTY，守护进程没有；退出码实测稳定（0 成功 / 44 条目不存在 /
+  45 重复 / 2 用法错误），44 用于区分 not-found 与真故障。
+- **Windows（`windows-dpapi`）**：纯 Go `syscall` 调 `crypt32.dll` 的
+  `CryptProtectData` / `CryptUnprotectData`（恒置 `CRYPTPROTECT_UI_FORBIDDEN`），
+  密文落 `<state>/credentials/<id>.bin`。选 DPAPI 而非 Credential Manager：后者
+  generic blob 上限 5×512 字节，装不下 PEM 私钥。
+- **Linux（`linux-secret-service`）**：`secret-tool`（libsecret-tools CLI）。
+  原方案为直接实现 D-Bus Secret Service 协议（godbus）——**变更**为 CLI，理由：
+  不重造协议、零新依赖、与 macOS 同构可审；代价是要求宿主装 `libsecret-tools` 且有
+  session bus，二者缺一即降级 `file`。
+- **降级（`file`）与兜底（`memory`）**：`file` 是 0600 文件 + 0700 目录，
+  **显式不是钥匙串**（无 ACL、无 OS 加密），`GET /capabilities` 的 `credentials`
+  字段如实上报，绝不能把它当钥匙串宣传；`memory` 重启即失，仅测试与无状态目录宿主。
+- **共用契约**：ref `<scheme>://ud/cred/<32hex>` 由铸造后端校验前缀与 id 形状；
+  `Put` 拒空 / 拒控制字符 / 限 64KiB；`Delete` 幂等；锁钥匙串返回后端错误而非
+  not-found；读取为每任务一次（`Run`/`Probe`/`injectHeaders`），不进分片循环。
+- **验证边界（如实）**：macOS 为**真机验证**——空格/引号/反斜杠往返、同 id 替换（`-U`）、
+  删除后 44、stdin 非 argv 由源码断言固定（`internal/security/keychain_darwin_test.go`）。
+  Windows / Linux 仅交叉编译（`CGO_ENABLED=0` 六目标全过）+ 单测，**真机路径
+  `NOT_EXECUTED`**；无 Linux 桌面会话可验证 Secret Service，故不宣称其可用。
+- **代价如实**：macOS 每次 helper 调用 ≈0.5s（9 次调用 4.24s 实测），属任务启动成本；
+  不做进程内缓存——按次直读让「钥匙串里删除凭据」立即生效，缓存会引入撤销语义问题。
+- **仍未落实**：`06` §10「P0 偏差」里 `task_options` / `resources.headers` 的 500ms 聚合。

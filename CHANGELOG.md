@@ -66,6 +66,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **OS 钥匙串凭据适配器（2026-11-17，ADR-0015 决策 ④，`06` §6 / `11` §3）**：
+  - **此前状态**：凭据只有 `MemoryCredentialStore`（进程内、重启即失），`11` §10 残余风险
+    第 1 条与 ADR-0015 落地注长期登记为「仍未落实」。发起人已确认「零 cgo 三平台适配」路线。
+  - **平台矩阵（按本机实际可用择优，`GET /capabilities` 新增 `credentials` 字段如实上报）**：
+    macOS `macos-keychain`——`/usr/bin/security -i`，整条命令经 **stdin**，密钥永不进 argv
+    （Apple 自文档标注 `-p/-w` 走 argv 不安全，`-w` 置尾提示需 TTY，守护进程没有）；实测退出码
+    0 / 44（条目不存在）/ 45（重复）/ 2（用法错误），44 用于区分 not-found 与锁钥匙串等真故障。
+    Windows `windows-dpapi`——纯 Go `syscall` 调 `crypt32.dll` 的 `CryptProtectData`
+    （恒置 `CRYPTPROTECT_UI_FORBIDDEN`，服务场景不弹 GUI），密文落 `<state>/credentials/<id>.bin`；
+    选 DPAPI 而非 Credential Manager：后者 generic blob 上限 5×512 字节装不下 PEM 私钥。
+    Linux `linux-secret-service`——`secret-tool`（libsecret-tools CLI）；**方案变更**：原拟
+    godbus 直连 D-Bus Secret Service，改为 CLI，理由是不重造协议、零新依赖、与 macOS 同构可审，
+    代价是需装 `libsecret-tools` 且有 session bus，缺一降级。
+  - **降级与兜底**：`file` = 0600 文件 + 0700 目录（读取前校验权限非 0600 即拒绝），
+    **显式不是钥匙串**（无 ACL、无 OS 加密）；`memory` 重启即失。后端名经
+    `core.CredentialBackendReporter` 由 `GET /capabilities` 发布，运维可核对，不得宣称
+    「凭据存钥匙串」而不看实际后端。
+  - **共用契约**：ref `<scheme>://ud/cred/<32hex>` 由铸造后端校验前缀与 id 形状（防穿越 /
+    防跨后端重放）；`Put` 拒空、拒控制字符（CLI 按行传输，裸换行会静默截断）、限 64KiB；
+    `Delete` 幂等；读取每任务一次（`Run`/`Probe`/`injectHeaders` 前置），不进分片循环；
+    **不做进程内缓存**——按次直读让钥匙串内删除立即生效（macOS 实测每次调用 ≈0.5s，
+    9 次调用 4.24s，属任务启动成本，如实记录、不做加速声明）。
+  - **验证边界（如实）**：macOS 真机验证——空格 / 双引号 / 反斜杠 / `#` 往返、同 id 替换（`-U`）、
+    删除后 44、「stdin 非 argv」由源码断言固定；Windows / Linux 仅 `CGO_ENABLED=0` 六目标
+    交叉编译 + 单测，**真机路径 `NOT_EXECUTED`**。
+  - **回归**：`security/keychain_test.go` 11 条（往返 / 幂等删除 / 外来与穿越 ref 拒绝 /
+    密钥校验 / 0600 权限收紧与放宽拒绝 / 原子写无残留 / 后端上报 / id 唯一）、
+    `keychain_darwin_test.go` 3 条（真机往返、stdin 断言、转义表）；全量 `go test ./...` 绿，
+    `-race` 绿。
+  - **文档**：`06` v0.5（§6 凭据后端表 + §10 收口注）、`07` v0.9（`capabilities.credentials`）、
+    `11` v1.4（§3 ref 契约 + §10 残余风险第 1 条订正）、ADR-0015 落地注、`docs/README` v1.24。
 - **HTTP Range 传输的慢启动（2026-11-17，`05` §5 / ADR-0020 后续动作）**：
   - **此前状态**：`transport/http.Run` 直接按 `maxConnections` 开满信号量，`05` §5 写的
     「初始 1 连接，按吞吐逐步增至 `maxConnections`」没有实现——小文件 / 慢链路也会

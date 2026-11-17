@@ -1,6 +1,6 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.8 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；**`POST /tasks` 已内嵌 `Resource` 预览（ADR-0020 后续动作，2026-11-17）**） ｜ 日期：2026-11-17 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.9 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；**`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）**） ｜ 日期：2026-11-17 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
 > **v0.7 变更 / 2026-11-16 时点口径（§8 矩阵 L4 结论同步；下文各版说明为更早时点值，保留不改）**：
 > `cmd/udinterop` 的 §8 矩阵行由「L4 门禁 0/14 PASS」更正为 2026-11-16 双机实验室
@@ -88,11 +88,11 @@
 | DELETE | `/tasks/{id}` | 删除（`?withFiles=true` 同时删文件） |
 | POST | `/tasks/batch` | 批量创建 / 批量操作 |
 | POST | `/resolve` | 只解析不下载，返回 `Resource` 预览（供 UI 选流/选文件） |
-| GET | `/capabilities` | 返回可用 Resolver / Transport / Sidecar / 后处理能力 |
+| GET | `/capabilities` | 返回可用 Resolver / Transport / Sidecar / 后处理能力，及 `credentials` 凭据后端名 |
 | GET | `/config` · PATCH `/config` | 全局配置（限速、并发、目录、代理、SSRF 白名单） |
 | GET | `/stats` | 全局吞吐、连接数、任务统计 |
 | GET | `/healthz` | 健康检查（含 DB 与 sidecar 状态摘要） |
-| POST | `/credentials` | 写入凭据到钥匙串，返回 `cred_ref` |
+| POST | `/credentials` | 写入凭据到钥匙串，返回 `cred_ref`。**凭据后端由 daemon 按宿主择优**（ADR-0015 ④）：`macos-keychain` / `windows-dpapi` / `linux-secret-service` 为 OS 钥匙串；`file` 为 0600 文件，**不是钥匙串**；`memory` 重启即失。实际后端经 `GET /capabilities` 的 `credentials` 字段如实上报 |
 | GET | `/events` (WS) | 事件推送 |
 
 **创建任务示例**
@@ -278,4 +278,5 @@ udctl daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
 | §5 L1 facade | **未实现**（ADR-0019，符合预期） | `/jsonrpc` 返回 404 |
 | §6 错误码表 | `internal/core/errors.go:errorSpecs` 全量 | `internal/core/state_test.go:TestErrorCodeTable`（HTTP 状态 / retryable / kind） |
 | §2 `capabilities.rpcLevel` | 返回 `"L0"` | `TestRESTContract` |
+| §2 `capabilities.credentials`（2026-11-17，ADR-0015 ④） | 返回实际凭据后端名；`scheduler` 对非上报型实现回退 `"memory"`，`file` 后端**不得**被表述为钥匙串（`06` §6） | `TestControlPlaneSurface`、`security/keychain_test.go:TestMemoryBackendReportingAndSemantics` |
 | 最小 UI | `internal/api/ui/index.html`（`go:embed` 单文件） | `TestMinimalUIIsServed` |

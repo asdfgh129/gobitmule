@@ -243,6 +243,9 @@ type Capabilities struct {
 	PostProcessors []string `json:"postProcessors"`
 	Sidecars       []string `json:"sidecars"`
 	RPCLevel       string   `json:"rpcLevel"`
+	// Credentials names the active credential backend (ADR-0015 ④). "file"
+	// means permission-protected files, not an OS keychain.
+	Credentials string `json:"credentials"`
 }
 
 // TaskDetail is the GET /tasks/{id} payload. Fields reserved for the optional
