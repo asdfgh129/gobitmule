@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/asdfgh129/ud/internal/config"
 	"github.com/asdfgh129/ud/internal/core"
@@ -129,6 +130,11 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	wait, err := previewWait(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
 	in, err := core.ParseInput(req.Input)
 	if err != nil {
 		writeError(w, err)
@@ -148,7 +154,8 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		id, ok := s.idempotent[key]
 		s.mu.Unlock()
 		if ok {
-			writeJSON(w, http.StatusOK, map[string]any{"id": id, "state": "Pending", "idempotent": true})
+			body := s.createdTaskBody(r.Context(), id, 0, map[string]any{"idempotent": true})
+			writeJSON(w, http.StatusOK, body)
 			return
 		}
 	}
@@ -162,9 +169,114 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		s.idempotent[key] = id
 		s.mu.Unlock()
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"id": id, "state": string(core.StatePending), "createdAt": core.TimeFromID(id),
-	})
+	writeJSON(w, http.StatusCreated, s.createdTaskBody(r.Context(), id, wait, nil))
+}
+
+const (
+	// previewWaitMax bounds how long POST /tasks may hold a request while it
+	// waits for the scheduler to publish the Resource (ADR-0020 follow-up:
+	// "POST /tasks 响应内嵌 Resource 预览"). Creation has already happened by
+	// then, so the wait is a UX optimisation, never a precondition.
+	previewWaitMax = 5 * time.Second
+	// previewPollInterval is the scheduler-visibility granularity of that wait.
+	previewPollInterval = 20 * time.Millisecond
+)
+
+// previewWait parses the optional `?wait=<ms>` opt-in for the Resource preview.
+// Absent means "never block"; the default response stays as fast as before.
+func previewWait(r *http.Request) (time.Duration, error) {
+	raw := r.URL.Query().Get("wait")
+	if raw == "" {
+		return 0, nil
+	}
+	ms, err := strconv.Atoi(raw)
+	if err != nil || ms <= 0 || time.Duration(ms)*time.Millisecond > previewWaitMax {
+		return 0, core.Err(core.E_INVALID_INPUT,
+			"wait must be 1..%d (milliseconds)", previewWaitMax/time.Millisecond)
+	}
+	return time.Duration(ms) * time.Millisecond, nil
+}
+
+// createdTaskBody builds the POST /api/v1/tasks response.
+//
+// ADR-0020 lists "POST /tasks 响应内嵌 Resource 预览" as a P1 follow-up. We
+// deliver it as a *best-effort* preview rather than by resolving synchronously
+// inside the request: Create enqueues the task and resolution happens in the
+// worker, so a response that always carried a Resource would have to block every
+// caller (including `udctl`) on a network round trip.
+//
+//	(no query)      → immediate response; `resource` is filled only if the
+//
+//	                  scheduler already published it, `resolved` says which.
+//	?wait=<ms>      → poll up to that bound for the resolution; `previewTimedOut`
+//
+//	                  marks the case where creation succeeded but the preview
+//	                  did not arrive in time.
+//
+// The original `id` / `state` / `createdAt` keys are kept for compatibility; the
+// inlined `task` is authoritative for state (a task may already have left
+// Pending by the time we read it back).
+func (s *Server) createdTaskBody(ctx context.Context, id core.TaskID,
+	wait time.Duration, extra map[string]any) map[string]any {
+	body := map[string]any{
+		"id": id, "state": string(core.StatePending),
+		"createdAt": core.TimeFromID(id),
+		"resource":  nil, "resolved": false,
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	d, err := s.ctl.Get(ctx, id)
+	if err != nil || d == nil {
+		// Creation succeeded; failing to echo it back must not fail the request.
+		return body
+	}
+	if wait > 0 && d.Resource == nil && previewPending(d.State) {
+		if resolved, ok := s.awaitResource(ctx, id, wait); ok {
+			d = resolved
+		} else {
+			body["previewTimedOut"] = true
+		}
+	}
+	body["task"] = d
+	body["state"] = string(d.State)
+	if d.Resource != nil {
+		body["resource"] = d.Resource
+		body["resolved"] = true
+	}
+	return body
+}
+
+// previewPending reports whether the scheduler may still publish a Resource.
+func previewPending(state core.TaskState) bool {
+	return state == core.StatePending || state == core.StateResolving
+}
+
+// awaitResource polls until the Resource appears, the task stops being
+// resolvable, or the deadline passes.
+func (s *Server) awaitResource(ctx context.Context, id core.TaskID,
+	wait time.Duration) (*core.TaskDetail, bool) {
+	deadline := time.Now().Add(wait)
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, false
+		}
+		d, err := s.ctl.Get(ctx, id)
+		if err != nil || d == nil {
+			return nil, false
+		}
+		if d.Resource != nil || !previewPending(d.State) {
+			return d, d.Resource != nil
+		}
+		if time.Now().After(deadline) {
+			return nil, false
+		}
+		select {
+		case <-ctx.Done():
+			return nil, false
+		case <-time.After(previewPollInterval):
+		}
+	}
 }
 
 func (s *Server) batchTasks(w http.ResponseWriter, r *http.Request) {

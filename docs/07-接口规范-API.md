@@ -1,6 +1,6 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.7 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14） ｜ 日期：2026-11-16 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.8 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；**`POST /tasks` 已内嵌 `Resource` 预览（ADR-0020 后续动作，2026-11-17）**） ｜ 日期：2026-11-17 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
 > **v0.7 变更 / 2026-11-16 时点口径（§8 矩阵 L4 结论同步；下文各版说明为更早时点值，保留不改）**：
 > `cmd/udinterop` 的 §8 矩阵行由「L4 门禁 0/14 PASS」更正为 2026-11-16 双机实验室
@@ -120,6 +120,26 @@ POST /api/v1/tasks
 **任务详情关键字段**：`state, bytesDone/Total, speed, eta, connections, bitfield(hex), numPieces, pieceLength, files[], peers[], trackers[], selectedFiles, followedBy, belongsTo`。后六个字段为使 L1 facade 可直接映射而预留（见 §5）。
 
 > **P0 响应差异**：创建任务返回 `{id, state, createdAt}`（`201`），不含上例中的 `resource` 预览字段；`Resource` 需通过 `GET /tasks/{id}` 或 `POST /resolve` 获取。P0 的 `peers[]` / `trackers[]` 为空（BT/eD2k 引擎属 P1+）。`bitfield` 按 `06` §10 的 `ceil(numPieces/8)` 字节规则生成。上述差异登记在 [ADR-0020](adr/ADR-0020-P0实现基线与范围声明.md)，P1 补齐前不视为接口破坏。
+>
+> **2026-11-17 当前态（ADR-0020 后续动作「`POST /tasks` 响应内嵌 `Resource` 预览」已落地；上文为 P0 时点口径，保留不改）**：
+> 创建响应在保留 `id` / `state` / `createdAt` 三个原键的前提下新增四项——
+>
+> ```json
+> { "id": "01J8Z…", "state": "Ready", "createdAt": 1762570000000,
+>   "task": { …完整 TaskDetail，与 GET /tasks/{id} 同形… },
+>   "resource": { …Resource 预览，未解析出时为 null… },
+>   "resolved": true }
+> ```
+>
+> - `task` 是**权威**的：`state` 以它为准（任务可能已经离开 `Pending`），`id`/`createdAt` 仅为兼容保留。
+> - 解析是异步的：`Create` 只入队，`Resolving` 由 worker 完成。因此**默认不等待**——
+>   拿到 `resolved:false` + `resource:null` 时客户端按原方式 `GET /tasks/{id}` 轮询，行为与 P0 一致。
+> - 需要"一次往返拿到文件清单"的客户端可加 **`?wait=<毫秒>`**（1..5000，缺省不等待）：
+>   handler 在该上限内轮询到 `Resource` 或任务离开 `Pending`/`Resolving` 为止；
+>   超时返回 `201` + `resolved:false` + `previewTimedOut:true`（**创建已成功，绝不因此报错**）。
+>   参数非法返回 `400 E_INVALID_INPUT`，且不创建任务。
+> - 幂等重放（同 `Idempotency-Key`）返回 `200` 且带 `idempotent:true`，同样内嵌 `task`/`resource`，
+>   但不做等待。
 
 ## 3. CLI（`udctl`）
 

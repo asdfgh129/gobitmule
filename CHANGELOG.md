@@ -66,6 +66,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **`POST /tasks` 响应内嵌 `Resource` 预览（2026-11-17，ADR-0020 后续动作）**：
+  - **此前状态**：创建任务只返回 `{id, state, createdAt}`，客户端要渲染文件清单必须再发一次
+    `GET /tasks/{id}` 或 `POST /resolve`；`07` §2 以「P0 响应差异」登记过。
+  - **实现**：响应保留原三键，新增 `task`（完整 `TaskDetail`，与 `GET` 同形）、`resource`
+    （预览，未解析出时 `null`）、`resolved`。`state` 以 `task` 为准（任务可能已离开 `Pending`）。
+  - **默认不等待**：`Create` 只入队，解析由 worker 异步完成，所以默认响应是最快路径，
+    拿不到预览时 `resolved:false`，客户端按原方式轮询——**P0 行为不变**。
+  - **可选有界等待**：`?wait=<1..5000>`（毫秒）在 handler 内轮询到 `Resource` 或任务离开
+    `Pending`/`Resolving`；超时返回 `201` + `resolved:false` + `previewTimedOut:true`
+    （创建已成功，**绝不**因预览超时报错）；参数非法返回 `400 E_INVALID_INPUT` 且不创建任务。
+  - **幂等重放**：同 `Idempotency-Key` 返回 `200` + `idempotent:true`，同样内嵌 `task`/`resource`，不等待。
+  - **回归**：5 条（已解析则内嵌且 `state` 跟随任务 / 未解析不等且不误报超时 /
+    `?wait` 命中有界轮询 / 超时如实标记 / 非法 `wait` 400 且零创建）。
+  - **文档**：`07` v0.8 §2 当前态注、ADR-0020 追加「后续动作落地注」、`docs/README` v1.22。
 - **`events` 审计日志保留清理（2026-11-17，兑现 `06` §7 / ADR-0015 实现债第二项）**：
   - **此前状态**：`06` §7 写着「`events` 保留策略可配（默认 7 天 / 10 万条），定期清理」，
     §10 的「P0 偏差」也登记过，但代码里**没有任何清理路径**，审计表只增不减。

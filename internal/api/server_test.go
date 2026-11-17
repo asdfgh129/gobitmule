@@ -22,6 +22,10 @@ type fakeControl struct {
 	mu    sync.Mutex
 	tasks map[core.TaskID]*core.TaskDetail
 	calls map[string]int
+	// resolveOn is the 1-based Get call number after which resolution "lands":
+	// used to exercise the bounded Resource preview of POST /tasks.
+	resolveOn int
+	gets      int
 }
 
 func newFakeControl() *fakeControl {
@@ -72,6 +76,13 @@ func (f *fakeControl) Get(_ context.Context, id core.TaskID) (*core.TaskDetail, 
 	t, ok := f.tasks[id]
 	if !ok {
 		return nil, core.Err(core.E_TASK_NOT_FOUND, "task %s not found", id)
+	}
+	f.gets++
+	if f.resolveOn > 0 && f.gets >= f.resolveOn && t.Resource == nil {
+		t.Resource = &core.Resource{ID: "res-" + string(id), Kind: core.KindSingle,
+			Engine: core.EngineGo,
+			Files:  []core.ResourceFile{{Index: 0, Path: "a.bin", Selected: true}}}
+		t.State = core.StateReady
 	}
 	cp := *t
 	return &cp, nil
