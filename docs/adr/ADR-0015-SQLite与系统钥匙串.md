@@ -50,3 +50,31 @@ SQLite 明确**不为该错误调用 busy handler**（CI run `43393512271` 的 `
 回调无 DB 外副作用；永久锁库仍 fail loud。这是**实现层加固，不是决策修订**，
 该失败已由 CI run `43399289527` 复跑 `quality: success` 闭环。
 详见 `06` §5 / §7 / §10、`12` §9 与 CHANGELOG Fixed。
+
+## 实现落地注（2026-11-17，落实决策 ③，不修改上述已批准决策）
+
+决策 ③ 要求「进度批量刷盘（500ms 或 4MB 聚合），不每片一事务」。此前实现是**每片一事务**
+（`WriteChunkDone`：`UPDATE chunks` + 摘要行 + `bytes_done` 增量三语句一个事务），
+`06` §10 的「P0 偏差」条如实登记过这一点。本注记录该条落地的实际做法与边界：
+
+- **缓冲**：`scheduler.chunkWriter` 在内存持有分片完成记录（分片、摘要、镜像序号），
+  `.part` 字节仍立即写入；累计 **4MB** 或距上次刷盘 **500ms**（定时器）时触发一次刷盘，
+  `Sync()` / `Close()` 与 `Verified()` 强制先刷盘。
+- **一次事务**：新增 `store.WriteChunkDoneBatch`，把 N 条记录的 `state='done'`、
+  摘要行 upsert 与**累加后的一次** `bytes_done` 增量放进同一事务；任一条分片不是 `assigned`
+  则整体回滚（不做部分提交），跨任务混批直接拒绝。单条路径 `WriteChunkDone` 等同「批量 = 1」，
+  保证恢复路径与测试只有一条代码路径。
+- **崩溃窗口（必须如实标注）**：`kill -9` 时最多丢失**一个刷盘窗口**的完成记录
+  （≤500ms 或 <4MB 的分片）。这些分片在 DB 里仍是 `assigned`，恢复按 `06` §5 回 `pending`
+  重下——代价是一次重复下载，**不会**出现 `bytes_done` 与 `chunks` 表不一致（两者同事务），
+  也不会损坏 `.part`。这与决策 ⑤「不信任内存态」一致。
+- **顺序约束**：`Verified()` 是 `done → verified` 的迁移，必须先刷掉该分片的完成记录再迁移；
+  否则 `UPDATE ... WHERE state='assigned'` 匹配不到，会报假的「not in assigned state」。
+  该缺陷在实现中真实出现过，已由 `TestChunkWriterVerifiedFlushesBufferedCompletionFirst` 固定。
+- **验证**：`store` 两条（批量原子性 / 跨任务拒绝）+ `scheduler` 四条（Sync 前不提交、
+  字节阈值触发、定时器触发、verified 先刷盘）；真实路径用 `make perf` 的 1GiB / 4096 分片
+  Range 下载复核（1GiB 全量 sha256 通过、`chunks_verified=4096`）。
+- **不宣称吞吐提升**：本机回环 `make perf` 的 MB/s 波动达 ±3 倍（同机连续三次 309 / 702 / 244 MB/s），
+  不足以支撑任何性能结论；本项改动的目的是**落实决策 ③ 的事务粒度**，不是性能声明。
+- **仍未落实**：决策 ④ 的系统钥匙串适配器（当前只有 `MemoryCredentialStore`）与 `06` §7 的
+  `events` 保留清理，均仍为开放项。

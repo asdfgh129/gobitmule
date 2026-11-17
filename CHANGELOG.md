@@ -626,6 +626,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Proposed（…转 Accepted）` 被误判为已决定。首页章节与卡片数为 `--check` 的强制校验项。
 
 ### Changed
+- **分片进度改为批量刷盘：落实 ADR-0015 决策 ③（2026-11-17）**：
+  - **此前状态**：`store.WriteChunkDone` 每完成一个分片就开一个事务（`UPDATE chunks` +
+    摘要行 + `bytes_done` 增量三条语句），`06` §10「P0 偏差」条如实登记过。ADR-0015 决策 ③
+    要求的是「**500ms 或 4MB 聚合，不每片一事务**」，一直未兑现。
+  - **实现**：`scheduler.chunkWriter` 把完成记录（分片 / 摘要 / 镜像序号）缓冲在内存，
+    累计 4MB 或 500ms 定时器到点触发一次刷盘；`Sync()` / `Close()` / `Verified()` 强制先刷盘。
+    新增 `store.WriteChunkDoneBatch`：N 条分片状态、摘要行与**累加后的一次** `bytes_done`
+    增量在同一事务提交；任一条分片不是 `assigned` 则整体回滚，跨任务混批直接拒绝。
+    单条入口 `WriteChunkDone` 收敛为「批量 = 1」，恢复与测试只有一条代码路径。
+  - **崩溃窗口（如实标注）**：`kill -9` 最多丢一个窗口（≤500ms 或 <4MB）的完成记录；
+    这些分片在 DB 里仍是 `assigned`，恢复按 `06` §5 回 `pending` 重下——代价是一次重复下载，
+    **不会**出现 `bytes_done` 与 `chunks` 表不一致（同事务），也不会损坏 `.part`。
+  - **修掉的真实缺陷**：`Verified()` 是 `done → verified` 迁移，若该分片的完成记录还在缓冲里，
+    `UPDATE ... WHERE state='assigned'` 匹配不到，报假的「not in assigned state」
+    （首次跑测试即复现）。现在 `Verified()` 先刷盘再迁移，回归
+    `TestChunkWriterVerifiedFlushesBufferedCompletionFirst` 固定该顺序。
+  - **回归**：`store` 2 条（批量原子性含回滚、跨任务拒绝）+ `scheduler` 4 条
+    （Sync 前不提交、4MB 阈值触发、500ms 定时器触发、verified 先刷盘）；
+    真实路径用 `make perf` 的 1GiB / 4096 分片 Range 下载复核，1GiB 全量 sha256 通过。
+  - **不宣称吞吐提升**：同机回环 `make perf` 连续三次为 309 / 702 / 244 MB/s（±3 倍波动），
+    不足以支撑性能结论；本项是对**事务粒度**的兑现，不是性能声明。
+  - **文档**：`06` §10 追加收口注、ADR-0015 追加「实现落地注（2026-11-17）」、
+    `docs/README` v1.19。**仍未落实**：决策 ④ 系统钥匙串适配器、`06` §7 的 `events` 保留清理。
 - **文档「当前态」一致性收口：把 L4 14/14 与 NFR `met=true` 写回各处结论表（2026-11-16，纯文档）**：
   - **问题**：`eda8a6c` / `38bd52c` 已产出并归档 L4 14/14 与 NFR 11.21MB/s，但多份文档的
     **当前态表格与结论段**仍是旧口径——`03` §8 追踪矩阵写「❌ 未通过 0/14」「❌ 未执行」，

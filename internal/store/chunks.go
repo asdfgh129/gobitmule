@@ -87,29 +87,73 @@ func (s *Store) Next(ctx context.Context, taskID core.TaskID) (core.Chunk, bool,
 	return c, found, err
 }
 
-// WriteChunkDone records bytes + digest + progress in one transaction.
+// ChunkDone is one completed-chunk record, the unit of the batched write path.
+// ADR-0015 decision ③ requires progress to be flushed in batches (500ms or 4MB
+// aggregate) rather than one transaction per chunk, so the writer buffers these
+// records and the store commits the whole batch in a single transaction.
+type ChunkDone struct {
+	Chunk       core.Chunk
+	ResourceID  string
+	Digest      string
+	MirrorIndex int
+}
+
+// WriteChunkDone records one completed chunk. Kept for callers that have no
+// batching context (recovery, tests); it is exactly a batch of one.
 func (s *Store) WriteChunkDone(ctx context.Context, c core.Chunk, resourceID, digest string, mirrorIndex int) error {
+	return s.WriteChunkDoneBatch(ctx, []ChunkDone{{
+		Chunk: c, ResourceID: resourceID, Digest: digest, MirrorIndex: mirrorIndex,
+	}})
+}
+
+// WriteChunkDoneBatch records N completed chunks + digests + progress in ONE
+// transaction (ADR-0015 ③). All records must belong to the same task: the
+// progress delta is accumulated and applied once, so a mixed batch would be a
+// caller bug rather than something to silently split.
+//
+// Atomicity matters for recovery: either every chunk in the batch becomes
+// `done` and the task's bytes_done grows by the sum of their lengths, or
+// nothing does. Chunks still `assigned` at the moment of a crash are reset to
+// `pending` by recovery, so a lost batch costs a re-download of at most one
+// flush window, never a corrupted or double-counted file.
+func (s *Store) WriteChunkDoneBatch(ctx context.Context, recs []ChunkDone) error {
+	if len(recs) == 0 {
+		return nil
+	}
+	taskID := recs[0].Chunk.TaskID
+	var total int64
+	for _, r := range recs {
+		if r.Chunk.TaskID != taskID {
+			return core.Err(core.E_INTERNAL, "batch mixes tasks %s and %s", taskID, r.Chunk.TaskID)
+		}
+		total += r.Chunk.Length
+	}
 	return s.withTx(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE chunks SET state='done', hash_ok=0, mirror_id=?, updated_at=?
-			WHERE id=? AND state='assigned'`, mirrorIndex, s.now(), c.ID)
-		if err != nil {
-			return err
-		}
-		if n, _ := res.RowsAffected(); n != 1 {
-			return core.Err(core.E_INTERNAL, "chunk %d is not in assigned state", c.ID)
-		}
-		if resourceID != "" {
+		at := s.now()
+		for _, r := range recs {
+			res, err := tx.ExecContext(ctx, `UPDATE chunks SET state='done', hash_ok=0, mirror_id=?, updated_at=?
+				WHERE id=? AND state='assigned'`, r.MirrorIndex, at, r.Chunk.ID)
+			if err != nil {
+				return err
+			}
+			if n, _ := res.RowsAffected(); n != 1 {
+				return core.Err(core.E_INTERNAL, "chunk %d is not in assigned state", r.Chunk.ID)
+			}
+			if r.ResourceID == "" {
+				continue
+			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM checksums WHERE resource_id=?
-				AND scope='chunk' AND file_idx=? AND chunk_index=?`, resourceID, c.FileIndex, c.Index); err != nil {
+				AND scope='chunk' AND file_idx=? AND chunk_index=?`,
+				r.ResourceID, r.Chunk.FileIndex, r.Chunk.Index); err != nil {
 				return err
 			}
 			if _, err := tx.ExecContext(ctx, `INSERT INTO checksums
 				(resource_id,file_idx,algo,scope,chunk_index,value) VALUES(?,?,'sha256','chunk',?,?)`,
-				resourceID, c.FileIndex, c.Index, digest); err != nil {
+				r.ResourceID, r.Chunk.FileIndex, r.Chunk.Index, r.Digest); err != nil {
 				return err
 			}
 		}
-		return addProgressTx(ctx, tx, c.TaskID, c.Length, s.now())
+		return addProgressTx(ctx, tx, taskID, total, at)
 	})
 }
 
