@@ -66,6 +66,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
+- **HTTP Range 传输的慢启动（2026-11-17，`05` §5 / ADR-0020 后续动作）**：
+  - **此前状态**：`transport/http.Run` 直接按 `maxConnections` 开满信号量，`05` §5 写的
+    「初始 1 连接，按吞吐逐步增至 `maxConnections`」没有实现——小文件 / 慢链路也会
+    瞬间并发全部连接。
+  - **实现**：新增 `rampGate`（`internal/transport/http/ramp.go`）。gate 持有恰好
+    `maxConnections` 个槽位令牌，启动时只放出 1 个、其余扣留；增长信号是**背压**而不是
+    定时器或吞吐估算——分发循环在真正排队等槽位时才置位，随后某次分片成功完成交还一个
+    扣留槽位。一次背压只换取一次增长，上限 `maxConnections`；令牌总数守恒，慢启动不会
+    卡死快链路；失败分片不触发增长。
+  - **为什么用背压**：早先按「完成瞬间是否所有槽位都在飞」判定，同时完成的分片会让采样
+    错过饱和，实测 25 次里有若干次只爬到 3/4；背压由分发循环在阻塞前置位，单调可靠。
+  - **不做性能声明**：本机回环吞吐波动 ±3 倍（见 `docs/22`），无法据此断言加速；本项兑现
+    的是行为语义。
+  - **回归**：`ramp_test.go` 7 条——初始 1 / 无背压不增长 / 一次背压一次增长 /
+    单调爬到上限 / 绝不越界 / 单连接不增长 / ctx 取消；`TestRunSlowStartRampsConnections`
+    端到端断言首个请求独占、峰值不超过上限（上限本身由 gate 用例钉住，因为末波可能用不满）。
+  - **文档**：`05` v0.9 §5 实现注、ADR-0020 落地注里该项由 ⬜ 转 ✅、`docs/README` v1.23。
 - **`POST /tasks` 响应内嵌 `Resource` 预览（2026-11-17，ADR-0020 后续动作）**：
   - **此前状态**：创建任务只返回 `{id, state, createdAt}`，客户端要渲染文件清单必须再发一次
     `GET /tasks/{id}` 或 `POST /resolve`；`07` §2 以「P0 响应差异」登记过。

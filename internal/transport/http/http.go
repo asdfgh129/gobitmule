@@ -153,7 +153,9 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 	if conns < 1 {
 		conns = 1
 	}
-	sem := make(chan struct{}, conns)
+	// docs/05 §5: start with one connection and ramp up to maxConnections as
+	// throughput proves itself (see rampGate).
+	gate := newRampGate(conns)
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 	// A chunk that fails once is released back to pending and retried. Record
@@ -205,9 +207,7 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 				break
 			}
 		}
-		select {
-		case sem <- struct{}{}:
-		case <-ctx.Done():
+		if !gate.acquire(ctx) {
 			_ = w.Release(ctx, c, ctx.Err())
 			wg.Wait()
 			return ctx.Err()
@@ -215,13 +215,17 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 		wg.Add(1)
 		go func(c core.Chunk) {
 			defer wg.Done()
-			defer func() { <-sem }()
 			err := t.fetchChunk(ctx, r, c, w, b)
 			if err != nil {
 				if relErr := w.Release(ctx, c, err); relErr != nil {
 					err = relErr
 				}
+			} else {
+				// The dispatcher was waiting for a slot at some point, so the
+				// link can absorb one more connection (slow start, docs/05 §5).
+				gate.maybeGrow()
 			}
+			gate.release()
 			record(c, err)
 		}(c)
 	}
