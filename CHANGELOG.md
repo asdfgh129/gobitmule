@@ -66,8 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checksums.txt` 与 `govulncheck`，接入 `make gates` 与 CI。
 
 ### Added
-- **OS 钥匙串凭据适配器（2026-11-17，ADR-0015 决策 ④，`06` §6 / `11` §3）**：
-  - **此前状态**：凭据只有 `MemoryCredentialStore`（进程内、重启即失），`11` §10 残余风险
+- **OS 钥匙串凭据适配器（2026-11-17，ADR-0015 决策 ④，`06` §6 / `11` §3）**：  - **此前状态**：凭据只有 `MemoryCredentialStore`（进程内、重启即失），`11` §10 残余风险
     第 1 条与 ADR-0015 落地注长期登记为「仍未落实」。发起人已确认「零 cgo 三平台适配」路线。
   - **平台矩阵（按本机实际可用择优，`GET /capabilities` 新增 `credentials` 字段如实上报）**：
     macOS `macos-keychain`——`/usr/bin/security -i`，整条命令经 **stdin**，密钥永不进 argv
@@ -936,6 +935,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   「不包含」清单移出（它们属构建期门禁工具，不是产品能力）。
 
 ### Fixed
+- **修复：钥匙串提交在 CI 跌破 `internal/security` 覆盖率阈值（`6d96918` run
+  `44065445782` → `dbd31ec` run `44070121233`，2026-11-17）**：
+  - **现象**：OS 钥匙串提交在本机（macOS）`make gates-strict` 6 PASS / 0 WARN /
+    0 FAIL，但 CI（ubuntu）`cover` 门禁 WARN——`internal/security` 85.5% < 90%，
+    严格模式判 FAIL。
+  - **根因**：`keychain_linux.go` 在 CI 编译、其 Secret Service 方法却没有任何
+    可执行路径；而 `keychain_darwin.go` 在 CI **不编译**。macOS 本机与 CI 的
+    Linux 编译集是两个不同的语句集合，覆盖率**不可互推**——本机 90.3% 不代表 CI。
+  - **修复**：补真实可跑的测试——`keychain_linux_test.go` 用假 `secret-tool`
+    （临时 PATH 脚本）驱动属性 argv 顺序 / stdin 传密 / 退出码 1 = 静默
+    not-found / helper 失败不得伪装 not-found，以及双通道探测
+    （`DBUS_SESSION_BUS_ADDRESS` 与 `XDG_RUNTIME_DIR/bus`）与缺失时降级 `file`；
+    `keychain_unit_test.go` 补 rename 目标被目录占用、凭据路径为目录两支错误
+    分支；root 绕过权限的场景显式 `t.Skip` 并注明 `NOT_EXECUTED`。
+  - **验证升级**：为不再靠推算，在实验室主机 A（真实 Ubuntu）新装 Go 1.27.4
+    **真实执行** Linux 编译集：**91.2%**（macOS 91.1%），两端全绿；真实执行还
+    抓到两处可移植性缺陷（测试内 id 弄反、root 场景断言），均已修。
+  - **沉淀**：`13` §4 v0.22 记入台账与经验——凡按 `GOOS` 分文件的包，覆盖率
+    门禁必须对每种编译集分别真实执行。
 - **修复：并发 Cancel 后任务被强制改写为 `Failed`（`E_ILLEGAL_TRANSITION`）**：
   - **现象**：`make gates-strict` 的覆盖率门禁偶发 FAIL，报
     `FAIL: TestDeleteRemovesOutputsWhenRequested`——任务迟迟未到 `Canceled`，
