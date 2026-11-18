@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > （首条为 2026-11-10 的覆盖率债清零）。标签 message 附本文件摘要。
 
 
+### Added
+- **`task_options` / `resources.headers` 的 500ms 批量写（2026-11-18，`06` §10 P0 偏差最后一条；ADR-0015 决策 ③ 收口）**：
+  - **实现**：`internal/store/metabatch.go` 的 `metaBatcher` 把 `SaveOptions` / `SetOption` /
+    `SaveResource` 按 key 去重后在**一个事务**提交。窗口自首笔起上限 500ms；单笔空闲写
+    2ms settle 后提交（不给单次 PATCH 强加半秒延迟）；满 64 笔或 `Store.Close()` 立即排空。
+  - **不变式**：调用方同步等待 COMMIT 结果——PATCH 返回 200 即已落库，事务失败返回给该批
+    全部调用者，某一请求取消只结束它自己的等待；`06` §5 状态迁移 + 分片进度同事务、
+    §6 敏感头剥离均不受影响。核查发现旧偏差所述「每片重写元数据」从未存在于生产代码，
+    另加分片热路径零元数据写回归守卫。
+  - **回归**：`store/metabatch_test.go` 8 例（窗口合并 / 单笔快速提交 / 去重 last-writer-wins /
+    错误传播 / 取消隔离 / 条数上限 / Close 排空 / 敏感头剥离）、
+    `scheduler/chunkflush_test.go:TestChunkWriterDoesNotWriteMetadata`；`internal/store` 覆盖率
+    86.6%（阈值 80%），`go test -race ./...` 全绿。**不宣称吞吐提升**。
+  - **文档**：`06` v0.6、ADR-0015「实现落地注终」、ADR-0020 后续动作表订正、
+    ADR 索引 v0.8、`14`、`docs/README` v1.26。
+
+
 ### Security
 - **Go 工具链升至 1.27.4：修复 `GO-2026-6859`（2026-11-11，WBS 11 收尾门禁发现）**：
   `make gates-strict` 复跑时 `govulncheck` 漏洞库新增
@@ -679,7 +696,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `store` 84.8%、`app` 87.0%，`gates.py` 的 10 个门禁包全部达标。
 - **P1 首个 PR：覆盖率债清零（2026-11-10）**：新增 8 个包级测试文件，补齐此前空白或低覆盖路径——
   `resolve_test.go`（0% → 100%，注册表优先级/文件名回退/SSRF 透传/阶段化降级）、
-  `app/daemon_test.go`（0% → 86.5%，真实起停守护进程、discovery 生命周期、配置错误）、
+  `app/daemon_test.go`（0% → 86.6%，真实起停守护进程、discovery 生命周期、配置错误）、
   `api/extra_test.go`（61.2% → 87.7%，全部 REST 处理器、Bearer 鉴权、panic 恢复、错误脱敏）、
   `config/extra_test.go`（70.1% → 99.1%，环境覆盖与 `PATCH` 全键）、
   `postproc/registry_test.go`（70.6% → 100%）、

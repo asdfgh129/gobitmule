@@ -141,3 +141,37 @@ func TestChunkWriterVerifiedFlushesBufferedCompletionFirst(t *testing.T) {
 		t.Fatalf("bytes_done=%d want 4", task.BytesDone)
 	}
 }
+
+// The docs/06 §10 deviation claimed task_options / headers were rewritten per
+// chunk. They are not, and this test prevents a future change from quietly
+// reintroducing that hot-path write: chunk completions must only touch chunks,
+// checksums and tasks.bytes_done, never the metadata batcher.
+func TestChunkWriterDoesNotWriteMetadata(t *testing.T) {
+	withFlush(t, time.Hour, 1<<20)
+	st, id, res, part := newWriterFixture(t)
+	ctx := context.Background()
+	w, err := newChunkWriter(st, id, res.ID, part, 8, core.NewEventBus(8), 3, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	before := st.MetaBatchStats().Calls
+	for i := 0; i < 2; i++ {
+		c, ok, err := w.Next(ctx)
+		if err != nil || !ok {
+			t.Fatalf("next: ok=%v err=%v", ok, err)
+		}
+		if err := w.WriteChunk(ctx, c, []byte("AAAA")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if got := st.MetaBatchStats().Calls; got != before {
+		t.Fatalf("chunk path issued %d metadata writes (before=%d)", got-before, before)
+	}
+	if task, _ := st.GetTask(ctx, id); task.BytesDone != 8 {
+		t.Fatalf("bytes_done = %d, want 8", task.BytesDone)
+	}
+}

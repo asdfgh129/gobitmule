@@ -28,6 +28,7 @@ type Store struct {
 	writeMu sync.Mutex
 	bus     *core.EventBus
 	now     func() int64
+	meta    *metaBatcher
 }
 
 func Open(path string, bus *core.EventBus) (*Store, error) {
@@ -58,6 +59,7 @@ func Open(path string, bus *core.EventBus) (*Store, error) {
 	db.SetMaxOpenConns(4)
 	db.SetMaxIdleConns(4)
 	s := &Store{db: db, path: path, bus: bus, now: func() int64 { return time.Now().UnixMilli() }}
+	s.meta = newMetaBatcher(s)
 	if err := s.migrate(); err != nil {
 		db.Close()
 		return nil, err
@@ -205,4 +207,9 @@ func (s *Store) Backup(ctx context.Context, dest string) error {
 	return err
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	if s.meta != nil {
+		s.meta.close()
+	}
+	return s.db.Close()
+}

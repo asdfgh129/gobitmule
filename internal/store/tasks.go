@@ -55,10 +55,12 @@ func saveOptions(ctx context.Context, tx *sql.Tx, id core.TaskID, opt core.TaskO
 	return nil
 }
 
-// SetOption stores one runtime option (e.g. the .part path) transactionally.
+// SetOption stores one runtime option (e.g. the .part path). Metadata writes
+// join the 500ms-capped batch (docs/06 §7 / §10); the caller still waits for the
+// transaction result, so "PATCH returned 200" always means "row is durable".
 func (s *Store) SetOption(ctx context.Context, id core.TaskID, key, value string) error {
-	return s.withTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO task_options(task_id,key,value) VALUES(?,?,?)
+	return s.meta.submit(ctx, "option:"+string(id)+":"+key, func(dbCtx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(dbCtx, `INSERT INTO task_options(task_id,key,value) VALUES(?,?,?)
 			ON CONFLICT(task_id,key) DO UPDATE SET value=excluded.value`, string(id), key, value)
 		return err
 	})
@@ -135,14 +137,17 @@ func addProgressTx(ctx context.Context, tx *sql.Tx, id core.TaskID, delta int64,
 	return err
 }
 
-// SaveOptions rewrites the persisted options (PATCH /tasks/{id}).
+// SaveOptions rewrites the persisted options (PATCH /tasks/{id}). The whole
+// rewrite is one batched unit: a newer rewrite of the same task replaces the
+// buffered one (last writer wins), but both callers receive the COMMIT result.
 func (s *Store) SaveOptions(ctx context.Context, id core.TaskID, opt core.TaskOptions) error {
-	temp, err := s.Option(ctx, id, "temp_path")
-	if err != nil {
-		return err
-	}
-	return s.withTx(ctx, func(tx *sql.Tx) error {
-		return saveOptions(ctx, tx, id, opt, temp)
+	return s.meta.submit(ctx, "options:"+string(id), func(dbCtx context.Context, tx *sql.Tx) error {
+		var temp string
+		if err := tx.QueryRowContext(dbCtx,
+			`SELECT value FROM task_options WHERE task_id=? AND key='temp_path'`, string(id)).Scan(&temp); err != nil && err != sql.ErrNoRows {
+			return err
+		}
+		return saveOptions(dbCtx, tx, id, opt, temp)
 	})
 }
 

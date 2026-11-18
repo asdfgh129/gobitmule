@@ -130,3 +130,31 @@ SQLite 明确**不为该错误调用 busy handler**（CI run `43393512271` 的 `
 - **代价如实**：macOS 每次 helper 调用 ≈0.5s（9 次调用 4.24s 实测），属任务启动成本；
   不做进程内缓存——按次直读让「钥匙串里删除凭据」立即生效，缓存会引入撤销语义问题。
 - **仍未落实**：`06` §10「P0 偏差」里 `task_options` / `resources.headers` 的 500ms 聚合。
+
+
+## 实现落地注终（2026-11-18，`06` §10 P0 偏差最后一条；不修改上述已批准决策）
+
+上一条落地注的「仍未落实」为 2026-11-17 时点值，本注关闭最后一项：决策 ③ 要求的
+**批量写**不止 `chunks`，还覆盖 `task_options` / `resources.headers`。
+
+- **核查结论（如实）**：P0 基线条文写「每片与分片状态在同一事务提交」，但自初始提交起
+  生产代码从未在分片热路径重写这两类元数据；实际写点是 `PATCH /tasks/{id}`（`SaveOptions`）、
+  运行期键值（`SetOption`）与解析完成（`SaveResource`）。因此不是「再优化一次分片写」，
+  而是把真实的元数据写纳入 500ms 上限的批量事务。
+- **实现**：`internal/store/metabatch.go` 的 `metaBatcher.submit` 按
+  `options:<taskID>` / `option:<taskID>:<key>` / `resource:<resourceID>` 去重（同一 key
+  的新写覆盖旧写），一个窗口内的所有写由 `flush` 在**一个事务**提交。窗口自首笔起上限
+  **500ms**；单笔空闲写在 **2ms settle** 后提交，不给单次 PATCH 强加半秒延迟；
+  满 **64** 笔或 `Store.Close()` 立即排空。
+- **不变式**：每个调用方同步等待 COMMIT 结果——PATCH 返回 200 即已落库；事务失败返回给
+  该批全部调用者；某一请求取消只结束它自己的等待，不取消共享事务（与
+  `chunkWriter.flushPending` 同一取向）。`§5`「状态迁移 + 分片进度同事务」、
+  `§6` 敏感头剥离（批量路径同样调用 `security.StripSensitiveHeaders`）均不受影响。
+- **验证**：`store/metabatch_test.go` 8 例（窗口合并 / 单笔快速提交 / 去重 last-writer-wins /
+  错误传播 / 取消隔离 / 条数上限 / Close 排空 / 敏感头剥离）与
+  `scheduler/chunkflush_test.go:TestChunkWriterDoesNotWriteMetadata`（分片热路径零元数据写）。
+  **不宣称吞吐提升**；本机覆盖率 `internal/store` 86.6%（阈值 80%），
+  `go test -race ./...` 与 `make gates-strict` 全绿。
+- **ADR-0015 实现债状态**：决策 ①②③④ 及 `06` §7 / §10 的 P0 偏差项**全部关闭**。
+  仍未补的是非本 ADR 的项：`12` §5 的 ffmpeg 两项（随 P2）、移动端 BT 内存（需真机）、
+  实名评审会签（非技术侧可产出）。

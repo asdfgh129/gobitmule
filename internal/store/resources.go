@@ -12,8 +12,10 @@ import (
 )
 
 // SaveResource persists the full P0-frozen Resource graph in one transaction.
+// The whole graph is one batched unit (docs/06 §7 / §10): concurrent resolves
+// reaching this method inside one 500ms window share a single transaction.
 func (s *Store) SaveResource(ctx context.Context, taskID core.TaskID, r *core.Resource) error {
-	return s.withTx(ctx, func(tx *sql.Tx) error {
+	return s.meta.submit(ctx, "resource:"+r.ID, func(ctx context.Context, tx *sql.Tx) error {
 		options, err := json.Marshal(struct {
 			Limits      core.TaskLimits    `json:"limits"`
 			PostProcess []core.ProcessSpec `json:"post_process"`
