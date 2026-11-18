@@ -8,6 +8,7 @@
 /udinteropx
 /udl4preflight
 /udl4audit
+/udffmpegbench
 *.exe
 *.test
 *.out

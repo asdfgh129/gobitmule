@@ -90,6 +90,53 @@ func (p PluginsConfig) Validate() error {
 	return nil
 }
 
+// PostProcessConfig is the optional desktop ffmpeg Transcode plugin
+// (ADR-0011 / ADR-0012). It is OFF by default: the zero-sidecar baseline must
+// stay true until an operator explicitly points ud at a local LGPL/GPL build.
+// Missing or unsuitable binaries degrade to E_CAPABILITY_UNAVAILABLE and never
+// block downloads.
+type PostProcessConfig struct {
+	FFmpegEnabled       bool   `yaml:"ffmpegEnabled" json:"ffmpegEnabled"`
+	FFmpegBinary        string `yaml:"ffmpegBinary" json:"ffmpegBinary"`
+	FFmpegThreads       int    `yaml:"ffmpegThreads" json:"ffmpegThreads"`
+	FFmpegMaxConcurrent int    `yaml:"ffmpegMaxConcurrent" json:"ffmpegMaxConcurrent"`
+	FFmpegTimeout       string `yaml:"ffmpegTimeout" json:"ffmpegTimeout"`
+}
+
+func (p PostProcessConfig) EffectiveTimeout() time.Duration {
+	if strings.TrimSpace(p.FFmpegTimeout) == "" {
+		return 30 * time.Minute
+	}
+	d, err := time.ParseDuration(p.FFmpegTimeout)
+	if err != nil || d <= 0 {
+		return 30 * time.Minute
+	}
+	return d
+}
+
+func (p PostProcessConfig) Validate() error {
+	if !p.FFmpegEnabled {
+		return nil
+	}
+	if strings.TrimSpace(p.FFmpegBinary) == "" {
+		return errors.New("postProcess.ffmpegBinary is required when ffmpegEnabled=true")
+	}
+	if strings.ContainsAny(p.FFmpegBinary, "\x00\r\n") {
+		return errors.New("postProcess.ffmpegBinary contains control characters")
+	}
+	if p.FFmpegThreads < 1 || p.FFmpegThreads > 64 {
+		return errors.New("postProcess.ffmpegThreads must be within 1..64")
+	}
+	if p.FFmpegMaxConcurrent < 1 || p.FFmpegMaxConcurrent > 16 {
+		return errors.New("postProcess.ffmpegMaxConcurrent must be within 1..16")
+	}
+	d, err := time.ParseDuration(p.FFmpegTimeout)
+	if err != nil || d < time.Minute || d > 24*time.Hour {
+		return errors.New("postProcess.ffmpegTimeout must be within 1m..24h")
+	}
+	return nil
+}
+
 type TelemetryConfig struct {
 	Enabled bool `yaml:"enabled" json:"enabled"`
 }
@@ -155,18 +202,19 @@ func (e EventsConfig) Validate() error {
 // Config is the full on-disk schema (docs/13 §7). Only the P0-relevant fields
 // are consumed today; the rest are documented reservations.
 type Config struct {
-	Listen      string          `yaml:"listen" json:"listen"`
-	DownloadDir string          `yaml:"downloadDir" json:"downloadDir"`
-	TempSuffix  string          `yaml:"tempSuffix" json:"tempSuffix"`
-	LogLevel    string          `yaml:"logLevel" json:"logLevel"`
-	RemoteToken string          `yaml:"remoteToken" json:"-"`
-	Global      GlobalConfig    `yaml:"global" json:"global"`
-	Security    SecurityConfig  `yaml:"security" json:"security"`
-	BT          BTConfig        `yaml:"bt" json:"bt"`
-	ED2K        ED2KConfig      `yaml:"ed2k" json:"ed2k"`
-	Plugins     PluginsConfig   `yaml:"plugins" json:"plugins"`
-	Events      EventsConfig    `yaml:"events" json:"events"`
-	Telemetry   TelemetryConfig `yaml:"telemetry" json:"telemetry"`
+	Listen      string            `yaml:"listen" json:"listen"`
+	DownloadDir string            `yaml:"downloadDir" json:"downloadDir"`
+	TempSuffix  string            `yaml:"tempSuffix" json:"tempSuffix"`
+	LogLevel    string            `yaml:"logLevel" json:"logLevel"`
+	RemoteToken string            `yaml:"remoteToken" json:"-"`
+	Global      GlobalConfig      `yaml:"global" json:"global"`
+	Security    SecurityConfig    `yaml:"security" json:"security"`
+	BT          BTConfig          `yaml:"bt" json:"bt"`
+	ED2K        ED2KConfig        `yaml:"ed2k" json:"ed2k"`
+	Plugins     PluginsConfig     `yaml:"plugins" json:"plugins"`
+	Events      EventsConfig      `yaml:"events" json:"events"`
+	PostProcess PostProcessConfig `yaml:"postProcess" json:"postProcess"`
+	Telemetry   TelemetryConfig   `yaml:"telemetry" json:"telemetry"`
 }
 
 // Defaults matches config.example.yaml and docs/13 §7.
@@ -202,7 +250,11 @@ func Defaults() Config {
 			VerifySignature: true, Runtime: "goja", ReloadInterval: "30s",
 		},
 		// docs/06 §7 defaults: 7 days / 100k rows, swept hourly.
-		Events:    EventsConfig{RetentionDays: 7, MaxRows: 100_000, PruneInterval: "1h"},
+		Events: EventsConfig{RetentionDays: 7, MaxRows: 100_000, PruneInterval: "1h"},
+		PostProcess: PostProcessConfig{
+			FFmpegEnabled: false, FFmpegBinary: "ffmpeg",
+			FFmpegThreads: 2, FFmpegMaxConcurrent: 1, FFmpegTimeout: "30m",
+		},
 		Telemetry: TelemetryConfig{Enabled: false},
 	}
 }
@@ -240,6 +292,23 @@ func applyEnv(c *Config) {
 	set("UD_PLUGINS_DIR", &c.Plugins.Dir)
 	set("UD_PLUGINS_RUNTIME", &c.Plugins.Runtime)
 	set("UD_PLUGINS_RELOAD_INTERVAL", &c.Plugins.ReloadInterval)
+	set("UD_FFMPEG_BINARY", &c.PostProcess.FFmpegBinary)
+	set("UD_FFMPEG_TIMEOUT", &c.PostProcess.FFmpegTimeout)
+	if v := os.Getenv("UD_FFMPEG_ENABLED"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			c.PostProcess.FFmpegEnabled = b
+		}
+	}
+	if v := os.Getenv("UD_FFMPEG_THREADS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.PostProcess.FFmpegThreads = n
+		}
+	}
+	if v := os.Getenv("UD_FFMPEG_MAX_CONCURRENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.PostProcess.FFmpegMaxConcurrent = n
+		}
+	}
 	// ADR-0021 path A: bt.* keys are live now. UD_BT_* overrides let an
 	// operator disable or bound seeding without editing the config file.
 	set("UD_BT_PEER_ID", &c.BT.PeerID)
@@ -313,6 +382,9 @@ func (c Config) Validate() error {
 	}
 	if err := c.Events.Validate(); err != nil {
 		return fmt.Errorf("events: %w", err)
+	}
+	if err := c.PostProcess.Validate(); err != nil {
+		return fmt.Errorf("postProcess: %w", err)
 	}
 	// ADR-0021 path A: a bounded seeding obligation must always be able to
 	// terminate. Both targets being zero with seedEnabled=true would seed

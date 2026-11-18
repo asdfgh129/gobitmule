@@ -250,6 +250,23 @@ func Run(ctx context.Context, opts Options) error {
 	defer transports.Close()
 
 	postprocs := postproc.NewRegistry()
+	// ADR-0011/0012: ffmpeg is an opt-in desktop plugin. A missing or unsuitable
+	// binary degrades to a warning; downloads and the built-in passthrough stay
+	// available. Startup probes run once, never in the transfer hot path.
+	if cfg.PostProcess.FFmpegEnabled {
+		tp, perr := postproc.NewTranscode(ctx, postproc.Options{
+			Binary:        cfg.PostProcess.FFmpegBinary,
+			Threads:       cfg.PostProcess.FFmpegThreads,
+			MaxConcurrent: cfg.PostProcess.FFmpegMaxConcurrent,
+			Timeout:       cfg.PostProcess.EffectiveTimeout(),
+		})
+		if perr != nil {
+			log.Warn("ffmpeg transcode unavailable; downloads continue", "error", perr)
+		} else {
+			postprocs.Register(tp)
+			log.Info("ffmpeg transcode registered", "sidecar", tp.Sidecars())
+		}
+	}
 
 	sch, err := scheduler.New(scheduler.Options{
 		Store: st, Resolvers: resolvers, Transports: transports,

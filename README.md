@@ -140,8 +140,9 @@
 > 与 NFR-PERF-01 双机基准方案；**不代行裁决、不产出 L4 证据**，空表未签署无效。
 > 不得据本地用例宣称「已与主流客户端实测互通」「全矩阵通过」或「千兆内网性能达标」。
 > `make interop-gate` 在门禁未满足时明确失败。
-> **P0 不是功能完整版**——ed2k / 真实站点规则包 / WASM 硬隔离 / sidecar / L1 RPC facade
-> 仍为 P1/P3 目标，详见
+> **P0 不是功能完整版**——ed2k / 真实站点规则包 / WASM 硬隔离 / L1 RPC facade
+> 仍为 P1/P3 目标；**可选 ffmpeg 后处理已于 P2 落地但仍默认关闭**（`postProcess.ffmpegEnabled`，
+> 零 sidecar 基线不变），详见
 > [ADR-0020](docs/adr/ADR-0020-P0实现基线与范围声明.md) 与 [更新日志](CHANGELOG.md)。
 
 ## 三条不可动摇的架构原则
@@ -196,7 +197,7 @@ go run ./cmd/udctl show <id>
 | `internal/transport/http` | Range 分段 / 无 Range 退化 / 重定向逐跳 / 重试 / 分片 sha256 |
 | `internal/transport/ftp` · `sftp` | FTP/FTPS（隐式 + 显式 TLS、REST 续传、被动数据通道 SSRF pin）与 SFTP（host key pin、ReadAt 随机读） |
 | `internal/transport/tputil` | 三个传输共享的凭据 / 目标校验 / 分片循环 / Budget 计费 |
-| `internal/postproc` | ADR-0012 本地文件契约的 P0 `none` 直通实现 |
+| `internal/postproc` | ADR-0012 本地文件契约：P0 `none` 直通 + **P2 可选 `ffmpeg-transcode`**（真实 exec、默认关闭、能力探测失败只降级） |
 | `internal/scheduler` | 唯一调度器、唯一 Limiter、ChunkWriter、清单 piece 长度锁定分片边界、原子提交 |
 | `internal/api` · `internal/app` | L0 REST + WebSocket、daemon 装配、嵌入式最小 UI |
 | `internal/plugin` | WBS 10 规则通道：manifest 严格校验、ES5.1 静态扫描、Ed25519 签名、goja 运行时、能力裁剪 / 逐跳 SSRF、目录指纹热更新与离线回放；在通配 `direct-http` 之前接入注册链 |
@@ -226,10 +227,11 @@ go run ./cmd/udctl show <id>
 
 ## 明确的能力边界（写进产品文案）
 
-- ✅ **P1 WBS 11 已实现（套件）**：`BT-01..BT-14` 门禁注册表、自建 HTTP(S)/UDP tracker fixture、9 条可复跑回环用例与 `dist/INTEROP.md` 证据链；✅ **2026-11-16 双机实验室实测：`BT-01..BT-14` 14/14 PASS、`release_gate_met=true`；NFR-PERF-01 按 ADR-0022 达标（11.21MB/s、`met=true`）**，证据 `docs/evidence/`、报告 [`docs/19`](docs/19-L4实验室实测与发布门禁报告.md) / [`docs/20`](docs/20-NFR-PERF-01双机应用层基准实测报告.md)；但 CI 内 `make interop` 的绿灯（9 PASS + 14 `SKIPPED`、无外部配置）**仍不等于**发布门禁通过，不得把 CI 结果当作 L4 证据。✅ **补充证据（不计入 L4）**：`BX-01..BX-06`（aria2-next 3.0.9 + 真实 `libtorrent 2.1.1`，6/6 PASS、sha256 校验）均为**单向回环**证据，`BX-05` / `BX-06` 为我方做种半向；libtorrent 虽点名于 `BT-03`，但该判据要求同一真实客户端会话内双向且需抓包 / 千兆内网，故不通过。**2026-11-17 补充**：真实 `transmission-daemon 3.00` 的双向矩阵已单独实测通过（`MX-TR-A` 对方做种→我方下载、`MX-TR-B` 我方做种→对方下载，两向端到端 sha256 一致），同样**不计入 L4**、不改变 14/14，见 [`docs/21`](docs/21-第三客户端互操作矩阵Transmission实测报告.md)。性能侧 `docs/12` §5 的单机三项已用真实 `udd` 进程实测：1000 任务常驻内存增量 **8.6MB**、含 1000 任务恢复启动 **261ms**、创建→首字节 P99 **45ms**（2h 长稳 **12.5MB**），见 [`docs/22`](docs/22-性能基准实测-单机可复跑项.md)；`ffmpeg` 相关两项与移动端 BT 内存**未执行**（P1 无 ffmpeg 调用路径 / 需真机）。⚠️ **[`ADR-0021`](docs/adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md) 已由 `Proposed` 转 `Accepted（路径 A）`**：按项目发起人 2026-11-14 指令裁决并补齐做种实现，「未签署范围缩减（合规差距）」根因已消除（不是「ADR-0004 不做种边界」）；但 **L4 矩阵已于 2026-11-16 实测通过**（14/14，其中 `BT-02` / `BT-11` 由 `gateExternal` 以 verified upload 判定 PASS，不再固定 `UNSUPPORTED`）；该结论限于实验室环境与所列客户端版本，产品文案仍按 `16` §7 口径（待法务会签）。**评审组实名复签、法务与安全会签、R-10 复评仍待补**（**2026-11-17 当前态**：法务文案口径与 R-10 已由发起人书面结论记档——R-10 记「已接受，非已消除」、等级维持「中」、处置移交运营侧；序 6 / WBS 11 记为**按发起人裁决关闭（实名会签待补）**，见 [`docs/18` §6.1](docs/18-序6评审与L4实验室准备材料包.md)）；`make l4-preflight` 只清点条件、`PRESENT` 绝不等于 PASS（`12` §3.1.2 / §3.1.3）；`make perf` 只是 1GiB 回环参考（固定 `nfr_perf_01.met=false`），双机结论只看 `make perf-lab` 产出的 `dist/perf_lab.json`。
+- ✅ **P1 WBS 11 已实现（套件）**：`BT-01..BT-14` 门禁注册表、自建 HTTP(S)/UDP tracker fixture、9 条可复跑回环用例与 `dist/INTEROP.md` 证据链；✅ **2026-11-16 双机实验室实测：`BT-01..BT-14` 14/14 PASS、`release_gate_met=true`；NFR-PERF-01 按 ADR-0022 达标（11.21MB/s、`met=true`）**，证据 `docs/evidence/`、报告 [`docs/19`](docs/19-L4实验室实测与发布门禁报告.md) / [`docs/20`](docs/20-NFR-PERF-01双机应用层基准实测报告.md)；但 CI 内 `make interop` 的绿灯（9 PASS + 14 `SKIPPED`、无外部配置）**仍不等于**发布门禁通过，不得把 CI 结果当作 L4 证据。✅ **补充证据（不计入 L4）**：`BX-01..BX-06`（aria2-next 3.0.9 + 真实 `libtorrent 2.1.1`，6/6 PASS、sha256 校验）均为**单向回环**证据，`BX-05` / `BX-06` 为我方做种半向；libtorrent 虽点名于 `BT-03`，但该判据要求同一真实客户端会话内双向且需抓包 / 千兆内网，故不通过。**2026-11-17 补充**：真实 `transmission-daemon 3.00` 的双向矩阵已单独实测通过（`MX-TR-A` 对方做种→我方下载、`MX-TR-B` 我方做种→对方下载，两向端到端 sha256 一致），同样**不计入 L4**、不改变 14/14，见 [`docs/21`](docs/21-第三客户端互操作矩阵Transmission实测报告.md)。性能侧 `docs/12` §5 的单机三项已用真实 `udd` 进程实测：1000 任务常驻内存增量 **8.6MB**、含 1000 任务恢复启动 **261ms**、创建→首字节 P99 **45ms**（2h 长稳 **12.5MB**），见 [`docs/22`](docs/22-性能基准实测-单机可复跑项.md)；`ffmpeg` 两项已于 2026-11-18 用**真实 ffmpeg 5.1.2** 补测（exec 中位 **163.1ms**、哈希并发为单跑 **73%**，均 PASS，见 `docs/22` §九），**仅移动端 BT 内存未执行**（需真机）。⚠️ **[`ADR-0021`](docs/adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md) 已由 `Proposed` 转 `Accepted（路径 A）`**：按项目发起人 2026-11-14 指令裁决并补齐做种实现，「未签署范围缩减（合规差距）」根因已消除（不是「ADR-0004 不做种边界」）；但 **L4 矩阵已于 2026-11-16 实测通过**（14/14，其中 `BT-02` / `BT-11` 由 `gateExternal` 以 verified upload 判定 PASS，不再固定 `UNSUPPORTED`）；该结论限于实验室环境与所列客户端版本，产品文案仍按 `16` §7 口径（待法务会签）。**评审组实名复签、法务与安全会签、R-10 复评仍待补**（**2026-11-17 当前态**：法务文案口径与 R-10 已由发起人书面结论记档——R-10 记「已接受，非已消除」、等级维持「中」、处置移交运营侧；序 6 / WBS 11 记为**按发起人裁决关闭（实名会签待补）**，见 [`docs/18` §6.1](docs/18-序6评审与L4实验室准备材料包.md)）；`make l4-preflight` 只清点条件、`PRESENT` 绝不等于 PASS（`12` §3.1.2 / §3.1.3）；`make perf` 只是 1GiB 回环参考（固定 `nfr_perf_01.met=false`），双机结论只看 `make perf-lab` 产出的 `dist/perf_lab.json`。
 - ✅ **P1 WBS 10 已实现**：goja ES5.1 插件规则引擎（manifest 严格校验、Ed25519 签名、能力裁剪、逐跳 SSRF Guard、目录指纹热更新、`udctl plugin` 离线工具链、`RULE_OUTDATED` 兜底）；**软隔离**，不承诺 WASM / Extism 硬隔离、Node/Deno / 浏览器扩展脚本兼容、现代 JS 语法、官方规则仓库与真实站点规则包（L4 互操作矩阵属 WBS 11）。
 - ✅ **P1 WBS 7 已实现**：BT / 磁力链接下载（标准 BitTorrent 网络、公开 HTTP/UDP/HTTPS tracker、magnet 经 BEP 9 取元数据）；**2026-11-14 路径 A**：受限做种 / 分享率 / `seed-time` / 上传槽 / UPnP 与统一 announce 统计已生效，私有种子禁 DHT/PEX 且不上传、诚实 PeerID（`-UD` 前缀强制回落）；**上传字节速率仍由 `scheduler.Limiter` 唯一权威管理**；标准 eD2k 网络（线协议层）为 P3 目标，尚未实现。
 - ✅ **P0 已实现**：HTTP(S) 直链、Range 分段、断点续传、暂停/恢复/取消、崩溃恢复、全局限速、L0 REST/WS/CLI、最小 UI、六平台纯 Go 构建。
+- ✅ **P2 可选后处理（默认关闭）**：`ffmpeg-transcode` 只处理已下载的本地文件（mp4/mov/mkv/webm），固定参数白名单、显式 muxer、进程组取消、磁盘空间预检、全局并发槽位；缺 ffmpeg 或不合规构建只降级，不影响下载。**需要 operator 自备二进制，不随包分发**。
 - ❌ **不承诺**私有 tracker 准入、迅雷 P2SP/高速通道/离线下载、ed2k 下载速度、DRM 内容解析、100% aria2 RPC 兼容。
 - ⚠️ 微信视频号嗅探为**单独分发、默认不安装**的可选插件，涉及逆向与平台条款风险。
 

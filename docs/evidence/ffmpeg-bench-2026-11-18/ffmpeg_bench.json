@@ -1,0 +1,42 @@
+{
+  "schema": "ud.ffmpegbench/v1",
+  "generated_at": "2026-11-18T07:05:54Z",
+  "ffmpeg_binary": "/usr/bin/ffmpeg",
+  "ffmpeg_version": "5.1.2-3ubuntu1",
+  "samples": 20,
+  "metrics": [
+    {
+      "id": "NFR-PERF-FFMPEG",
+      "name": "ffmpeg exec 开销",
+      "target": "单次 200–500ms 可接受",
+      "measured": "中位 163.1ms / P95 187.7ms / 最大 190.1ms（20 次真实转码）",
+      "status": "PASS",
+      "met": true,
+      "detail": "输入为本地生成的 2s/320x240 测试视频；计时覆盖 postproc.Transcode.Process 的整次 exec，不含能力探测与测试视频生成；目标按中位值判定，低于 200ms 视为优于目标。ffmpeg 构建：[ffmpeg@5.1.2-3ubuntu1(GPL)]"
+    },
+    {
+      "id": "NFR-PERF-HASH-CPU",
+      "name": "分片哈希不与转码互相饿死",
+      "target": "并发吞吐 ≥ 单跑 25% 且两侧均完成",
+      "measured": "哈希 64 片 / 256.0 MiB，并发吞吐为单跑 73%，转码 1881.0ms 完成",
+      "status": "PASS",
+      "met": true,
+      "detail": "4MiB 分片 SHA-256 与真实 ffmpeg 转码在同一进程内并发；哈希单跑 2173.8ms（123.5 MiB/s），并发 2989.1ms（89.8 MiB/s，为单跑的 73%）；转码并发耗时 1881.0ms。"
+    }
+  ],
+  "raw": {
+    "exec_ms_max": 190.1,
+    "exec_ms_median": 163.1,
+    "exec_ms_min": 159.8,
+    "exec_ms_p95": 187.7,
+    "hash_bytes_total": 268435456,
+    "hash_chunks_total": 64,
+    "hash_concurrent_mib_s": 89.8,
+    "hash_concurrent_ms": 2989.1,
+    "hash_solo_mib_s": 123.5,
+    "hash_solo_ms": 2173.8,
+    "hash_throughput_ratio": 72.7,
+    "transcode_concurrent_ms": 1881
+  },
+  "non_claim": "本工具只测本机真实 ffmpeg 的 exec 开销与「哈希/转码并发不互饿」；不替代 NFR-PERF-01 链路吞吐、L4 互操作或移动端真机指标。"
+}

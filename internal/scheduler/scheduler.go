@@ -467,7 +467,7 @@ func (s *Scheduler) Capabilities() core.Capabilities {
 	}
 	return core.Capabilities{
 		Resolvers: s.resolvers.Names(), Transports: s.transports.Names(),
-		PostProcessors: s.postprocs.Names(), Sidecars: []string{}, RPCLevel: "L0",
+		PostProcessors: s.postprocs.Names(), Sidecars: s.postprocs.Sidecars(), RPCLevel: "L0",
 		Credentials: backend,
 	}
 }

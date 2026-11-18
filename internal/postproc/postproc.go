@@ -71,6 +71,21 @@ func (r *Registry) Names() []string {
 	return out
 }
 
+// Sidecars lists optional external binaries that actually passed their startup
+// probe. The built-in Passthrough implements no SidecarReporter, so the default
+// registry keeps the zero-sidecar capability surface unchanged.
+func (r *Registry) Sidecars() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]string, 0, 1)
+	for _, p := range r.items {
+		if reporter, ok := p.(interface{ Sidecars() []string }); ok {
+			out = append(out, reporter.Sidecars()...)
+		}
+	}
+	return out
+}
+
 // Get resolves a ProcessSpec type. Unknown processors degrade explicitly;
 // P0 has no sidecar implementations (ADR-0008 / FR-PLT-06).
 func (r *Registry) Get(name string) (core.PostProcessor, error) {

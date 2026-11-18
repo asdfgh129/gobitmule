@@ -16,6 +16,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **P2 ffmpeg 后处理落地：`postproc.Transcode` 真实 exec 路径（2026-11-18；ADR-0011 / ADR-0012；`12` §5 两项收口）**：
+  - **实现**：`internal/postproc/ffmpeg.go` 提供 `ffmpeg-transcode`——只接受**已下载到本地的文件**，
+    输出 `<target>.transcode.part` 并由核心原子改名；固定参数白名单（mp4/mov/mkv/webm，
+    显式 `-f` muxer）、`-threads` 有界、`-progress pipe:1` 解析、stderr 全量排空仅保留尾部、
+    超时 + 进程组取消（Unix `setpgid` / Windows `taskkill /T /F`）、磁盘空间预检（`Statfs` /
+    `GetDiskFreeSpaceEx`，纯 Go 零 cgo）、daemon 级并发槽位。
+  - **能力探测**：启动时跑 `-version` / `-buildconf` / `-encoders` / `-hwaccels`；
+    `--enable-nonfree` 构建判 `E_CAPABILITY_UNAVAILABLE`；缺 `libx264`/`aac` 同样拒绝注册。
+    `postProcess.ffmpegEnabled` **默认 `false`**，零 sidecar 基线不变；探测失败只 `Warn`，下载与
+    内置 passthrough 不受影响。`/capabilities.sidecars` 上报真实版本与 GPL/LGPL 标签。
+  - **真实缺陷修复**：真实 ffmpeg 5.1.2 首跑报 `Unable to find a suitable output format`
+    ——`.transcode.part` 后缀使容器无法推断，改为显式 `-f mp4|matroska|webm`；新增
+    `TestTranscodeSelectsExplicitMuxer` 回归锁定顺序（muxer 在输出前、输出仍是最后一个参数）。
+  - **性能补测（真实 ffmpeg，非占位）**：`cmd/udffmpegbench` + `make bench-ffmpeg` 在主机 A
+    （1 vCPU）实测 **exec 中位 163.1ms / P95 187.7ms**（目标 200–500ms）、
+    **哈希并发吞吐 89.8MiB/s = 单跑的 73%**（判据 ≥25% 且两侧完成），两项 **PASS**。
+    证据 `docs/evidence/ffmpeg-bench-2026-11-18/`，报告 `22` §九、`23` §九。
+  - **配置**：`postProcess.ffmpeg{Binary,Threads,MaxConcurrent,Timeout}` + `UD_FFMPEG_*` 覆盖；
+    `Validate` 约束 1..64 / 1..16 / 1m..24h。
+  - **文档**：`12` v1.13、`13` v0.25、`22` v1.1、`23` v1.1、`docs/README` §三。
+    `make bench-ffmpeg` **不接入 CI**（需 operator 提供的本地 ffmpeg，CI 不装可执行 sidecar）。
+
+### Added
 - **`task_options` / `resources.headers` 的 500ms 批量写（2026-11-18，`06` §10 P0 偏差最后一条；ADR-0015 决策 ③ 收口）**：
   - **实现**：`internal/store/metabatch.go` 的 `metaBatcher` 把 `SaveOptions` / `SetOption` /
     `SaveResource` 按 key 去重后在**一个事务**提交。窗口自首笔起上限 500ms；单笔空闲写

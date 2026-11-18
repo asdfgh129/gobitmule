@@ -51,3 +51,15 @@
 - `12` 发布门禁：桌面缺 ffmpeg 时下载与 Remux 不受影响；移动端产物不含 sidecar。
 - 发布前锁定 LGPL 构建、校验 sha256 与 buildconf、随附源码获取方式、法务签字（`11` §6）。
 - `09` §6 的 7 条强制实现约束纳入代码评审清单。
+
+## 实现落地注（P2，2026-11-18）
+
+- **已落地**：`internal/postproc.Transcode`（`ffmpeg-transcode`）实现真实 `exec` 路径，仅在
+  `postProcess.ffmpegEnabled: true` 时由 daemon 在启动阶段探测并注册；**默认 `false`**，
+  零 sidecar 基线不变。
+- **能力探测**：`-version` / `-buildconf` / `-encoders` / `-hwaccels`；`--enable-nonfree` 构建拒绝，
+  缺 `libx264`/`aac` 拒绝；失败只 `Warn`，下载与内置 passthrough 继续可用。
+  `/capabilities.sidecars` 上报 `ffmpeg@<version>(GPL|LGPL)`，不伪装成纯 LGPL。
+- **不随包分发**：二进制由 operator 提供，仓库与安装包均不含 ffmpeg，也不自动下载可执行文件。
+- **边界**：本条只证明「可降级插件接入」，不构成对任何站点/容器的转码质量承诺；
+  真实 ffmpeg 验收见 `12` §5、`22` §九、证据 `docs/evidence/ffmpeg-bench-2026-11-18/`。

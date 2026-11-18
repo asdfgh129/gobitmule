@@ -62,5 +62,16 @@ events:
   retentionDays: 7           # 删除早于 N 天的审计事件（0 = 不按时间清理）
   maxRows: 100000            # 只保留最新 N 条（0 = 不限条数）
   pruneInterval: "1h"        # 清理节拍（1m..24h）；空 = 默认 1h
+# P2 可选 ffmpeg Transcode 插件（ADR-0011 / 0012）：默认关闭，保持零 sidecar 基线。
+# 开启后只接受已下载到本地的文件；二进制由 operator 提供，不自动下载可执行文件。
+# ffmpegBuild 的许可证由 operator 负责；--enable-nonfree 构建会被能力探测拒绝。
+# UD_FFMPEG_ENABLED / UD_FFMPEG_BINARY / UD_FFMPEG_THREADS /
+# UD_FFMPEG_MAX_CONCURRENT / UD_FFMPEG_TIMEOUT 可覆盖。
+postProcess:
+  ffmpegEnabled: false       # true = 探测并注册 ffmpeg-transcode；探测失败只降级
+  ffmpegBinary: "ffmpeg"     # PATH 名称或绝对路径；不要指向不可信二进制
+  ffmpegThreads: 2           # 单进程 -threads，1..64
+  ffmpegMaxConcurrent: 1     # 全局转码槽位，1..16；与下载分片哈希分开
+  ffmpegTimeout: "30m"       # 单次转码上限，1m..24h
 telemetry:
   enabled: false

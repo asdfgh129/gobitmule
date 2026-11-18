@@ -1,0 +1,12 @@
+
+  configuration:
+    --prefix=/usr
+    --extra-version=3ubuntu1
+    --toolchain=hardened
+    --libdir=/usr/lib/x86_64-linux-gnu
+    --incdir=/usr/include/x86_64-linux-gnu
+    --arch=amd64
+    --enable-gpl
+    --disable-stripping
+    --enable-gnutls
+    --enable-ladspa

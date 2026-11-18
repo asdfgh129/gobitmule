@@ -1,6 +1,6 @@
 # 09 Sidecar 与外部依赖契约
 
-> 文档编号：UD-DOC-09 ｜ 版本：v0.1 ｜ 状态：草案 ｜ 日期：2026-11-08 ｜ 相关：ADR-0008、ADR-0010、ADR-0011
+> 文档编号：UD-DOC-09 ｜ 版本：v0.2 ｜ 状态：草案 ｜ 日期：2026-11-18 ｜ 相关：ADR-0008、ADR-0010、ADR-0011、ADR-0012
 
 ## 1. 判定标准
 
@@ -102,6 +102,12 @@ FFmpeg 9.0「Lei」（2026-08）做了七个库 ABI break：删除 `-vsync`（�
 5. 取消：Unix `Setpgid: true` 杀进程组，Windows `taskkill /T /F` 杀进程树。
 6. 分发：桌面 PATH 探测优先 → 首次使用按需下载 **LGPL 构建** + sha256 校验；离线/内网/企业防火墙场景允许降级为 PATH 或禁用；macOS helper 需单独签名 + 公证。
 7. 许可证：锁定不带 `--enable-gpl` / `--enable-nonfree` 的 LGPL 构建；随附精确对应源码与 configure 行、About/EULA 声明；EULA 不得禁止逆向（详见 `11` §6）。
+
+> **实现落地注（P2，2026-11-18）**：上述 1–5 条已在 `internal/postproc.Transcode` 落地并有用例覆盖
+> （只读本地文件、`.transcode.part` + 核心改名、`-threads` + 全局槽位、`-progress pipe:1 -nostats -nostdin -y`
+> 且 stdout/stderr 并发读、Unix `setpgid` / Windows `taskkill /T /F`）。第 6 条的「按需下载」**未实现**：
+> 当前只做 PATH/绝对路径探测，**不自动下载可执行文件**（与 `11` §6 的供应链约束一致）；
+> 第 7 条由 operator 自备构建，探测到 `--enable-nonfree` 即拒绝注册并如实上报 GPL/LGPL 标签。
 
 ## 7. yt-dlp 专项约束
 

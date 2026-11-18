@@ -41,3 +41,16 @@ ffmpeg 一旦以 `-i URL` 直接拉取网络流，进度、限速、断点续传
 - CI 静态检查：`PostProcessor.Process` 签名不含 URL / `io.Reader`；传输包内无 `exec.Command`（`15` §2）。
 - `12` 故障注入：后处理中 `kill -9`、用户取消、磁盘写满、ffmpeg 崩溃、输出被外部篡改，全部可恢复且无损坏。
 - 日志/事件中出现 `task.postprocessing` → `task.completed` 的严格顺序。
+
+## 实现落地注（P2，2026-11-18）
+
+- `Transcode.Process` 接受恰好一个已下载本地文件，返回 `<target>.transcode.part` 作为
+  `Outputs`/`TempPaths`，**从不创建最终文件**；原子 rename 仍由核心完成，契约未改。
+- 由于输出名恒带 `.part` 后缀，ffmpeg 无法从扩展名推断容器（真实 ffmpeg 5.1.2 首跑
+  `Unable to find a suitable output format`）；实现**显式传 `-f mp4|matroska|webm`**，
+  并由 `TestTranscodeSelectsExplicitMuxer` 锁定「muxer 在输出前、输出仍为最后一个参数」。
+- 落地时补齐的防护：参数白名单（不接受用户任意参数）、`-progress pipe:1` 解析、
+  stderr 全量排空仅保留尾部 8KiB、超时 + 进程组取消（Windows 走 `taskkill /T /F`）、`input*2 + 64MiB` 空间预检、
+  daemon 级并发槽位、子进程环境变量改为**小型 allowlist**（不继承 daemon 环境与凭据）。
+- 证据：`22` §九、`docs/evidence/ffmpeg-bench-2026-11-18/`；exec 中位 163.1ms、
+  哈希并发为单跑 73%（1 vCPU 主机 A）。**不做吞吐承诺**。

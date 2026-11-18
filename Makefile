@@ -22,7 +22,7 @@ PLATFORMS := \
 	linux/amd64 linux/arm64 \
 	windows/amd64 windows/arm64
 
-.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf perf-lab bench-perf peer-matrix rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
+.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf perf-lab bench-perf bench-ffmpeg peer-matrix rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
 
 all: lint test build docs
 
@@ -109,6 +109,15 @@ BENCH_SOAK ?= 2h
 
 bench-perf:
 	$(GO) run ./cmd/udbench --udd $(BENCH_UDD) --tasks $(BENCH_TASKS) --soak $(BENCH_SOAK) --out $(DIST)/bench.json
+
+# P2 ffmpeg exec + hash/transcode coexistence benchmark (docs/12 §5). Needs a
+# real local ffmpeg binary; NOT wired into CI and never substitutes L4/NFR-PERF-01.
+FFMPEG_BIN ?= ffmpeg
+FFMPEG_SAMPLES ?= 20
+FFMPEG_HASH_MB ?= 128
+
+bench-ffmpeg:
+	$(GO) run ./cmd/udffmpegbench --ffmpeg $(FFMPEG_BIN) --samples $(FFMPEG_SAMPLES) --hash-mb $(FFMPEG_HASH_MB) --out $(DIST)/ffmpeg_bench.json
 
 # Supplementary third-client bidirectional matrix (BT-03 supplementary
 # evidence, NOT the L4 release gate). Needs the isolated lab: host A plus the
