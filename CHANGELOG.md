@@ -32,6 +32,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ADR 索引 v0.8、`14`、`docs/README` v1.26。
 
 
+### Added
+- **`docs/23` 当前状态审计报告（2026-11-18）**：对代码 / 文档 / 测试一致性、安全、性能做全仓审计并留档。
+  - **一致性**：文档版本头、当前态声明、ADR-0020 状态表、CI 台账与真实 `gh run` 逐条对照一致；文档引用的
+    7 个关键测试（敏感头剥离、内联凭据拒绝、远程 token 守卫、全流水线、崩溃恢复 ×2、位图编码）均存在且通过；
+    历史「未落地 / 序 6 仍开放」均为显式时点注，按项目纪律保留不改。
+  - **安全**：6 架构守卫 0 违规、`go vet` 通过；SBOM / 许可证 / `govulncheck` PASS（代码受影响 0 漏洞，
+    3 个不可达 require 漏洞按 `11` §3 / §7 口径登记）；仓库正则扫描无硬编码密钥；审阅凭据后端
+    （stdin 传输、ref 形状校验、0600 权限守卫）与远程 token fail-closed。
+  - **性能**：`gates-strict` 回环基线 572.86 MB/s PASS（**不是千兆 NFR**，回环噪声 ±3 倍不做性能声明）；
+    NFR-PERF-01 11.21MB/s `met=true` 与 `12` §5 单机四项为既有实测、本次未重跑；分片热路径零元数据写守卫在。
+  - **门禁**：`make lint` / `test` / `build`（六平台 `CGO_ENABLED=0`）/ `gates-strict`（6 PASS / 0 WARN / 0 FAIL）/
+    `go test -race ./...` / 门户校验（0 断链）全绿。边界：Windows / Linux 钥匙串真机 `NOT_EXECUTED`、
+    ffmpeg 两项随 P2、序 6 实名会签待补，均如实登记在 `23` §六。
+  - **文档**：`docs/README` v1.27、`tools/build_docs.py:GROUPS` 注册 `23`。
+
+
 ### Security
 - **Go 工具链升至 1.27.4：修复 `GO-2026-6859`（2026-11-11，WBS 11 收尾门禁发现）**：
   `make gates-strict` 复跑时 `govulncheck` 漏洞库新增
