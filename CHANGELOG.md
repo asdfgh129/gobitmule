@@ -63,7 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `internal/postproc/ffmpeg.go` 先调用 `cmd.Wait()` 再 `wg.Wait()`，违反 Go `StdoutPipe`
   「Wait 前必须读完管道」约束，快速 runner 上 `Wait` 提前关闭管道使进度扫描器报错；
   本包改为**先排空 stdout / stderr 再 `Wait`**，本机与实验室主机 A 全量 Linux 覆盖复跑通过。
-  CI 复验结论随后回填 `13` §4 与 `docs/README` §三。
+  **CI 复验**：最终修复包 `1880ffa` run `44456182011` 为 **`quality: success`**
+  （全部 14 步通过，含 `gates-strict` 与 `docs --check`）；两次修复前失败 run
+  `44449908661` / `44454550241` 如实留档，滚动结论停在 `1880ffa`（见 `13` §4 与 `docs/README` §三）。
 
 ### Added
 - **P2 ffmpeg 后处理落地：`postproc.Transcode` 真实 exec 路径（2026-11-18；ADR-0011 / ADR-0012；`12` §5 两项收口）**：
