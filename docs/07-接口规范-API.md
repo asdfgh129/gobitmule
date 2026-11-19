@@ -1,7 +1,13 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.10 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.11 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS 半边：`.m3u8` 输入归为 `stream` 类任务（2026-11-19）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
+> **v0.11 变更 / 2026-11-19 时点口径（WBS 13 HLS 半边；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
+> 输入分类新增：URL 路径以 `.m3u8` 结尾（或任务选项 `{"hls": true}` 强制）时由内置
+> `hls` Resolver（ADR-0023）归为 `kind: "stream"`，`POST /resolve` 与 `POST /tasks`
+> 的响应可见；传输层枚举新增 `hls`（`GET /capabilities` 的 transports 列表）。
+> 仅 VOD / 仅 AES-128 / BANDWIDTH 选流；边界见 ADR-0023。
+>
 > **v0.10 变更 / 2026-11-19 时点口径（WBS 19 离线运维命令落地；L0 REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
 > `udctl backup <dir>` / `udctl restore <dir>` / `udctl migrate [--from N]` 按 docs/13 §8/§11
 > 实现为**离线**运维命令（不经 REST、不走 daemon 发现分支）：`backup` 在 daemon 运行中也可执行

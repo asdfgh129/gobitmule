@@ -1,3 +1,10 @@
+//go:build darwin || linux
+
+// runCredentialCLI serves only the macOS `security -i` and Linux `secret-tool`
+// backends; it must not join the Windows build set, where it would be dead
+// code dragging package coverage below the 90% gate (found by the 2026-11-19
+// Windows real-machine gates run).
+
 package security
 
 import (

@@ -310,7 +310,9 @@ const (
 ## 10. 插件与 Resolver 注册
 
 `resolve.Registry.Register(resolver)` / `transport.Registry.Register(transport)`，按注册顺序首个 `Match()` 命中者执行。当前链（`internal/app/daemon.go:newBuiltinResolvers()`）：
-`metalink → link-wrapper → magnet → torrent → [plugin] → direct-http → direct-file → unsupported`。
+`metalink → link-wrapper → magnet → torrent → hls → [plugin] → direct-http → direct-file → unsupported`。
+
+> **2026-11-19 时点注（WBS 13，ADR-0023）**：`hls` 为协议原生 Resolver，插在 torrent 之后、插件钩子之前——`.m3u8` 直链（或 `{"hls": true}` 强制分类）在此被归为 `KindStream`，不得被站点规则吞掉；变体选流与段下载在传输层 Probe/Run 完成，解析阶段零网络 I/O。
 
 协议专属 / 安全敏感内置实现恒在插件之前；插件不得覆盖 `thunder` 解码、Metalink、magnet/.torrent 解析与 SSRF Guard，`internal/plugin/manifest.go:Validate()` 在加载期直接拒绝与之冲突的 `match` 规则。插件位于泛型 `direct-http` 兜底之前，否则站点规则永无命中机会（ADR-0014 §4 的非覆盖清单不含该兜底）。SSRF Guard 在 `Resolve()` 出口统一校验所有产出 URL（含插件 `ctx.http` 的逐跳重定向）。详见 `08` §5 / §10。
 

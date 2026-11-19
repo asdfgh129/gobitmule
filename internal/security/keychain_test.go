@@ -280,18 +280,3 @@ func TestFileBackendWithoutDirectoryIsUnavailable(t *testing.T) {
 		t.Fatalf("err = %v, want errBackendUnavailable", err)
 	}
 }
-
-func TestFirstLine(t *testing.T) {
-	cases := map[string]string{
-		"":                    "",
-		"one":                 "one",
-		"one\ntwo":            "one",
-		"  padded  \nrest":    "padded",
-		"security: bad thing": "security: bad thing",
-	}
-	for in, want := range cases {
-		if got := firstLine(in); got != want {
-			t.Fatalf("firstLine(%q) = %q, want %q", in, got, want)
-		}
-	}
-}

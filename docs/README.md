@@ -1,7 +1,22 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.31 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-19 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.32 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0023 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023 为 HLS L1 流媒体传输，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-19 ｜ 维护责任：架构组
 
+> **v1.32 变更 / 2026-11-19 时点口径（P2 WBS 13 半边：HLS L1 流媒体传输落地）**：
+> 新增 [ADR-0023](adr/ADR-0023-HLS-L1流媒体传输.md)（Accepted，发起人全权授权按建议裁决）：
+> `internal/transport/hls` + `internal/resolve/hls`——RFC 8216 清单解析、AES-128（仅
+> `METHOD=AES-128`）、BANDWIDTH 选流、有界并发（64MiB 字节信号量 + 8 worker）乱序下载、
+> 按序提交进 ChunkWriter、Budget 唯一限速计费、字节边界断点续传；Resolver 链
+> `…torrent → hls → [plugin]…`。**边界**：仅 VOD（live 拒绝）、DASH / 多音轨 /
+> SAMPLE-AES / 站点页解析（WBS 12）未落地，`14` WBS 13 记「HLS 已交付、DASH 待做」。
+> `hls` 包 27 例 / 覆盖率 82.8%（`tools/gates.py` 新阈值 80%）；`03` / `05` / `06` / `07` v0.11 /
+> `12` / `14` / `16` 同步，门户重建。
+> Windows 10 x64 本机全量回归：21 包 `go test ./...` 零 FAIL；`gates-strict`
+> **5 PASS / 1 WARN / 0 FAIL**（唯一 WARN 为 cover：`internal/security` 在 Windows 编译集
+> 86.6% < 90%——`keychain_cli.go` 已按 darwin/linux 收窄构建标签，剩余差距为 Windows 不可构造的
+> chmod 分支；Linux CI 集合 91.3% 达标，CI 仍为门禁权威）。`-race` 需 cgo，本机无 C 工具链，
+> 如实记 NOT_EXECUTED。
+>
 > **v1.31 变更 / 2026-11-19 时点口径（Linux `secret-tool` 真机验证补齐，纯文档 + 测试）**：
 > 主机 A（Ubuntu 23.04 / x86_64 / Go 1.27.4，`192.168.1.222` 为其第二网卡地址）以真实
 > D-Bus session + 已解锁的 GNOME Keyring + 真实 `/usr/bin/secret-tool` 跑

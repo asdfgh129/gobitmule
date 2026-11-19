@@ -1,27 +1,28 @@
-ok  	github.com/asdfgh129/ud/cmd/udbench	2.124s
-ok  	github.com/asdfgh129/ud/cmd/udctl	2.252s
+ok  	github.com/asdfgh129/ud/cmd/udbench	2.059s
+ok  	github.com/asdfgh129/ud/cmd/udctl	2.035s
 ?   	github.com/asdfgh129/ud/cmd/udd	[no test files]
 ?   	github.com/asdfgh129/ud/cmd/udffmpegbench	[no test files]
 ?   	github.com/asdfgh129/ud/cmd/udinterop	[no test files]
-ok  	github.com/asdfgh129/ud/cmd/udinteropx	0.474s
+ok  	github.com/asdfgh129/ud/cmd/udinteropx	0.887s
 ?   	github.com/asdfgh129/ud/cmd/udl4audit	[no test files]
 ?   	github.com/asdfgh129/ud/cmd/udl4preflight	[no test files]
-ok  	github.com/asdfgh129/ud/cmd/udperf	21.010s
-ok  	github.com/asdfgh129/ud/internal/api	21.231s
-ok  	github.com/asdfgh129/ud/internal/app	20.178s
-ok  	github.com/asdfgh129/ud/internal/config	4.039s
-ok  	github.com/asdfgh129/ud/internal/core	3.242s
-ok  	github.com/asdfgh129/ud/internal/interop	20.876s
-ok  	github.com/asdfgh129/ud/internal/plugin	4.871s
-ok  	github.com/asdfgh129/ud/internal/postproc	6.999s
-ok  	github.com/asdfgh129/ud/internal/resolve	2.038s
-ok  	github.com/asdfgh129/ud/internal/scheduler	27.855s
-ok  	github.com/asdfgh129/ud/internal/security	3.841s
-ok  	github.com/asdfgh129/ud/internal/store	38.042s
+ok  	github.com/asdfgh129/ud/cmd/udperf	2.478s
+ok  	github.com/asdfgh129/ud/internal/api	3.673s
+ok  	github.com/asdfgh129/ud/internal/app	29.346s
+ok  	github.com/asdfgh129/ud/internal/config	2.059s
+ok  	github.com/asdfgh129/ud/internal/core	1.798s
+ok  	github.com/asdfgh129/ud/internal/interop	30.846s
+ok  	github.com/asdfgh129/ud/internal/plugin	11.326s
+ok  	github.com/asdfgh129/ud/internal/postproc	14.203s
+ok  	github.com/asdfgh129/ud/internal/resolve	3.993s
+ok  	github.com/asdfgh129/ud/internal/scheduler	29.034s
+ok  	github.com/asdfgh129/ud/internal/security	5.152s
+ok  	github.com/asdfgh129/ud/internal/store	45.566s
 ?   	github.com/asdfgh129/ud/internal/transport	[no test files]
-ok  	github.com/asdfgh129/ud/internal/transport/bt	8.035s
-ok  	github.com/asdfgh129/ud/internal/transport/ftp	1.697s
-ok  	github.com/asdfgh129/ud/internal/transport/http	2.747s
-ok  	github.com/asdfgh129/ud/internal/transport/sftp	2.465s
-ok  	github.com/asdfgh129/ud/internal/transport/tputil	1.528s
+ok  	github.com/asdfgh129/ud/internal/transport/bt	10.537s
+ok  	github.com/asdfgh129/ud/internal/transport/ftp	2.631s
+ok  	github.com/asdfgh129/ud/internal/transport/hls	3.677s
+ok  	github.com/asdfgh129/ud/internal/transport/http	3.311s
+ok  	github.com/asdfgh129/ud/internal/transport/sftp	2.931s
+ok  	github.com/asdfgh129/ud/internal/transport/tputil	1.628s
 ?   	github.com/asdfgh129/ud/internal/version	[no test files]

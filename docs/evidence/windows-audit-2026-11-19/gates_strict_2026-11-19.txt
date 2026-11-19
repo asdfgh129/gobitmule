@@ -1,0 +1,18 @@
+[WARN] cover     overall 63.9%; 1 package(s) below threshold
+         ok  	github.com/asdfgh129/ud/internal/transport/ftp	1.844s	coverage: 83.3% of statements
+         ok  	github.com/asdfgh129/ud/internal/transport/hls	2.614s	coverage: 82.8% of statements
+         ok  	github.com/asdfgh129/ud/internal/transport/http	2.904s	coverage: 87.4% of statements
+         ok  	github.com/asdfgh129/ud/internal/transport/sftp	1.795s	coverage: 83.5% of statements
+         ok  	github.com/asdfgh129/ud/internal/transport/tputil	1.510s	coverage: 90.0% of statements
+         	github.com/asdfgh129/ud/internal/version		coverage: 0.0% of statements
+[PASS] sbom      CycloneDX 1.6 with 90 linked components; go mod verify OK
+[PASS] licenses  90 linked modules, 0 copyleft, 0 unknown
+[PASS] vuln      no known vulnerabilities
+         This scan also found 0 vulnerabilities in packages you import and 3
+         vulnerabilities in modules you require, but your code doesn't appear to call
+         these vulnerabilities.
+         Use '-show verbose' for more details.
+[PASS] bench     466.12 MB/s loopback baseline (not the gigabit-LAN NFR gate)
+[PASS] rollback  backup -> simulated bad upgrade -> restore -> recovery reuses verified chunks
+
+summary: 5 PASS / 1 WARN / 0 FAIL  -> dist/gates.json

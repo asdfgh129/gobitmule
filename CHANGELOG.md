@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 13（半边）：HLS L1 流媒体传输（2026-11-19，ADR-0023）**：
+  - **交付**：`internal/transport/hls`（RFC 8216 master/media 清单解析、AES-128 CBC/PKCS7
+    解密、`EXT-X-BYTERANGE`、fMP4 探测、未知 tag 容忍；有界探测 + 字节信号量（64MiB）+
+    8 worker 的乱序下载/按序提交；Budget 唯一限速计费；AES key 缓存；崩溃恢复按首个
+    pending 分片字节边界定位段并用 HTTP Range 跳过）与 `internal/resolve/hls`（`.m3u8`
+    分类 + `{"hls": true}` 强制分类，http(s) 白名单，SSRF 出口校验）。Resolver 链
+    `…torrent → hls → [plugin]…`，传输注册表新增 `hls`（`KindStream` 专属）。
+  - **范围（ADR-0023）**：仅 VOD（live 清单拒绝）、仅 `METHOD=AES-128`（SAMPLE-AES 拒绝）、
+    BANDWIDTH 最高选流（并列取文档序）；TS 拼接 `.ts`、fMP4 拼接 `.mp4`；DASH、多音轨、
+    SAMPLE-AES、站点页解析（WBS 12）未落地。
+  - **回归**：`hls` 包 27 例（解析 11 / 密码 4 / 传输端到端 12，httptest 真实 HTTP），
+    覆盖率 82.8%（阈值 80%）；`resolve` 新增 4 例；`app` 链序断言更新。全量
+    `go test ./...` 全绿。
+  - **文档**：`docs/adr/ADR-0023`、`03` FR-TRN-08 时点注、`05` §10 链序、`06` §3、
+    `07` v0.11、`12` §3.3 用例清单、`14` WBS 13 行、`16` 矩阵时点注、`tools/gates.py`
+    新包阈值。
+
 - **WBS 19 离线运维命令 `udctl backup / restore / migrate`（2026-11-19）**：
   - **实现**：`cmd/udctl/ops.go` 在 daemon 发现之前分派三个**离线**子命令；
     `internal/app/backup.go` 与 `internal/store/backup.go` 提供 `BackupBundle` / `RestoreBundle` /
@@ -44,7 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     **不把 SKIP 记为 PASS**；包级 `ok github.com/asdfgh129/ud/internal/security`。
   - **真机缺陷修复**：`internal/security/keychain_file.go` 读取前的 0600 守卫改为 POSIX-only
     （Go mode bit 不反映 NTFS ACL，原实现在 Windows 恒失败）；`keychain_windows_test.go`
-    新增 5 条真机用例。证据 `docs/evidence/windows-audit-2026-11-19/keychain_windows_real_machine.txt`
+    新增 5 条真机用例。另：`keychain_cli.go` 补 `darwin || linux` 构建标签——它只服务
+    macOS / Linux 助手，留在 Windows 编译集会以 0% 覆盖拖低 `internal/security`
+    门禁包（Windows gates 实测发现）；CLI 专属测试（`helperError` / `limitedWriter` /
+    `firstLine`）随之移入同标签的 `keychain_cli_test.go`。Windows 编译集覆盖率
+    83.8% → 86.6%（Linux CI 集合 91.3% 达 90% 阈值不变；剩余差距为 Windows 不可构造
+    的 chmod 分支，如实记为平台边界）。证据 `docs/evidence/windows-audit-2026-11-19/keychain_windows_real_machine.txt`
     与 `go_test_all_2026-11-19.txt`。**Linux `secret-tool` 真机路径仍 `NOT_EXECUTED`**。
   - **文档**：`06` §6 / §10、`11` §10 残余风险第 1 条追加 Windows 真机时点注。
 
