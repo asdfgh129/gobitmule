@@ -81,6 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **CI 复验**：最终修复包 `1880ffa` run `44456182011` 为 **`quality: success`**
   （全部 14 步通过，含 `gates-strict` 与 `docs --check`）；两次修复前失败 run
   `44449908661` / `44454550241` 如实留档，滚动结论停在 `1880ffa`（见 `13` §4 与 `docs/README` §三）。
+  **后续 Linux 真机验证包 `daa91fb` run `44476794842` 为 `quality: success`**（14/14 步通过），
+  滚动结论更新为 `daa91fb`；`1880ffa` 为上一时点值，保留不改。
 
 ### Added
 - **P2 ffmpeg 后处理落地：`postproc.Transcode` 真实 exec 路径（2026-11-18；ADR-0011 / ADR-0012；`12` §5 两项收口）**：
