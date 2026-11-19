@@ -16,6 +16,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 19 离线运维命令 `udctl backup / restore / migrate`（2026-11-19）**：
+  - **实现**：`cmd/udctl/ops.go` 在 daemon 发现之前分派三个**离线**子命令；
+    `internal/app/backup.go` 与 `internal/store/backup.go` 提供 `BackupBundle` / `RestoreBundle` /
+    `Migrate`。`backup` 可用第二连接 `VACUUM INTO` 做一致性快照，导出 `state.db` + `config.yaml`
+    （`remoteToken` 摘除，manifest 标 `redacted`）+ `keychain_refs.txt`（仅引用，不含密文）+
+    `manifest.json`（格式 `ud-backup/1`，逐文件 SHA-256）；目标目录已存在即拒绝，不覆盖旧备份。
+    `restore` 校验 manifest 与快照 `schema_version`、拒绝高于本二进制的版本、经本地发现文件
+    `/api/v1/healthz` 拒绝 daemon 运行中执行；随后快照旧库、清 `-wal`/`-shm`、替换 DB、
+    走 `Recover` 重建分片状态并逐片校验 `.part`。`migrate --from N` 显式校验当前版本，
+    未来 schema 无回滚脚本即拒绝。数据库路径优先级 `--db` > `UD_DB` > 用户配置目录 `ud/state.db`。
+  - **回归**：`internal/app/backup_test.go` 7 例（往返 / 拒绝已存在目标 / SHA-256 损坏检测 /
+    拒绝未来 schema / 拒绝运行中 daemon / `migrate` 意图校验 / 默认路径非空），
+    `internal/store/backup_test.go` 7 例（活库快照 / 缺源 / 自复制与目录目标 / 陈旧目标清理 /
+    凭据引用收集 / 非 SQLite 拒绝 / schema 版本一致），已纳入全量 `go test ./...`。
+  - **证据口径订正**：`13` v0.27 所述 Windows 全流程冒烟为 operator 现场记录，
+    `docs/evidence/windows-audit-2026-11-19/` 当前只归档全量单测与钥匙串真机日志，
+    **无独立备份 / 恢复 / 迁移冒烟 transcript**；可复核依据为上述自动化用例，
+    冒烟不另行计为可审计 PASS 证据。
+  - **文档**：`07` v0.10、`13` v0.27、`14` WBS 19 行。
+
+- **Windows 10 x64 钥匙串真机验证（2026-11-19，补 ADR-0015 决策 ④ 边界）**：
+  - **实测**：真实 `crypt32.dll` syscall 五项 PASS——密文往返含多字节 UTF-8、9KiB 大 blob
+    （超 Credential Manager 5×512 上限，验证 DPAPI 选型）、篡改密文拒绝、`KeychainStore`
+    端到端 Put/Get/Delete + `windows-dpapi` 后端上报、落盘密文不含明文。两项依赖 POSIX 权限位的
+    用例在 Windows 上如实 `SKIP: NOT_EXECUTED`（`os.Chmod` 不能制造宽权限 / 不可写目录），
+    **不把 SKIP 记为 PASS**；包级 `ok github.com/asdfgh129/ud/internal/security`。
+  - **真机缺陷修复**：`internal/security/keychain_file.go` 读取前的 0600 守卫改为 POSIX-only
+    （Go mode bit 不反映 NTFS ACL，原实现在 Windows 恒失败）；`keychain_windows_test.go`
+    新增 5 条真机用例。证据 `docs/evidence/windows-audit-2026-11-19/keychain_windows_real_machine.txt`
+    与 `go_test_all_2026-11-19.txt`。**Linux `secret-tool` 真机路径仍 `NOT_EXECUTED`**。
+  - **文档**：`06` §6 / §10、`11` §10 残余风险第 1 条追加 Windows 真机时点注。
+
+- **CI 时点记录（2026-11-19）**：`c298420`（WBS 19 + Windows 钥匙串真机）run `44449908661`
+  为 **`quality: failure`**——`gofmt` 守卫在 `internal/security/keychain_test.go` 与
+  `keychain_unit_test.go` 报需格式化，`quality` job 第 8 步失败，后续 test / build /
+  gates-strict / interop / docs 步骤**全部 skipped**（非门禁放宽、非 flake）。本包已格式化
+  两文件并在本机复跑全量门禁：先发现 `internal/app` 覆盖率 **71.9% < 80%**（新增 `backup.go`
+  的脱敏 / 坏 manifest / 离线守卫错误分支未覆盖），补 8 组回归后升至 **80.9%**，
+  `gates-strict` 恢复 **6 PASS / 0 WARN / 0 FAIL**、`go test -race ./...` 全绿；
+  `internal/security` 另在实验室主机 A（Linux 编译集、Go 1.27.4）真实测得 **91.3%**
+  （阈值 90%，证据 `docs/evidence/linux-coverage-2026-11-19/security_coverage.txt`）。
+  CI 复验结论随后回填 `13` §4 与 `docs/README` §三。
+
+### Added
 - **P2 ffmpeg 后处理落地：`postproc.Transcode` 真实 exec 路径（2026-11-18；ADR-0011 / ADR-0012；`12` §5 两项收口）**：
   - **实现**：`internal/postproc/ffmpeg.go` 提供 `ffmpeg-transcode`——只接受**已下载到本地的文件**，
     输出 `<target>.transcode.part` 并由核心原子改名；固定参数白名单（mp4/mov/mkv/webm，

@@ -1,0 +1,16 @@
+Host A: ubuntu23, x86_64, go version go1.27.4 linux/amd64
+Source: workspace internal/core, internal/config, internal/security + go.mod/go.sum
+        uploaded to ~/secprobe via tools/lab_ssh.sh
+
+Command (run on host A):
+  cd ~/secprobe && GOPROXY=https://goproxy.cn,direct GOSUMDB=off \
+    GOFLAGS=-mod=mod GOPATH=~/secprobe/gopath GOCACHE=~/secprobe/gocache \
+    ~/l4lab/go/bin/go test -coverprofile=coverage-security-linux.out -count=1 \
+    ./internal/security
+
+Output:
+  ok  	github.com/asdfgh129/ud/internal/security	0.056s	coverage: 91.3% of statements
+
+Threshold: 90% (tools/gates.py:THRESHOLDS). Result: PASS.
+Note: macOS-local coverage is not interchangeable with the Linux compile set
+for GOOS-split packages; this run is the authoritative Linux-compile-set number.

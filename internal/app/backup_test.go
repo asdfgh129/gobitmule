@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"
 
 	"github.com/asdfgh129/ud/internal/core"
@@ -297,5 +298,204 @@ func TestMigrateAlreadyCurrentAndFromMismatch(t *testing.T) {
 func TestDefaultDBPathNonEmpty(t *testing.T) {
 	if DefaultDBPath() == "" || !strings.HasSuffix(DefaultDBPath(), "state.db") {
 		t.Fatalf("DefaultDBPath = %q", DefaultDBPath())
+	}
+}
+
+func TestBackupBundleExportsRedactedConfig(t *testing.T) {
+	disableDaemonGuard(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	live := filepath.Join(dir, "state.db")
+	seedTaskStore(t, live)
+	cfg := filepath.Join(dir, "config.yaml")
+	content := "remoteToken: secret-token\nlisten: \"127.0.0.1:0\"\n"
+	if err := os.WriteFile(cfg, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bundle := filepath.Join(dir, "bundle")
+	m, err := BackupBundle(ctx, live, cfg, bundle)
+	if err != nil {
+		t.Fatalf("BackupBundle with config: %v", err)
+	}
+	if m.ConfigSource != cfg || len(m.Files) != 2 {
+		t.Fatalf("manifest = %+v, want config + state.db", m)
+	}
+	if !m.Files[0].Redacted || m.Files[0].Name != "config.yaml" {
+		t.Fatalf("config entry = %+v, want redacted config.yaml", m.Files[0])
+	}
+	raw, err := os.ReadFile(filepath.Join(bundle, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := yaml.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("exported config is not valid YAML: %v", err)
+	}
+	if got["remoteToken"] != "" {
+		t.Fatalf("bearer token leaked into bundle: %q", got["remoteToken"])
+	}
+	if got["listen"] != "127.0.0.1:0" {
+		t.Fatalf("other keys must survive redaction: %v", got)
+	}
+}
+
+func TestBackupBundleCopiesUnparseableConfigVerbatim(t *testing.T) {
+	disableDaemonGuard(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	live := filepath.Join(dir, "state.db")
+	seedTaskStore(t, live)
+	cfg := filepath.Join(dir, "broken.yaml")
+	content := "::not: [valid\n"
+	if err := os.WriteFile(cfg, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bundle := filepath.Join(dir, "bundle")
+	m, err := BackupBundle(ctx, live, cfg, bundle)
+	if err != nil {
+		t.Fatalf("BackupBundle must still document a broken config: %v", err)
+	}
+	if len(m.Files) != 2 || m.Files[0].Redacted {
+		t.Fatalf("manifest = %+v, want verbatim unredacted config", m)
+	}
+	raw, err := os.ReadFile(filepath.Join(bundle, "broken.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != content {
+		t.Fatalf("broken config changed: %q", raw)
+	}
+}
+
+func TestBackupBundleMissingExplicitConfigIsIgnored(t *testing.T) {
+	disableDaemonGuard(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	live := filepath.Join(dir, "state.db")
+	seedTaskStore(t, live)
+	absent := filepath.Join(dir, "absent.yaml")
+	bundle := filepath.Join(dir, "bundle")
+	m, err := BackupBundle(ctx, live, absent, bundle)
+	if err != nil {
+		t.Fatalf("missing optional config must not fail backup: %v", err)
+	}
+	if m.ConfigSource != "" || len(m.Files) != 1 {
+		t.Fatalf("manifest = %+v, want state.db only", m)
+	}
+}
+
+func TestBackupBundleRejectsEmptyDestAndMissingSource(t *testing.T) {
+	disableDaemonGuard(t)
+	ctx := context.Background()
+	if _, err := BackupBundle(ctx, "any.db", "", ""); err == nil {
+		t.Fatal("empty destination must be refused")
+	}
+	dir := t.TempDir()
+	if _, err := BackupBundle(ctx, filepath.Join(dir, "absent.db"), "", filepath.Join(dir, "bundle")); err == nil {
+		t.Fatal("missing source database must be refused")
+	}
+}
+
+func TestRestoreBundleRefusesBadManifests(t *testing.T) {
+	disableDaemonGuard(t)
+	ctx := context.Background()
+	cases := []struct {
+		name    string
+		content string
+		write   bool
+	}{
+		{"missing", "", false},
+		{"invalid-json", "{", true},
+		{"unsupported-format", `{"format":"other","files":["state.db"]}`, true},
+		{"empty-files", `{"format":"ud-backup/1","files":[]}`, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tc.write {
+				if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(tc.content), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := RestoreBundle(ctx, dir, filepath.Join(dir, "state.db")); err == nil {
+				t.Fatal("bad manifest must be refused")
+			}
+		})
+	}
+}
+
+func TestDaemonGuardIgnoresMalformedAndUnhealthyDiscovery(t *testing.T) {
+	old := discoveryProbePath
+	t.Cleanup(func() { discoveryProbePath = old })
+	path := filepath.Join(t.TempDir(), "daemon.json")
+	discoveryProbePath = path
+
+	if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if running, _ := daemonRunning(); running {
+		t.Fatal("malformed discovery file must not count as a running daemon")
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	raw, _ := json.Marshal(Discovery{Addr: addr})
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if running, gotAddr := daemonRunning(); running || gotAddr != addr {
+		t.Fatalf("unhealthy daemon = %v/%q, want false/%q", running, gotAddr, addr)
+	}
+
+	if err := os.WriteFile(path, []byte(`{"addr":"127.0.0.1:1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if running, _ := daemonRunning(); running {
+		t.Fatal("unreachable daemon must not block offline commands")
+	}
+}
+
+func TestMigrateRefusesMissingDBAndRunningDaemon(t *testing.T) {
+	disableDaemonGuard(t)
+	ctx := context.Background()
+	if _, err := Migrate(ctx, filepath.Join(t.TempDir(), "absent.db"), 0); err == nil {
+		t.Fatal("migrating a missing database must fail")
+	}
+
+	dir := t.TempDir()
+	live := filepath.Join(dir, "state.db")
+	seedTaskStore(t, live)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	disc := filepath.Join(dir, "daemon.json")
+	raw, _ := json.Marshal(Discovery{Addr: strings.TrimPrefix(srv.URL, "http://")})
+	if err := os.WriteFile(disc, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := discoveryProbePath
+	discoveryProbePath = disc
+	t.Cleanup(func() { discoveryProbePath = old })
+	if _, err := Migrate(ctx, live, 0); err == nil {
+		t.Fatal("migrate must refuse while a daemon answers")
+	}
+}
+
+func TestBackupHelpersRefuseMissingFiles(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "absent")
+	if err := copyFile(missing, filepath.Join(dir, "out")); err == nil {
+		t.Fatal("copyFile from a missing source must fail")
+	}
+	if _, err := fileSHA256(missing); err == nil {
+		t.Fatal("fileSHA256 on a missing file must fail")
 	}
 }
