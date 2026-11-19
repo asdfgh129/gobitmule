@@ -342,8 +342,11 @@ func (t *Transcode) Process(ctx context.Context, in core.LocalFiles, out core.Ou
 		// chatty ffmpeg block on a full pipe. lockedTail keeps only the last N bytes.
 		_, _ = io.Copy(&tail, stderr)
 	}()
-	waitErr := cmd.Wait()
+	// Drain both pipes before Wait: Cmd.Wait closes the parent pipe fds, so
+	// calling it first can truncate a reader still copying buffered stdout
+	// (observed as a spurious E_POSTPROCESS_FAILED on fast CI runners).
 	wg.Wait()
+	waitErr := cmd.Wait()
 
 	if waitErr != nil || scanErr != nil {
 		_ = os.Remove(outPath)

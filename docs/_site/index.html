@@ -247,7 +247,9 @@ padding-top:14px;margin-top:18px}
 <code>14</code> WBS 19 已局部更新。该提交 CI run <code>44449908661</code> 因两个 security 测试文件未 gofmt 失败，
 后续步骤全部 skipped；本包已修复并本机复跑全量门禁，另发现 <code>internal/app</code> 覆盖率
 71.9% &lt; 80%，补 8 组回归后 80.9%，<code>gates-strict</code> 6 PASS / 0 WARN / 0 FAIL、<code>-race</code> 全绿；
-<code>internal/security</code> 在主机 A Linux 编译集实测 <strong>91.3%</strong>（阈值 90%）。
+<code>internal/security</code> 在主机 A Linux 编译集实测 <strong>91.3%</strong>（阈值 90%）。首轮修复包 <code>9ed2b61</code>
+run <code>44454550241</code> 又暴露 <code>internal/postproc</code> 的 <code>cmd.Wait()</code> / <code>wg.Wait()</code> 管道竞态
+（快速 runner 误报 <code>E_POSTPROCESS_FAILED</code>），本包改为先排空再 <code>Wait</code> 并复跑。
 同步 <code>CHANGELOG</code>、<code>13</code> v0.28、<code>23</code> v1.2 与门户重建；
 <strong>CI 复验结论待回填</strong>。</p>
 <p><strong>v1.29 变更 / 2026-11-18 时点口径（P2 ffmpeg 提交 CI 结论回填，纯文档）</strong>：
@@ -945,7 +947,7 @@ ADR-0020 时点说明与根 <code>README.md</code> / <code>CHANGELOG.md</code>�
 <td></td>
 </tr>
 <tr>
-<td>全仓一致性与安全性能审计报告）run <code>44230837728</code> 为 <strong><code>quality: success</code></strong>（见 <code>13</code> §4 v0.24）；<code>67e87dd</code>（P2 ffmpeg 后处理 + <code>12</code> §5 补测）run <code>44259082720</code> 为 <strong><code>quality: success</code></strong>（见 <code>13</code> §4 v0.26），滚动结论停在 <code>67e87dd</code>；<code>c298420</code>（WBS 19 + Windows 钥匙串真机）run <code>44449908661</code> 为 <strong><code>quality: failure</code></strong>（gofmt 两文件，后续步骤 skipped，见 <code>13</code> §4 v0.28），本包已修复并本机复跑，CI 复验结论待回填）</td>
+<td>全仓一致性与安全性能审计报告）run <code>44230837728</code> 为 <strong><code>quality: success</code></strong>（见 <code>13</code> §4 v0.24）；<code>67e87dd</code>（P2 ffmpeg 后处理 + <code>12</code> §5 补测）run <code>44259082720</code> 为 <strong><code>quality: success</code></strong>（见 <code>13</code> §4 v0.26），滚动结论停在 <code>67e87dd</code>；<code>c298420</code>（WBS 19 + Windows 钥匙串真机）run <code>44449908661</code> 为 <strong><code>quality: failure</code></strong>（gofmt 两文件，后续步骤 skipped，见 <code>13</code> §4 v0.28），<code>9ed2b61</code>（首轮修复）run <code>44454550241</code> 亦为 <strong><code>quality: failure</code></strong>（<code>internal/postproc</code> 管道竞态在快速 runner 误报，见 <code>13</code> §4 v0.28），本包已修复并本机 / 主机 A 复跑，CI 复验结论待回填）</td>
 <td><code>dist/gates.json</code>、<code>.github/workflows/ci.yml</code>、<code>13</code> §4</td>
 <td></td>
 </tr>
@@ -1298,7 +1300,7 @@ python3 tools/build_docs.py --check   # 只校验，不写文件（用于 CI 门
 <tr>
 <td>v1.30</td>
 <td>2026-11-19</td>
-<td>WBS 19 离线运维命令 <code>udctl backup / restore / migrate</code> + Windows 10 x64 钥匙串真机验证（五项 PASS / 两项 SKIP）；<code>c298420</code> CI run <code>44449908661</code> 因两文件未 gofmt 失败，本包已修复并本机复跑全量门禁，<code>internal/app</code> 覆盖率 71.9%→80.9%（补 8 组回归）、<code>internal/security</code> Linux 编译集实测 91.3%，<code>gates-strict</code> 6 PASS / <code>-race</code> 全绿；同步 <code>CHANGELOG</code>、<code>13</code> v0.28、<code>23</code> v1.2 与门户重建，CI 复验结论待回填</td>
+<td>WBS 19 离线运维命令 <code>udctl backup / restore / migrate</code> + Windows 10 x64 钥匙串真机验证（五项 PASS / 两项 SKIP）；<code>c298420</code> CI run <code>44449908661</code> 因两文件未 gofmt 失败，本包已修复并本机复跑全量门禁，<code>internal/app</code> 覆盖率 71.9%→80.9%（补 8 组回归）、<code>internal/security</code> Linux 编译集实测 91.3%；首轮修复包 <code>9ed2b61</code> 又因 <code>internal/postproc</code> 的 <code>Wait</code> 前未排空管道在 CI 误报，本包改为先排空再 <code>Wait</code>；本机 / 主机 A 全量复跑 <code>gates-strict</code> 6 PASS / <code>-race</code> 全绿；同步 <code>CHANGELOG</code>、<code>13</code> v0.28、<code>23</code> v1.2 与门户重建，CI 复验结论待回填</td>
 <td>架构组</td>
 </tr>
 <tr>
@@ -8852,7 +8854,11 @@ build / gates-strict / interop / docs 步骤全部 <strong>skipped</strong>；�
 覆盖率 <strong>71.9% &lt; 80%</strong>（新增 <code>backup.go</code> 的脱敏 / 坏 manifest / 离线守卫错误分支未覆盖），
 本包补 8 组回归后升至 <strong>80.9%</strong>，<code>gates-strict</code> <strong>6 PASS / 0 WARN / 0 FAIL</strong>、<code>-race</code> 全绿。
 <code>internal/security</code> 另在实验室主机 A（Linux 编译集、Go 1.27.4）真实测得 <strong>91.3%</strong>（阈值 90%），证据
-<code>docs/evidence/linux-coverage-2026-11-19/security_coverage.txt</code>。同步 <code>CHANGELOG</code>、
+<code>docs/evidence/linux-coverage-2026-11-19/security_coverage.txt</code>。首轮修复包 <code>9ed2b61</code> 的 CI
+run <code>44454550241</code> 又在 cover 步骤暴露 <code>internal/postproc</code> 管道竞态：<code>cmd.Wait()</code> 先于
+<code>wg.Wait()</code> 关闭 stdout 管道，快速 runner 上 <code>TestTranscodeWritesPartAndParsesProgress</code>
+误报 <code>E_POSTPROCESS_FAILED</code>；本包改为<strong>先排空再 Wait</strong>，本机与主机 A 全量 Linux 覆盖复跑通过。
+同步 <code>CHANGELOG</code>、
 <code>docs/README</code> v1.30、<code>docs/23</code> v1.2 与门户重建；<strong>CI 复验结论待回填</strong>。</p>
 <p><strong>v0.25 变更 / 2026-11-18 时点口径（P2 ffmpeg Transcode 落地；下文各版说明为更早时点值，保留不改）</strong>：
 §7 新增 <code>postProcess.*</code> 配置（<strong>默认 <code>ffmpegEnabled: false</code></strong>，零 sidecar 基线不变；探测失败只降级为 warn）；
@@ -9717,7 +9723,10 @@ gates-strict / interop / docs 步骤均 <strong>skipped</strong>，不是质量�
 <strong>6 PASS / 0 WARN / 0 FAIL</strong>、<code>-race</code> 全绿。<code>internal/security</code> 另在实验室主机 A
 （Linux 编译集，Go 1.27.4）真实测得 <strong>91.3%</strong>
 （阈值 90%，证据 <code>docs/evidence/linux-coverage-2026-11-19/security_coverage.txt</code>）。
-上文 v0.26 的「当前滚动结论停在 <code>67e87dd</code>」为时点值，保留不改；当前滚动结论待本包 CI 复验后补记。</p>
+首轮修复包 <code>9ed2b61</code> run <code>44454550241</code> 在 cover 步骤因 <code>internal/postproc</code> 的 <code>cmd.Wait()</code>
+/ <code>wg.Wait()</code> 顺序缺陷误报 <code>E_POSTPROCESS_FAILED</code>（快速 runner 竞态），本包改为先排空管道
+再 <code>Wait</code> 并复跑；上文 v0.26 的「当前滚动结论停在 <code>67e87dd</code>」为时点值，保留不改；
+当前滚动结论待本包 CI 复验后补记。</p>
 </blockquote>
 <p><strong>Sidecar 仓库与发布边界（P2 补充）</strong>：<code>ffmpeg-transcode</code> 只使用 operator 已装在宿主机上的二进制；仓库不携带、不自动下载 ffmpeg。<code>make build</code> 的六平台 <code>CGO_ENABLED=0</code> 矩阵不受影响；<code>--enable-nonfree</code> 构建探测即拒绝，GPL 构建在能力面板如实标注；LGPL 构建、sha256 锁定、签名公证与随附源码获取方式仍是正式发布前的独立法务 / 运维动作，不因本插件落地而视为已完成。</p>
 <p><strong>已知差异</strong>：可复现构建镜像固定 digest、代码签名/公证、Android/iOS 目标、<strong>L4 真实客户端互操作外部矩阵（<code>BT-01..BT-14</code>）</strong>、<strong>NFR-PERF-01 双机应用层 1GiB 基准</strong> 均未纳入 CI。WBS 11 已把 <code>make interop</code> 的<strong>本地回环子集</strong>接入 CI，但其 <code>release_gate_met</code> 为 <code>false</code>，<strong>不得据此宣称 L4 或性能门禁通过</strong>。<strong>2026-11-16 更新</strong>：L4 矩阵已在双机实验室<strong>人工执行并 14/14 PASS</strong>，证据归档 <code>docs/evidence/l4-2026-11-16/</code>、报告 <code>docs/19</code>；该执行仍<strong>不接入 CI</strong>（真实实验室不可 CI 化）。NFR-PERF-01 双机应用层基准已于同日<strong>人工执行并 <code>met=true</code></strong>（11.21MB/s ≥ 10MB/s，<code>docs/20</code>），同样<strong>不接入 CI</strong>；<code>make perf</code> 的回环 <code>dist/perf.json</code> 仍固定 <code>nfr_perf_01.met=false</code>，不得与双机证据混用。覆盖率阈值强制（<code>gates.py --strict</code>）已于 2026-11-10 纳入 CI（<code>make gates-strict</code>），当前 <strong>16 个受门禁包</strong>全部达标（WBS 9 新增 3 个、WBS 10 新增 <code>internal/plugin</code>、WBS 11 新增 <code>internal/interop</code>），当前态见 <code>12</code> §9 与 <code>docs/README</code> §三；<code>17</code> §5 为 P0 时点快照。构建时若默认代理不可达，可用 <code>GOPROXY=https://goproxy.cn,direct make build</code> 覆盖（<code>Makefile</code> 已支持）。<strong>2026-11-18 更新</strong>：<code>make bench-ffmpeg</code>（真实 ffmpeg 的 exec 开销与哈希并发，<code>22</code> §九）同样<strong>不接入 CI</strong>——需要 operator 提供的本地 ffmpeg 二进制，CI 不安装可执行 sidecar。</p><div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 2026-11-19 · 源文件 <code>docs/13-构建发布与运维.md</code></div></article><article class="doc" id="doc-doc-14" data-slug="doc-14"><div class="doc-head"><h1>14 项目计划与风险管理</h1><div class="doc-meta"><span class="badge">草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`；§5 单机五项 2026-11-17/18 实测达标，余移动端真机项；序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）；ADR-0015 实现债全部关闭 + P2 ffmpeg 后处理 2026-11-18 落地）</span>文档编号：UD-DOC-14 ｜ 版本：v1.15 ｜ 状态：草案（P0 有条件通过、附加条件已关闭，P1 编码工作包 1–5 全部交付，序 6 路径 A 已落地并按发起人指令复签；**L4 `BT-01..BT-14` 2026-11-16 双机 14/14 PASS，NFR-PERF-01 双机应用层 `met=true`；§5 单机五项 2026-11-17/18 实测达标，余移动端真机项**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；**ADR-0015 实现债全部关闭 + P2 ffmpeg 后处理 2026-11-18 落地**） ｜ 日期：2026-11-18</div></div><blockquote>
@@ -13734,7 +13743,9 @@ P2 落地后已由 <code>cmd/udffmpegbench</code> 实测，结果移到 §九；
 <code>c298420</code> 的 CI run <code>44449908661</code> 因两文件未 gofmt 失败、本包已修复并复跑全量门禁；
 复跑发现 <code>internal/app</code> 覆盖率 71.9% &lt; 80%，补 8 组回归后 80.9%，<code>gates-strict</code>
 6 PASS / 0 WARN / 0 FAIL、<code>-race</code> 全绿；<code>internal/security</code> 在 Linux 编译集由主机 A
-实测 91.3%。§六 / §八 的旧表述为 v1.1 时点值，
+实测 91.3%。首轮修复包 <code>9ed2b61</code> run <code>44454550241</code> 又暴露 <code>internal/postproc</code> 的
+<code>cmd.Wait()</code> / <code>wg.Wait()</code> 管道竞态（快速 runner 误报 <code>E_POSTPROCESS_FAILED</code>），本包改为
+先排空再 <code>Wait</code> 并在主机 A 全量 Linux 覆盖复跑通过。§六 / §八 的旧表述为 v1.1 时点值，
 现由 §十 更新，其余审计结论不变。</p>
 <p><strong>v1.1 变更 / 2026-11-18 时点补记（v1.0 结论保留不改）</strong>：审计提交后按开发计划第 1 项落地了
 P2 <code>postproc.Transcode</code> 真实 ffmpeg 路径，<code>12</code> §5 余下两项性能指标已实测通过（§九）。
@@ -14048,9 +14059,14 @@ Linux <code>secret-tool</code> 真机路径仍 <code>NOT_EXECUTED</code>。上�
 <td><strong>PASS</strong>（Windows 宿主）</td>
 </tr>
 <tr>
+<td><code>internal/postproc</code> 管道竞态</td>
+<td>首轮修复包 <code>9ed2b61</code> 在 CI run <code>44454550241</code> 误报 <code>E_POSTPROCESS_FAILED</code>；根因 <code>cmd.Wait()</code> 先于 <code>wg.Wait()</code> 关闭 stdout 管道。本包改为先排空再 <code>Wait</code>，本机 / 主机 A 全量 Linux 覆盖复跑通过</td>
+<td><strong>PASS</strong>（修复后）</td>
+</tr>
+<tr>
 <td>CI</td>
-<td><code>c298420</code> run <code>44449908661</code> 因两 security 测试文件未 gofmt 失败，后续步骤 skipped</td>
-<td><strong>FAIL</strong>（非门禁放宽；本包已修复待复验）</td>
+<td><code>c298420</code> run <code>44449908661</code> 因两 security 测试文件未 gofmt 失败，后续步骤 skipped；<code>9ed2b61</code> run <code>44454550241</code> 因上述竞态在 cover 步骤失败</td>
+<td><strong>FAIL</strong>（两次均为修复前时点；本包已修复待复验）</td>
 </tr>
 </tbody>
 </table>
@@ -14118,6 +14134,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
   <code>gates-strict</code> 恢复 <strong>6 PASS / 0 WARN / 0 FAIL</strong>、<code>go test -race ./...</code> 全绿；
   <code>internal/security</code> 另在实验室主机 A（Linux 编译集、Go 1.27.4）真实测得 <strong>91.3%</strong>
   （阈值 90%，证据 <code>docs/evidence/linux-coverage-2026-11-19/security_coverage.txt</code>）。
+  首轮修复包 <code>9ed2b61</code> 的 CI run <code>44454550241</code> 仍在 <code>gates-strict</code> → cover 失败：
+  <code>internal/postproc</code> 的 <code>TestTranscodeWritesPartAndParsesProgress</code> 在 GitHub 快速 runner 上报
+  <code>E_POSTPROCESS_FAILED</code>（<code>waitErr=&lt;nil&gt;</code>，stderr 只有 <code>GOCOVERDIR</code> 警告）。根因是
+  <code>internal/postproc/ffmpeg.go</code> 先调用 <code>cmd.Wait()</code> 再 <code>wg.Wait()</code>，违反 Go <code>StdoutPipe</code>
+  「Wait 前必须读完管道」约束，快速 runner 上 <code>Wait</code> 提前关闭管道使进度扫描器报错；
+  本包改为<strong>先排空 stdout / stderr 再 <code>Wait</code></strong>，本机与实验室主机 A 全量 Linux 覆盖复跑通过。
   CI 复验结论随后回填 <code>13</code> §4 与 <code>docs/README</code> §三。</p>
 </li>
 </ul>

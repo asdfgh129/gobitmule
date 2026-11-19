@@ -57,6 +57,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `gates-strict` 恢复 **6 PASS / 0 WARN / 0 FAIL**、`go test -race ./...` 全绿；
   `internal/security` 另在实验室主机 A（Linux 编译集、Go 1.27.4）真实测得 **91.3%**
   （阈值 90%，证据 `docs/evidence/linux-coverage-2026-11-19/security_coverage.txt`）。
+  首轮修复包 `9ed2b61` 的 CI run `44454550241` 仍在 `gates-strict` → cover 失败：
+  `internal/postproc` 的 `TestTranscodeWritesPartAndParsesProgress` 在 GitHub 快速 runner 上报
+  `E_POSTPROCESS_FAILED`（`waitErr=<nil>`，stderr 只有 `GOCOVERDIR` 警告）。根因是
+  `internal/postproc/ffmpeg.go` 先调用 `cmd.Wait()` 再 `wg.Wait()`，违反 Go `StdoutPipe`
+  「Wait 前必须读完管道」约束，快速 runner 上 `Wait` 提前关闭管道使进度扫描器报错；
+  本包改为**先排空 stdout / stderr 再 `Wait`**，本机与实验室主机 A 全量 Linux 覆盖复跑通过。
   CI 复验结论随后回填 `13` §4 与 `docs/README` §三。
 
 ### Added
