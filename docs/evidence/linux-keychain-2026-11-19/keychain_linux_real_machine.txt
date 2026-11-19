@@ -1,0 +1,24 @@
+=== HOST ===
+ubuntu23
+Linux 6.2.0-39-generic x86_64
+Ubuntu 23.04
+go version go1.27.4 linux/amd64
+default DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/0/bus
+dbus 1.14.4-1ubuntu1
+gnome-keyring 42.1-1
+libsecret-tools 0.20.5-3
+=== TEST (dbus-run-session + real gnome-keyring) ===
+test DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/dbus-CNHsXFrTtU,guid=63dede94938cfc0d37340e8a6afe9da9
+=== RUN   TestLinuxSecretServiceRealMachineStoreEndToEnd
+--- PASS: TestLinuxSecretServiceRealMachineStoreEndToEnd (0.07s)
+=== RUN   TestLinuxSecretServiceRealMachineItemInKeyring
+--- PASS: TestLinuxSecretServiceRealMachineItemInKeyring (0.09s)
+=== RUN   TestLinuxSecretServiceRealMachineMissingAndIdempotentDelete
+--- PASS: TestLinuxSecretServiceRealMachineMissingAndIdempotentDelete (0.04s)
+=== RUN   TestLinuxSecretServiceRealMachineIsolation
+--- PASS: TestLinuxSecretServiceRealMachineIsolation (0.11s)
+=== RUN   TestLinuxSecretServiceRealMachineSecretNotInArgv
+--- PASS: TestLinuxSecretServiceRealMachineSecretNotInArgv (0.00s)
+PASS
+ok  	github.com/asdfgh129/ud/internal/security	0.312s
+=== END ===

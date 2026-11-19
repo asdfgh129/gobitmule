@@ -127,6 +127,12 @@ SQLite 明确**不为该错误调用 busy handler**（CI run `43393512271` 的 `
   删除后 44、stdin 非 argv 由源码断言固定（`internal/security/keychain_darwin_test.go`）。
   Windows / Linux 仅交叉编译（`CGO_ENABLED=0` 六目标全过）+ 单测，**真机路径
   `NOT_EXECUTED`**；无 Linux 桌面会话可验证 Secret Service，故不宣称其可用。
+  **2026-11-19 时点补记（不修改决策正文）**：Windows 10 x64 真实 DPAPI syscall 五项 PASS
+  （两项 POSIX 权限用例如实 SKIP）；Linux 亦已在 Ubuntu 23.04 主机上以真实 D-Bus session +
+  GNOME Keyring + `secret-tool` 验证 5/5 PASS（后端选择、往返、OS 钥匙串中实际存在/删除消失、
+  not-found 与幂等、id 隔离、stdin 不进 argv），证据
+  `docs/evidence/linux-keychain-2026-11-19/keychain_linux_real_machine.txt`。上述旧句为
+  2026-11-17 时点值，保留不改；依赖权限位拒绝的用例在 root 宿主仍 `NOT_EXECUTED`。
 - **代价如实**：macOS 每次 helper 调用 ≈0.5s（9 次调用 4.24s 实测），属任务启动成本；
   不做进程内缓存——按次直读让「钥匙串里删除凭据」立即生效，缓存会引入撤销语义问题。
 - **仍未落实**：`06` §10「P0 偏差」里 `task_options` / `resources.headers` 的 500ms 聚合。

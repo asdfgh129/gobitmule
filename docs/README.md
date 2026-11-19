@@ -1,7 +1,16 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.30 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-19 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.31 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0022 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-19 ｜ 维护责任：架构组
 
+> **v1.31 变更 / 2026-11-19 时点口径（Linux `secret-tool` 真机验证补齐，纯文档 + 测试）**：
+> 主机 A（Ubuntu 23.04 / x86_64 / Go 1.27.4，`192.168.1.222` 为其第二网卡地址）以真实
+> D-Bus session + 已解锁的 GNOME Keyring + 真实 `/usr/bin/secret-tool` 跑
+> `keychain_linux_real_test.go` 五条真机用例全部 PASS，证据
+> `docs/evidence/linux-keychain-2026-11-19/keychain_linux_real_machine.txt`；测试带
+> `linux && keyringreal` 标签，不进 CI。三平台钥匙串真机路径至此均有实测，`12` §5 技术
+> 真机项只剩移动端 BT 内存。同步 `CHANGELOG`、`06` v0.7、`11` v1.5、`23` v1.3 §十一
+> 与门户重建；**CI 复验结论待回填**。
+>
 > **v1.30 变更 / 2026-11-19 时点口径（WBS 19 + Windows 钥匙串真机 + CI gofmt 失败修复）**：
 > `c298420` 落地 `udctl backup / restore / migrate` 离线运维命令（一致性快照、配置脱敏、
 > 钥匙串引用清单、逐文件 SHA-256、运行中恢复拒绝、恢复前快照、逐片校验 `.part`、`--from` 意图校验），
@@ -36,6 +45,8 @@
 > 本机 `make lint` / `test` / `build` / `gates-strict`（6 PASS / 0 WARN / 0 FAIL）/ `go test -race ./...` /
 > 门户校验（48→49 篇、0 断链）全绿。边界：Windows / Linux 钥匙串真机 `NOT_EXECUTED`、序 6 实名会签待补，
 > 详见 `23` §六。`23` 已加入 `tools/build_docs.py:GROUPS`。
+> **v1.31 时点注**：Windows / Linux 钥匙串真机均已于 2026-11-19 补齐（见 `23` §十 / §十一），
+> 本句为 v1.29 审计时点值，保留不改。
 >
 > **v1.26 变更 / 2026-11-18 时点口径（ADR-0015 实现债全部关闭；下文各版说明为更早时点值，保留不改）**：
 > `06` §10 P0 偏差最后一条——`task_options` / `resources.headers` 的批量写——已落地：
@@ -65,7 +76,9 @@
 > `GET /capabilities` 新增的 `credentials` 字段如实上报（`file` **明确不是钥匙串**，
 > `memory` 为兜底）。**诚实边界**：macOS 真机验证（转义往返 / 替换语义 / 删除后 not-found）；
 > Windows / Linux 仅交叉编译 + 单测，真机 `NOT_EXECUTED`。`06` v0.5 §6 / §10、`07` v0.9 §2、
-> `11` v1.4 §3 / §10 与 ADR-0015 落地注同步。ADR-0015 实现债仅余
+> `11` v1.4 §3 / §10 与 ADR-0015 落地注同步。
+> **v1.31 时点注**：Windows / Linux 真机路径已于 2026-11-19 分别补齐（见 `23` §十 / §十一），
+> 本句为 2026-11-17 时点值，保留不改。ADR-0015 实现债仅余
 > `task_options` / `resources.headers` 的 500ms 聚合。
 
 > **v1.23 变更 / 2026-11-17 时点口径（HTTP 传输慢启动落地；下文各版说明为更早时点值，保留不改）**：
@@ -472,7 +485,7 @@ graph TD
 | 20 | [NFR-PERF-01 双机应用层基准实测报告](20-NFR-PERF-01双机应用层基准实测报告.md) | 草案（实测报告；证据已归档，待评审组复核） | 架构/QA/评审组 | 双机拓扑、1GiB / 4 连接 / 256KiB 分片实测 11.21MB/s、iperf3 94.15Mbps、ADR-0022 口径换算、SHA-256、边界与序 6 状态 |
 | 21 | [第三客户端互操作矩阵（Transmission）实测报告](21-第三客户端互操作矩阵Transmission实测报告.md) | 草案（实测报告；证据已归档，待评审组复核） | 架构/QA/评审组 | 真实 transmission-daemon 3.00 双向矩阵、两向端到端 sha256、`bytes_uploaded` 同源校验、与 BT-03 / L4 门禁的边界、实现踩坑与 SHA-256 |
 | 22 | [性能基准实测（§5 单机可复跑项）](22-性能基准实测-单机可复跑项.md) | 草案（实测报告；证据已归档，待评审组复核） | 架构/QA/评审组 | `cmd/udbench` 驱动真实 `udd` 进程与 REST API：1000 任务常驻内存 增量 8.6MB（≤300MB）、含恢复启动 261ms（≤3s）、创建→首字节 P99 45ms（≤1s）、2h 长稳 峰值增量 12.5MB；§九 追加真实 ffmpeg 的 exec 开销 163.1ms 与哈希并发 73% |
-| 23 | [当前状态审计报告](23-当前状态审计报告.md) | 草案（审计报告；v1.2 追加 WBS 19 / Windows 真机补记） | 评审组/架构/QA | 代码/文档/测试一致性、安全与性能审计结论、全量门禁结果、边界与未完成项、已实现功能清单、下一步开发计划；§九 记录 ffmpeg 交付与 `12` §5 收口，§十 记录 WBS 19 与 Windows 钥匙串真机时点 |
+| 23 | [当前状态审计报告](23-当前状态审计报告.md) | 草案（审计报告；v1.3 追加 Linux 真机补记） | 评审组/架构/QA | 代码/文档/测试一致性、安全与性能审计结论、全量门禁结果、边界与未完成项、已实现功能清单、下一步开发计划；§九 记录 ffmpeg 交付与 `12` §5 收口，§十 记录 WBS 19 与 Windows 钥匙串真机时点，§十一 记录 Linux `secret-tool` 真机 |
 | — | [ADR 索引](adr/README.md) | 已批准 | 全体 | 全部架构决策记录（唯一决策真值源），含 0020 P0 实现基线 |
 | — | [更新日志 CHANGELOG](../CHANGELOG.md) | 现行 | 全体 | Keep a Changelog 1.1.0 + SemVer 2.0.0；**每次代码变更必须先写这里**（`15` §10） |
 
@@ -499,7 +512,7 @@ graph TD
 | 证据完整性审计 | `make l4-audit` → `dist/l4_audit.json` / `dist/L4_AUDIT.md`（`ud.l4-evidence-audit/v1`）：9 项 `AUD-*` 独立重算**已产出**证据包的门禁覆盖、状态枚举、汇总计数与 `release_gate_met`；实测 stub 产物 `CONSISTENT` 且重算门禁 `false`，篡改副本 `INCONSISTENT`（`AUD-SUMMARY` / `AUD-GATE-VERDICT`）。**完整性结论 ≠ L4 通过**，恒 `l4_executed_by_audit=false`、不接入 CI、不替代 `make interop-gate` | `internal/interop/audit.go`、`cmd/udl4audit`、`12` §3.1.4、`13` §3/§12、`18` §7.3 / §7.4 / §十 |
 | 评审准备 | [18 序 6 评审与 L4 实验室准备材料包](18-序6评审与L4实验室准备材料包.md)（`v0.7`、`草案`）：§六 签署表已于 2026-11-16 按发起人指令复签（依 `17` §1 P0 先例代行五角色，**非实名会签**，见 ADR-0021 R5）；§七 / §九 已补真实 L4 执行结果与证据归档；[19 L4 实验室实测与发布门禁报告](19-L4实验室实测与发布门禁报告.md)（`v1.0`）给出逐条 PASS 证据、抓包与 SHA-256；[20 NFR-PERF-01 双机应用层基准实测报告](20-NFR-PERF-01双机应用层基准实测报告.md)（`v1.0`）给出 11.21MB/s / `met=true` 与 iperf3 对照。[21 第三客户端互操作矩阵（Transmission）实测报告](21-第三客户端互操作矩阵Transmission实测报告.md)（`v1.0`）给出真实 Transmission 3.00 的双向证据与「不替代 L4」边界。评审组实名复签、法务 / 安全会签与 `14` R-10 复评仍待补；实验室搭建以 `tools/l4_lab_runbook.md` 为准 | `docs/18` / `docs/19` / `docs/20`、`docs/evidence/l4-2026-11-16/`、`docs/evidence/nfr-perf-01-2026-11-16/`、ADR-0021 R5 / R6、`12` §3.1.2 / §3.1.3 |
 | 性能基准 | ✅ **NFR-PERF-01 已按 ADR-0022 达标（2026-11-16 双机）**：1GiB / 4 连接 / 256KiB 分片走真实 HTTP Range Transport，**11.21MB/s**、4096/4096 分片校验通过，门槛 **≥10MB/s**（百兆段），`nfr_perf_01.met=true`；同链路 iperf3 单流 / 8 流均 **94.15Mbps ≈ 11.22MB/s**，应用层约为链路容量的 **99.9%**。证据 `docs/evidence/nfr-perf-01-2026-11-16/`，报告 [20](20-NFR-PERF-01双机应用层基准实测报告.md)。**原「千兆内网 ≥80MB/s」口径未宣称达标**，链路升级后须重跑、ADR-0022 自动失效；`make perf` 回环 `dist/perf.json` 仍固定 `met=false`。**§5 单机三项已于 2026-11-17 实测**（真实 `udd` 进程 + 真实 REST API，报告 [22](22-性能基准实测-单机可复跑项.md)）：1000 任务常驻内存增量 **8.6MB**（≤300MB）、含 1000 任务恢复启动 **261ms**（≤3s）、创建→首字节 P99 **45ms**（≤1s）、2h 长稳峰值增量 **12.5MB**；`ffmpeg exec 开销` / `分片哈希不与转码互相饿死` / 移动端 BT 内存**已于 2026-11-18 收口两项**：前两项用**真实 ffmpeg 5.1.2** 实测（exec 中位 **163.1ms**、哈希并发为单跑 **73%**，均 PASS，见 [22](22-性能基准实测-单机可复跑项.md) §九），仅移动端 BT 内存仍需真机 | `dist/perf_lab.json`、`docs/20` / `docs/22`、`12` §5、ADR-0022 |
-| 下一个工作包 | **ADR-0015 实现债已全部关闭**：决策 ③ 分片进度批量刷盘（`38fd62e`）、`06` §7 `events` 保留清理、决策 ④ 系统钥匙串适配器（macOS 真机验证；Windows / Linux 交叉编译 + 单测，`file` 降级显式非钥匙串）、`POST /tasks` 内嵌预览、慢启动动态扩连，以及 `task_options` / `resources.headers` 的 500ms 上限 group-commit（2026-11-18，`store.metaBatcher`）均已落地；`06` §10 P0 偏差清零。**P2 ffmpeg 后处理已于 2026-11-18 落地**（`postproc.Transcode` 真实 exec + `make bench-ffmpeg`，默认关闭），`12` §5 仅剩移动端 BT 内存需真机。**WBS 19 离线运维命令 `udctl backup / restore / migrate` 已于 2026-11-19 落地**；Windows 10 x64 钥匙串真机已补测（五项 PASS / 两项 SKIP），Linux 真机仍 `NOT_EXECUTED`。可选的后续技术项：真千兆链路上的原 80MB/s 口径重跑按项目发起人 2026-11-17 指示**略过**（本环境无千兆链路） | `14` §11、`18` §6.1 / §九、ADR-0015 / ADR-0020、`06` §6 / §7 / §10、`docs/19` / `docs/20` / `docs/21` / `docs/22` / `docs/23` |
+| 下一个工作包 | **ADR-0015 实现债已全部关闭**：决策 ③ 分片进度批量刷盘（`38fd62e`）、`06` §7 `events` 保留清理、决策 ④ 系统钥匙串适配器（macOS 真机验证；Windows / Linux 交叉编译 + 单测，`file` 降级显式非钥匙串）、`POST /tasks` 内嵌预览、慢启动动态扩连，以及 `task_options` / `resources.headers` 的 500ms 上限 group-commit（2026-11-18，`store.metaBatcher`）均已落地；`06` §10 P0 偏差清零。**P2 ffmpeg 后处理已于 2026-11-18 落地**（`postproc.Transcode` 真实 exec + `make bench-ffmpeg`，默认关闭），`12` §5 仅剩移动端 BT 内存需真机。**WBS 19 离线运维命令 `udctl backup / restore / migrate` 已于 2026-11-19 落地**；Windows 10 x64 钥匙串真机已补测（五项 PASS / 两项 SKIP），**Linux `secret-tool` 真机亦已于 2026-11-19 在主机 A 补测（5/5 PASS，`linux && keyringreal` 标签不进 CI，见 `23` §十一）**，三平台真机路径均有实测；`12` §5 技术真机项仅余移动端 BT 内存。可选的后续技术项：真千兆链路上的原 80MB/s 口径重跑按项目发起人 2026-11-17 指示**略过**（本环境无千兆链路） | `14` §11、`18` §6.1 / §九、ADR-0015 / ADR-0020、`06` §6 / §7 / §10、`docs/19` / `docs/20` / `docs/21` / `docs/22` / `docs/23` |
 
 > **禁止误读（2026-11-16 更新）**：L4 发布结论以**真实外部执行**的证据包为准——
 > `docs/evidence/l4-2026-11-16/interop.json` 的 `release_gate_met: true` 与
@@ -618,6 +631,7 @@ python3 tools/build_docs.py --check   # 只校验，不写文件（用于 CI 门
 | v1.17 | 2026-11-17 | 第三客户端互操作矩阵：`cmd/udinteropx --peer-matrix transmission` 驱动真实 `transmission-daemon 3.00` 完成双向交换（`MX-TR-A` / `MX-TR-B` 均 PASS，两向端到端 sha256 一致、`bytes_uploaded` 与载荷一致）；顺带把 BT-02 / BT-03 的上传计数读取改为同一有界等待（判据不变，消除采样竞态）；新增报告 `21`、证据 `docs/evidence/peer-matrix-transmission-2026-11-17/`、`make peer-matrix`；门户 **47 篇 / 0 断链** | 架构组 |
 | v1.18 | 2026-11-17 | `docs/12` §5 单机基准：新增 `cmd/udbench` + `make bench-perf`，以真实 `udd` 进程与真实 REST API 实测 1000 任务常驻内存增量 **8.6MB**（≤300MB）、含 1000 任务恢复启动 **261ms**（≤3s）、创建→首字节 P99 **45ms**（≤1s）、2h 长稳峰值增量 **12.5MB**；`ffmpeg` 相关两项与移动端 BT 内存如实记为未执行（P1 无 ffmpeg 调用路径 / 需真机）；新增报告 `22`、证据 `docs/evidence/bench-2026-11-17/`；门户 **48 篇 / 0 断链** | 架构组 |
 | v1.19 | 2026-11-17 | ADR-0015 实现债第一项：**分片进度批量刷盘落地**——`scheduler.chunkWriter` 缓冲完成记录（4MB / 500ms）、`store.WriteChunkDoneBatch` 单事务提交（分片状态 + 摘要 + 一次 `bytes_done` 增量、不合规则整体回滚、跨任务混批拒绝），`WriteChunkDone` 收敛为「批量 = 1」；修复 `Verified()` 未先刷盘导致的假「not in assigned state」；新增 6 条确定性回归，`make perf` 1GiB / 4096 分片复核全量 sha256 通过；崩溃窗口（≤1 个窗口的完成记录丢失 → 回 `pending` 重下，不重复计数）与「不宣称吞吐提升」已写入 ADR-0015 实现落地注与 `06` §10；`docs/README` 本篇；门户 **48 篇 / 0 断链** | 架构组 |
+| v1.31 | 2026-11-19 | Linux `secret-tool` 钥匙串真机验证补齐：主机 A（Ubuntu 23.04）真实 D-Bus session + 解锁 GNOME Keyring + 真实 `secret-tool` 跑 5/5 PASS；新增带 `linux && keyringreal` 标签的真机测试（不进 CI），证据 `docs/evidence/linux-keychain-2026-11-19/`；同步 `CHANGELOG`、`06` v0.7、`11` v1.5、`23` v1.3 §十一 与门户重建，CI 复验结论待回填 | 架构组 |
 | v1.30 | 2026-11-19 | WBS 19 离线运维命令 `udctl backup / restore / migrate` + Windows 10 x64 钥匙串真机验证（五项 PASS / 两项 SKIP）；`c298420` CI run `44449908661` 因两文件未 gofmt 失败，本包已修复并本机复跑全量门禁，`internal/app` 覆盖率 71.9%→80.9%（补 8 组回归）、`internal/security` Linux 编译集实测 91.3%；首轮修复包 `9ed2b61` 又因 `internal/postproc` 的 `Wait` 前未排空管道在 CI 误报，本包改为先排空再 `Wait`；本机 / 主机 A 全量复跑 `gates-strict` 6 PASS / `-race` 全绿；同步 `CHANGELOG`、`13` v0.28、`23` v1.2 与门户重建；`1880ffa` run `44456182011` `quality: success`，滚动结论停在 `1880ffa` | 架构组 |
 | v1.29 | 2026-11-18 | P2 ffmpeg 提交 CI 结论回填（纯文档）：`67e87dd` run `44259082720` 为 `quality: success`，`13` §4 追加 v0.26 补记，滚动结论停在 `67e87dd` | 架构组 |
 | v1.28 | 2026-11-18 | **P2 ffmpeg 后处理落地 + `12` §5 收口**：`postproc.Transcode`（真实 exec、只处理本地文件、固定参数白名单、显式 `-f` muxer、`-progress` 解析、stderr 全量排空、进程组取消、空间预检、并发槽位）；`postProcess.*` 默认关闭，探测失败只降级；`/capabilities.sidecars` 如实上报；新增 `cmd/udffmpegbench` + `make bench-ffmpeg`。真实 ffmpeg 5.1.2 / 主机 A（1 vCPU）实测 **exec 中位 163.1ms / P95 187.7ms**、**哈希并发 73% 单跑吞吐**，两项 PASS；首跑修复「`.transcode.part` 无法推断容器」缺陷；证据 `docs/evidence/ffmpeg-bench-2026-11-18/`，同步 `12` v1.13 / `13` v0.25 / `22` v1.1 / `23` v1.1，并补 §三 表缺失的 `23` 行；门户 **49 篇 / 0 断链** | 架构组 |

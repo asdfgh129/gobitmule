@@ -48,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     与 `go_test_all_2026-11-19.txt`。**Linux `secret-tool` 真机路径仍 `NOT_EXECUTED`**。
   - **文档**：`06` §6 / §10、`11` §10 残余风险第 1 条追加 Windows 真机时点注。
 
+- **Linux Secret Service（`secret-tool`）钥匙串真机验证（2026-11-19）**：
+  - **实现 / 测试**：新增 `internal/security/keychain_linux_real_test.go`（构建标签
+    `linux && keyringreal`，不进 CI），在真实 D-Bus session + 已解锁的 GNOME Keyring 上
+    以真实 `/usr/bin/secret-tool` 跑 5 项 PASS：`linux-secret-service` 后端选择与含多字节
+    UTF-8 / 引号的 Put/Get/Delete 往返、绕过封装直接用 `secret-tool lookup` 证明条目确实落进
+    OS 钥匙串且 Delete 后消失、缺失 id / 跨 scheme ref 的 not-found 与幂等删除、两个 id 的
+    相互隔离、密钥只经 stdin 不进 argv 的机制检查。默认 Linux 测试仍用假 helper，本文件只在
+    显式 `-tags keyringreal` 时编译。`go test -count=1 -tags keyringreal ./internal/security -run RealMachine -v`。
+  - **宿主**：实验室主机 A（Ubuntu 23.04 / x86_64 / Go 1.27.4，`192.168.1.222` 为其第二网卡
+    地址），安装 `libsecret-tools 0.20.5-3` 与 `gnome-keyring 42.1-1`，用 `dbus-run-session`
+    启动并解锁 keyring；证据 `docs/evidence/linux-keychain-2026-11-19/keychain_linux_real_machine.txt`。
+  - **未执行项**：POSIX 宽权限文件用例仍以 root 运行，未把 root 绕过权限位的情况记为 PASS；
+    移动端 BT 内存真机为唯一剩余技术真机项。
+  - **文档**：`06` §6 / §10、`11` §10、`23` v1.3 §十一、`docs/README` §三同步。
+
 - **CI 时点记录（2026-11-19）**：`c298420`（WBS 19 + Windows 钥匙串真机）run `44449908661`
   为 **`quality: failure`**——`gofmt` 守卫在 `internal/security/keychain_test.go` 与
   `keychain_unit_test.go` 报需格式化，`quality` job 第 8 步失败，后续 test / build /
