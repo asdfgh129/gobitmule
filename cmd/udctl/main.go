@@ -72,6 +72,15 @@ func main() {
 		}
 		return
 	}
+	// Release/ops commands work on the local data directory and must run
+	// WITHOUT the daemon (docs/13 §8.5: 停 daemon → 恢复备份 DB). They are
+	// dispatched before newCLI, which exits when no daemon is discoverable.
+	if args[0] == "backup" || args[0] == "restore" || args[0] == "migrate" {
+		if err := opsCommand(args[0], args[1:]); err != nil {
+			fatal(err)
+		}
+		return
+	}
 
 	c := newCLI()
 	var err error
@@ -92,9 +101,6 @@ func main() {
 		err = c.simple("GET", "/api/v1/"+map[string]string{"capabilities": "capabilities", "stats": "stats", "health": "healthz"}[args[0]], nil)
 	case "config":
 		err = c.config(args[1:])
-	case "backup", "restore", "migrate":
-		fmt.Fprintf(os.Stderr, "udctl %s: 尚未实现（P0 范围外，见 docs/14 WBS 19）\n", args[0])
-		os.Exit(2)
 	default:
 		usage()
 		os.Exit(2)
@@ -369,13 +375,17 @@ func usage() {
   capabilities | stats | health
   config get [key] | config set <flat.key> <value>
   daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
+  backup <dir> [--db <路径>] [--config <文件>]
+  restore <dir> [--db <路径>]        （须先停止 daemon）
+  migrate [--from N] [--db <路径>]   （须先停止 daemon）
   plugin scaffold <dir> | keygen | sign <dir> --key <file>
   plugin verify <dir> [--key <file>] [--insecure-plugins]
   plugin test <dir> --fixture <file> [--key <file>] [--insecure-plugins]
   plugin list <dir> [--key <file>] [--insecure-plugins]
   version
 
-未实现: backup / restore / migrate (见 docs/14 WBS 19)。
+backup / restore / migrate 为离线运维命令（docs/13 §8/§11）：作用于本地数据目录、
+须先停止 daemon；数据库路径优先级 --db > UD_DB > 用户配置目录 ud/state.db。
 daemon 地址优先级: --addr > UD_ADDR > 本地发现文件（不占用固定 6800 端口）。`)
 }
 

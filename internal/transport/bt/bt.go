@@ -138,6 +138,8 @@ func (t *Transport) Probe(ctx context.Context, r *core.Resource) (*core.ProbeRes
 	}
 	defer os.RemoveAll(dataDir)
 	cfg := clientConfig(r, dataDir, t.plainHandshake, t.dhtBootstrap)
+	// LIFO with the two defers below: cl.Close() → close storage → remove dir.
+	defer closeClientStorage(cfg)
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
 		return nil, core.Err(core.E_TRANSIENT_NETWORK, "bt client init failed: %v", err)
@@ -194,6 +196,7 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 			return
 		}
 		cl.Close()
+		closeClientStorage(cfg)
 		_ = os.RemoveAll(dataDir)
 	}()
 
@@ -255,7 +258,7 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 	// keep the torrent alive for bounded, honest seeding. Run returns
 	// immediately so the scheduler worker is not held for the whole seed
 	// window; the SeedingManager owns the remaining lifetime.
-	if t.beginSeeding(r, cl, tor, dataDir) {
+	if t.beginSeeding(r, cl, tor, dataDir, cfg) {
 		handedOff = true
 	}
 	return nil
@@ -264,11 +267,11 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 // beginSeeding hands the completed torrent to the background manager. It
 // returns false (leaving cleanup to Run's defers) for leech-only transports,
 // private torrents, or a manager that has already been closed.
-func (t *Transport) beginSeeding(r *core.Resource, cl *torrent.Client, tor *torrent.Torrent, dataDir string) bool {
+func (t *Transport) beginSeeding(r *core.Resource, cl *torrent.Client, tor *torrent.Torrent, dataDir string, cfg *torrent.ClientConfig) bool {
 	if !seedingApplicable(t.policy, r) || t.manager == nil {
 		return false
 	}
-	return t.manager.start(newSession(r, cl, tor, dataDir, t.policy, t.observer))
+	return t.manager.start(newSession(r, cl, tor, dataDir, cfg, t.policy, t.observer))
 }
 
 // buildSpec assembles a TorrentSpec from the Resource identity.
@@ -366,6 +369,29 @@ func clientConfig(r *core.Resource, dataDir string, plainHandshake bool, dhtBoot
 	applySeedingPolicy(cfg, r, p)
 	return cfg
 }
+
+// closeClientStorage releases the bolt piece-completion handle that
+// storage.NewFile opens EAGERLY at config-build time (NewBoltPieceCompletion
+// locks <dataDir>/.torrent.bolt.db). torrent.Client.Close treats a
+// caller-provided DefaultStorage as caller-owned — it only closes storage it
+// created itself — so every client must be followed by this call. Otherwise
+// each BT task leaks the handle for the process lifetime: on Linux an open fd
+// per task, on Windows a share lock that keeps the task data directory
+// undeletable (found by the 2026-11-19 Windows audit, where t.TempDir cleanup
+// failed on every bt test).
+func closeClientStorage(cfg *torrent.ClientConfig) {
+	if cfg == nil {
+		return
+	}
+	if c, ok := cfg.DefaultStorage.(storage.ClientImplCloser); ok {
+		_ = c.Close()
+	}
+}
+
+// CloseClientStorage is the exported form for harnesses that build their own
+// client configs (interop suites, udinteropx) and must release the eager bolt
+// piece-completion handle after torrent.Client.Close().
+func CloseClientStorage(cfg *torrent.ClientConfig) { closeClientStorage(cfg) }
 
 func (t *Transport) injectBootstrap(tor *torrent.Torrent) {
 	if len(t.bootstrapPeers) == 0 {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,13 +42,17 @@ func TestKeychainStoreRoundTrip(t *testing.T) {
 		t.Fatalf("Get = %q, %v", got, err)
 	}
 
-	// The payload must be a private file, not a world-readable one.
+	// The payload must be a private file, not a world-readable one. Go mode
+	// bits do not model NTFS DACLs (Windows reports 0666 for any writable
+	// file), so the exact-mode assertion is POSIX-only.
 	info, err := os.Stat(filepath.Join(dir, strings.TrimPrefix(string(ref), "file://ud/cred/")))
 	if err != nil {
 		t.Fatalf("stat credential file: %v", err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("credential file mode = %#o, want 0600", perm)
+	if runtime.GOOS != "windows" {
+		if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Fatalf("credential file mode = %#o, want 0600", perm)
+		}
 	}
 
 	if err := s.Delete(ctx, ref); err != nil {
@@ -97,8 +102,12 @@ func TestKeychainStoreRejectsForeignOrMalformedRefs(t *testing.T) {
 		}
 	}
 	// A traversal attempt must not have created or read anything outside dir.
-	if _, err := os.Stat("/etc/passwd"); err != nil {
-		t.Fatalf("test environment is broken: %v", err)
+	// "/etc/passwd" is a POSIX probe; on Windows it would resolve to
+	// "<cwd-drive>:\etc\passwd" and not exist even in a healthy environment.
+	if runtime.GOOS != "windows" {
+		if _, err := os.Stat("/etc/passwd"); err != nil {
+			t.Fatalf("test environment is broken: %v", err)
+		}
 	}
 }
 
@@ -133,6 +142,12 @@ func TestValidateKeychainSecret(t *testing.T) {
 // A credential file someone widened to 0644 must not be read: that is exactly
 // how a local user would read another account's password.
 func TestFileBackendRefusesWidePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Go's os.Chmod cannot widen an NTFS file in a way its own mode bits
+		// would report (writable files always stat as 0666), so the widened
+		// file cannot be constructed here: NOT_EXECUTED on this host.
+		t.Skip("os.Chmod cannot produce a wide-mode file on Windows: NOT_EXECUTED on this host")
+	}
 	s, dir := newFileStore(t)
 	ctx := context.Background()
 	ref, err := s.Put(ctx, "s3cret")
@@ -181,8 +196,12 @@ func TestFileBackendTightensExistingDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o700 {
-		t.Fatalf("credential dir mode = %#o, want 0700", perm)
+	// Windows mode bits never shrink below 0777 (NTFS DACLs are not modelled
+	// by Go), so the mode assertion holds only on POSIX.
+	if runtime.GOOS != "windows" {
+		if perm := info.Mode().Perm(); perm != 0o700 {
+			t.Fatalf("credential dir mode = %#o, want 0700", perm)
+		}
 	}
 }
 

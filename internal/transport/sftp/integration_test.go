@@ -155,7 +155,12 @@ func TestRealSSHAndSFTPRoundTrip(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 	tr := New(devGuard(t, "sftp"), integrationCreds{hostKey: srv.hostKeyLine})
-	raw := fmt.Sprintf("sftp://127.0.0.1:%d%s/a.bin", srv.port(), dir)
+	// A Windows temp path carries a drive letter and backslashes, which neither
+	// url.Parse nor the wire accept. The slash form ("/C:/...") is exactly what
+	// pkg/sftp's Windows server translates back to a native path; on Unix this
+	// is a no-op.
+	remote := "/" + strings.TrimPrefix(filepath.ToSlash(dir), "/")
+	raw := fmt.Sprintf("sftp://127.0.0.1:%d%s/a.bin", srv.port(), remote)
 	r := &core.Resource{
 		Credential: "mem://c1",
 		Mirrors:    []core.Mirror{{URL: raw}},
@@ -196,7 +201,12 @@ func TestRealSFTPRejectsWrongHostKey(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	tr := New(devGuard(t, "sftp"), integrationCreds{hostKey: wrongLine})
-	raw := fmt.Sprintf("sftp://127.0.0.1:%d%s/a.bin", srv.port(), dir)
+	// A Windows temp path carries a drive letter and backslashes, which neither
+	// url.Parse nor the wire accept. The slash form ("/C:/...") is exactly what
+	// pkg/sftp's Windows server translates back to a native path; on Unix this
+	// is a no-op.
+	remote := "/" + strings.TrimPrefix(filepath.ToSlash(dir), "/")
+	raw := fmt.Sprintf("sftp://127.0.0.1:%d%s/a.bin", srv.port(), remote)
 	r := &core.Resource{
 		Credential: "mem://c1",
 		Mirrors:    []core.Mirror{{URL: raw}},

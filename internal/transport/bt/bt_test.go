@@ -34,6 +34,14 @@ func mustNoErr(t *testing.T, err error) {
 	}
 }
 
+// closeTestClientConfig registers cleanup that releases the eager bolt
+// piece-completion handle (see closeClientStorage). Without it the t.TempDir
+// cleanup fails on Windows, where an open file cannot be unlinked.
+func closeTestClientConfig(t *testing.T, cfg *torrent.ClientConfig) {
+	t.Helper()
+	t.Cleanup(func() { closeClientStorage(cfg) })
+}
+
 func TestInfoHashFromHex(t *testing.T) {
 	const ih = "0123456789abcdef0123456789abcdef01234567"
 	h, err := infoHashFromHex(ih)
@@ -245,6 +253,9 @@ func TestTransportLoopbackDownload(t *testing.T) {
 	seedCfg.DefaultStorage = storage.NewFile(seedDir)
 	seedCl, err := torrent.NewClient(seedCfg)
 	mustNoErr(t, err)
+	// LIFO: the storage close must run AFTER the client close — the client may
+	// still checkpoint piece completion during Close.
+	defer closeClientStorage(seedCfg)
 	defer seedCl.Close()
 	seedTor, _, err := seedCl.AddTorrentSpec(&torrent.TorrentSpec{
 		InfoBytes: infoBytes,
@@ -317,10 +328,12 @@ func TestClientConfigHandshakePolicy(t *testing.T) {
 	dir := t.TempDir()
 
 	def := clientConfig(r, dir, false, nil)
+	closeTestClientConfig(t, def)
 	if !def.HeaderObfuscationPolicy.Preferred || def.HeaderObfuscationPolicy.RequirePreferred {
 		t.Fatalf("daemon default handshake policy changed: %+v", def.HeaderObfuscationPolicy)
 	}
 	plain := clientConfig(r, dir, true, nil)
+	closeTestClientConfig(t, plain)
 	if plain.HeaderObfuscationPolicy.Preferred || plain.HeaderObfuscationPolicy.RequirePreferred {
 		t.Fatalf("plain option must disable only the preference: %+v", plain.HeaderObfuscationPolicy)
 	}
@@ -347,6 +360,7 @@ func TestClientConfigDHTBootstrap(t *testing.T) {
 	dir := t.TempDir()
 
 	def := clientConfig(r, dir, false, nil)
+	closeTestClientConfig(t, def)
 	if def.DhtStartingNodes == nil {
 		t.Fatal("daemon default StartingNodes missing")
 	}
@@ -356,6 +370,7 @@ func TestClientConfigDHTBootstrap(t *testing.T) {
 
 	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 6881}
 	custom := clientConfig(r, dir, false, []net.Addr{addr})
+	closeTestClientConfig(t, custom)
 	nodes, err := custom.DhtStartingNodes("udp")()
 	if err != nil || len(nodes) != 1 {
 		t.Fatalf("custom DHT nodes = %d, err = %v", len(nodes), err)
@@ -371,6 +386,7 @@ func TestClientConfigDHTBootstrap(t *testing.T) {
 
 	routable := &net.UDPAddr{IP: net.IPv4(192, 0, 2, 10), Port: 6881}
 	private := clientConfig(r, dir, false, []net.Addr{routable})
+	closeTestClientConfig(t, private)
 	nodes, err = private.DhtStartingNodes("udp")()
 	if err != nil || len(nodes) != 1 {
 		t.Fatalf("routable DHT nodes = %d, err = %v", len(nodes), err)

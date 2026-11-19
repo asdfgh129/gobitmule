@@ -92,7 +92,10 @@ func seedSingleFileT(t *testing.T, content []byte) (net.Addr, *metainfo.MetaInfo
 	if seedAddr == nil {
 		t.Fatal("seeder listen address is nil")
 	}
-	return seedAddr, mi, func() { seedCl.Close() }
+	return seedAddr, mi, func() {
+		seedCl.Close()
+		closeClientStorage(seedCfg)
+	}
 }
 
 func TestProbeRequiresTorrent(t *testing.T) {
@@ -229,6 +232,7 @@ func TestWaitInfoWaitsForGotInfo(t *testing.T) {
 	cfg.DefaultStorage = storage.NewFile(t.TempDir())
 	cl, err := torrent.NewClient(cfg)
 	mustNoErr(t, err)
+	defer closeClientStorage(cfg)
 	defer cl.Close()
 
 	var ih [20]byte

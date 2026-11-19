@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,6 +76,12 @@ func TestFileBackendDeleteMissingIsNoop(t *testing.T) {
 func TestFileBackendPutFailsWhenDirUnwritable(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("running as root bypasses permission checks: NOT_EXECUTED on this host")
+	}
+	if runtime.GOOS == "windows" {
+		// Windows cannot express "unwritable to the owner" through Go's
+		// os.Chmod (it toggles only the read-only attribute), so the scenario
+		// is NOT_EXECUTED here rather than falsely reported.
+		t.Skip("os.Chmod cannot make a directory unwritable on Windows: NOT_EXECUTED on this host")
 	}
 	dir := t.TempDir()
 	be, err := newFileBackend(dir)

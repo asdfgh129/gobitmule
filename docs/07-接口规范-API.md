@@ -1,7 +1,18 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.9 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；**`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）**） ｜ 日期：2026-11-17 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.10 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
+> **v0.10 变更 / 2026-11-19 时点口径（WBS 19 离线运维命令落地；L0 REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
+> `udctl backup <dir>` / `udctl restore <dir>` / `udctl migrate [--from N]` 按 docs/13 §8/§11
+> 实现为**离线**运维命令（不经 REST、不走 daemon 发现分支）：`backup` 在 daemon 运行中也可执行
+> （第二连接 `VACUUM INTO` 一致性快照），导出 `state.db` + `config.yaml`（`remoteToken` 摘除）+
+> `keychain_refs.txt`（仅凭据引用、不含密文）+ `manifest.json`（逐文件 SHA-256）；
+> `restore` 校验 manifest 与快照 `schema_version`、拒绝高于本二进制的版本、拒绝 daemon 运行中执行
+> （本地发现文件 `/api/v1/healthz` 探活）、恢复前自动快照旧库、恢复后走崩溃恢复逐片校验 `.part`；
+> `migrate --from N` 校验当前版本并显式拒绝未来 schema（无回滚脚本即拒绝，docs/13 §8.4）。
+> 数据库路径优先级 `--db` > `UD_DB` > 用户配置目录 `ud/state.db`（与 daemon 默认一致）。
+> 实现位于 `internal/app/backup.go` + `internal/store/backup.go`，冒烟与单测见 `CHANGELOG`。
+>
 > **v0.7 变更 / 2026-11-16 时点口径（§8 矩阵 L4 结论同步；下文各版说明为更早时点值，保留不改）**：
 > `cmd/udinterop` 的 §8 矩阵行由「L4 门禁 0/14 PASS」更正为 2026-11-16 双机实验室
 > `BT-01..BT-14` **14/14 PASS、`release_gate_met: true`**，并显式区分「实验室
@@ -158,7 +169,7 @@ udctl plugin list <dir> [--key <file>] [--insecure-plugins]
 udctl daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
 ```
 
-> **P0 已实现子集**：`add` / `list` / `show` / `pause` / `resume` / `cancel` / `rm` / `resolve` / `capabilities` / `stats` / `health` / `config get|set`。`backup|restore|migrate` 与 `[--select-file]` 选项属 P1+；`daemon` 子命令已落地。CLI 通过本地发现文件（`$XDG_RUNTIME_DIR/ud/discovery.json` 或用户缓存目录）自动找到随机端口的 daemon，也支持 `--addr` 直连。
+> **P0 已实现子集**：`add` / `list` / `show` / `pause` / `resume` / `cancel` / `rm` / `resolve` / `capabilities` / `stats` / `health` / `config get|set`。`backup|restore|migrate` 与 `[--select-file]` 选项属 P1+（**2026-11-19 补记：`backup` / `restore` / `migrate` 已按 v0.10 变更落地为离线运维命令；`[--select-file]` 仍未实现**）；`daemon` 子命令已落地。CLI 通过本地发现文件（`$XDG_RUNTIME_DIR/ud/discovery.json` 或用户缓存目录）自动找到随机端口的 daemon，也支持 `--addr` 直连。
 >
 > **P1 WBS 10 插件 CLI（离线）**：`plugin` 走独立离线分支，不连 daemon、不访问网络；
 > `scaffold` 生成规则包骨架（manifest / ES5.1 脚本 / 回放 fixture），`keygen` 生成 Ed25519

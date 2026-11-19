@@ -55,6 +55,7 @@ func TestClientConfigLeechOnlyDefaults(t *testing.T) {
 	for _, private := range []bool{false, true} {
 		r := seedTestResource(private)
 		cfg := clientConfig(r, t.TempDir(), false, nil)
+		closeTestClientConfig(t, cfg)
 		if !cfg.NoUpload || cfg.Seed {
 			t.Fatalf("private=%v: no policy must stay leech-only (NoUpload=%v Seed=%v)",
 				private, cfg.NoUpload, cfg.Seed)
@@ -80,6 +81,7 @@ func TestClientConfigAppliesSeedingPolicy(t *testing.T) {
 	p.EnableDHT = false
 	p.EnablePEX = false
 	cfg := clientConfig(seedTestResource(false), t.TempDir(), false, nil, p)
+	closeTestClientConfig(t, cfg)
 
 	if cfg.NoUpload || !cfg.Seed {
 		t.Fatalf("seeding policy must enable upload: NoUpload=%v Seed=%v", cfg.NoUpload, cfg.Seed)
@@ -122,6 +124,7 @@ func TestClientConfigListenHostRestrictsAddressFamily(t *testing.T) {
 		p := DefaultSeedingPolicy()
 		p.ListenHost = tc.host
 		cfg := clientConfig(seedTestResource(false), t.TempDir(), false, nil, p)
+		closeTestClientConfig(t, cfg)
 		if cfg.DisableIPv6 != tc.disableV6 || cfg.DisableIPv4 != tc.disableV4 {
 			t.Fatalf("host=%q: DisableIPv6=%v DisableIPv4=%v, want %v/%v",
 				tc.host, cfg.DisableIPv6, cfg.DisableIPv4, tc.disableV6, tc.disableV4)
@@ -139,6 +142,7 @@ func TestClientConfigListenHostRestrictsAddressFamily(t *testing.T) {
 
 func TestPrivateTorrentNeverSeedsEvenWithPolicy(t *testing.T) {
 	cfg := clientConfig(seedTestResource(true), t.TempDir(), false, nil, DefaultSeedingPolicy())
+	closeTestClientConfig(t, cfg)
 	if !cfg.NoUpload || cfg.Seed {
 		t.Fatalf("private torrent must stay leech-only: NoUpload=%v Seed=%v", cfg.NoUpload, cfg.Seed)
 	}
@@ -310,7 +314,7 @@ func TestTransportOptionsAndBeginSeedingGuards(t *testing.T) {
 	if tr.policy.Enabled {
 		t.Fatal("Transport without WithSeedingPolicy must default to leech-only")
 	}
-	if tr.beginSeeding(seedTestResource(false), nil, nil, t.TempDir()) {
+	if tr.beginSeeding(seedTestResource(false), nil, nil, t.TempDir(), nil) {
 		t.Fatal("leech-only transport must not hand off a seeding session")
 	}
 
@@ -322,7 +326,7 @@ func TestTransportOptionsAndBeginSeedingGuards(t *testing.T) {
 
 	tr3 := New(nil, nil, WithSeedingPolicy(DefaultSeedingPolicy()))
 	defer tr3.Close()
-	if tr3.beginSeeding(seedTestResource(true), nil, nil, t.TempDir()) {
+	if tr3.beginSeeding(seedTestResource(true), nil, nil, t.TempDir(), nil) {
 		t.Fatal("private torrent must never enter a seeding session")
 	}
 
@@ -330,7 +334,7 @@ func TestTransportOptionsAndBeginSeedingGuards(t *testing.T) {
 	tr4 := New(nil, nil, WithSeedingPolicy(SeedingPolicy{
 		Enabled: true, SeedRatio: 100, SeedTime: time.Hour, StatsInterval: time.Millisecond,
 	}))
-	if !tr4.beginSeeding(seedTestResource(false), nil, nil, dir) {
+	if !tr4.beginSeeding(seedTestResource(false), nil, nil, dir, nil) {
 		t.Fatal("a public torrent with an enabled policy must enter a seeding session")
 	}
 	tr4.Close()
@@ -340,7 +344,7 @@ func TestTransportOptionsAndBeginSeedingGuards(t *testing.T) {
 }
 
 func TestNewSessionCountersAreNilSafe(t *testing.T) {
-	s := newSession(seedTestResource(false), nil, nil, t.TempDir(), DefaultSeedingPolicy(), nil)
+	s := newSession(seedTestResource(false), nil, nil, t.TempDir(), nil, DefaultSeedingPolicy(), nil)
 	u, d, l := s.readStats()
 	if u != 0 || d != 0 || l != 0 {
 		t.Fatalf("nil client counters must be zero, got %d/%d/%d", u, d, l)

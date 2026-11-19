@@ -539,11 +539,16 @@ func makeSingleFileInfo(content []byte, name string) ([]byte, [20]byte, error) {
 type seedFixture struct {
 	addr net.Addr
 	cl   *torrent.Client
+	cfg  *torrent.ClientConfig
 	dir  string
 }
 
 func (s *seedFixture) Close() {
 	s.cl.Close()
+	// torrent.Client.Close() leaves caller-provided DefaultStorage open; the
+	// eager bolt piece-completion handle must be released before the dir is
+	// removed, or Windows cannot delete it.
+	bttransport.CloseClientStorage(s.cfg)
 	_ = os.RemoveAll(s.dir)
 }
 
@@ -630,7 +635,7 @@ func startSeeder(mi *metainfo.MetaInfo, files map[string][]byte) (*seedFixture, 
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("seeder has no listen address")
 	}
-	return &seedFixture{addr: addr, cl: cl, dir: dir}, nil
+	return &seedFixture{addr: addr, cl: cl, cfg: cfg, dir: dir}, nil
 }
 
 func portOf(a net.Addr) int {

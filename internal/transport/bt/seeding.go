@@ -290,7 +290,7 @@ func (m *SeedingManager) Close() {
 // newSession builds the real, network-backed session: counters come from the
 // same Client.ConnStats() the library uses for tracker announces, and cleanup
 // closes the client before removing its temp data directory.
-func newSession(r *core.Resource, cl *torrent.Client, tor *torrent.Torrent, dataDir string, p SeedingPolicy, obs SeedingObserver) *seedingSession {
+func newSession(r *core.Resource, cl *torrent.Client, tor *torrent.Torrent, dataDir string, cfg *torrent.ClientConfig, p SeedingPolicy, obs SeedingObserver) *seedingSession {
 	var total int64
 	if tor != nil && tor.Info() != nil {
 		total = tor.Info().TotalLength()
@@ -316,6 +316,7 @@ func newSession(r *core.Resource, cl *torrent.Client, tor *torrent.Torrent, data
 			if cl != nil {
 				cl.Close()
 			}
+			closeClientStorage(cfg)
 			_ = os.RemoveAll(dataDir)
 		},
 	}

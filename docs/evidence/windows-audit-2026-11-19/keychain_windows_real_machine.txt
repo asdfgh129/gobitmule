@@ -1,0 +1,42 @@
+=== RUN   TestKeychainStoreRoundTrip
+--- PASS: TestKeychainStoreRoundTrip (0.04s)
+=== RUN   TestKeychainStoreDeleteIsIdempotent
+--- PASS: TestKeychainStoreDeleteIsIdempotent (0.03s)
+=== RUN   TestKeychainStoreRejectsForeignOrMalformedRefs
+--- PASS: TestKeychainStoreRejectsForeignOrMalformedRefs (0.00s)
+=== RUN   TestFileBackendRefusesWidePermissions
+    keychain_test.go:149: os.Chmod cannot produce a wide-mode file on Windows: NOT_EXECUTED on this host
+--- SKIP: TestFileBackendRefusesWidePermissions (0.00s)
+=== RUN   TestFileBackendLeavesNoTempFile
+--- PASS: TestFileBackendLeavesNoTempFile (0.24s)
+=== RUN   TestFileBackendTightensExistingDirectory
+--- PASS: TestFileBackendTightensExistingDirectory (0.00s)
+=== RUN   TestNewCredentialStoreReportsAKnownBackend
+--- PASS: TestNewCredentialStoreReportsAKnownBackend (0.00s)
+=== RUN   TestFileBackendWithoutDirectoryIsUnavailable
+--- PASS: TestFileBackendWithoutDirectoryIsUnavailable (0.00s)
+=== RUN   TestFileBackendKindAndScheme
+--- PASS: TestFileBackendKindAndScheme (0.00s)
+=== RUN   TestFileBackendMkdirFailure
+--- PASS: TestFileBackendMkdirFailure (0.01s)
+=== RUN   TestFileBackendDeleteMissingIsNoop
+--- PASS: TestFileBackendDeleteMissingIsNoop (0.00s)
+=== RUN   TestFileBackendPutFailsWhenDirUnwritable
+    keychain_unit_test.go:84: os.Chmod cannot make a directory unwritable on Windows: NOT_EXECUTED on this host
+--- SKIP: TestFileBackendPutFailsWhenDirUnwritable (0.00s)
+=== RUN   TestFileBackendPutFailsWhenTargetIsDirectory
+--- PASS: TestFileBackendPutFailsWhenTargetIsDirectory (0.14s)
+=== RUN   TestFileBackendGetFailsWhenPathIsDirectory
+--- PASS: TestFileBackendGetFailsWhenPathIsDirectory (0.03s)
+=== RUN   TestDPAPIRealMachineRoundTrip
+--- PASS: TestDPAPIRealMachineRoundTrip (0.00s)
+=== RUN   TestDPAPIRealMachineLargeBlob
+--- PASS: TestDPAPIRealMachineLargeBlob (0.00s)
+=== RUN   TestDPAPIRealMachineTamperedCiphertext
+--- PASS: TestDPAPIRealMachineTamperedCiphertext (0.00s)
+=== RUN   TestDPAPIBackendStoreEndToEnd
+--- PASS: TestDPAPIBackendStoreEndToEnd (0.02s)
+=== RUN   TestDPAPIRealMachineSealedFileStaysOpaque
+--- PASS: TestDPAPIRealMachineSealedFileStaysOpaque (0.02s)
+PASS
+ok  	github.com/asdfgh129/ud/internal/security	3.962s

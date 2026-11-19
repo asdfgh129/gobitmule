@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/asdfgh129/ud/internal/core"
 )
@@ -86,10 +87,18 @@ func (b *fileBackend) get(_ context.Context, id string) (string, error) {
 		return "", core.Err(core.E_INTERNAL, "stat credential file: %v", err)
 	}
 	// Refuse to read a file someone else widened: silently accepting a 0644
-	// credential is how a local user reads another user's password.
-	if mode := info.Mode().Perm(); mode&0o077 != 0 {
-		return "", core.Err(core.E_INTERNAL,
-			"credential file permissions are too open (%#o); expected 0600", mode)
+	// credential is how a local user reads another user's password. Go mode
+	// bits do not model NTFS DACLs — os.Stat reports 0666 for every writable
+	// file — so on Windows this check can never pass and would permanently
+	// brick the file backend (found by the 2026-11-19 Windows real-machine
+	// run). There the protection is the per-user profile DACL, and the
+	// system backend is DPAPI anyway; this file backend only exists as the
+	// POSIX degradation path.
+	if runtime.GOOS != "windows" {
+		if mode := info.Mode().Perm(); mode&0o077 != 0 {
+			return "", core.Err(core.E_INTERNAL,
+				"credential file permissions are too open (%#o); expected 0600", mode)
+		}
 	}
 	data, err := os.ReadFile(p)
 	if err != nil {

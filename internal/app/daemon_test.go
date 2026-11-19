@@ -199,7 +199,13 @@ func TestRunReportsListenFailure(t *testing.T) {
 }
 
 func TestDiscoveryRoundTrip(t *testing.T) {
+	// os.UserConfigDir reads XDG_CONFIG_HOME / HOME on Unix and %AppData% on
+	// Windows (found by the 2026-11-19 Windows real-machine run: a real
+	// discovery file made "missing file must error" fail there). Redirect all
+	// three so the test never touches the operator's real per-user file.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AppData", t.TempDir())
 	path := DiscoveryPath()
 	if filepath.Base(path) != "daemon.json" {
 		t.Fatalf("unexpected discovery path %q", path)

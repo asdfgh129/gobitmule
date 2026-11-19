@@ -798,6 +798,7 @@ func l4LocalDHT() (*dht.Server, net.Addr, *l4PeerStore, error) {
 // over ut_metadata. It is a real BitTorrent client, not a fixture verdict.
 type l4AnacrolixSeeder struct {
 	client *torrent.Client
+	cfg    *torrent.ClientConfig
 	dir    string
 }
 
@@ -805,6 +806,9 @@ func (s *l4AnacrolixSeeder) close() {
 	if s.client != nil {
 		s.client.Close()
 	}
+	// torrent.Client.Close() leaves caller-provided DefaultStorage open; the
+	// eager bolt handle must be released before the temp dir is removed.
+	bt.CloseClientStorage(s.cfg)
 	if s.dir != "" {
 		_ = os.RemoveAll(s.dir)
 	}
@@ -838,6 +842,7 @@ func l4StartAnacrolixSeeder(torrentBytes, payload []byte, name string, dhtAddr n
 		return nil, err
 	}
 	s.client = cl
+	s.cfg = cfg
 	mi, err := metainfo.Load(bytes.NewReader(torrentBytes))
 	if err != nil {
 		s.close()
