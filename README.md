@@ -10,7 +10,8 @@
 > 「缺 ffmpeg 不退化到 720p」当时点未达成；边界详见 [`docs/23` v1.4](docs/23-当前状态审计报告.md) 与 ADR-0010 实现时点注。
 > WBS 20 Web 控制台（Vue 3 + TS，五分区）于同日交付，前端 RPC 方法映射见 `docs/07` v0.14 §9；
 > 备份 / 恢复 / 迁移仍为离线 CLI，未伪装为在线按钮。
-> 本包 `fd9fbf9` 的 CI run `44672119353` 已 `quality: success`（全 14 步通过）。
+> Web 控制台代码包 `4604d0c` 的 CI run `44692698811` 已 `quality: success`（含 Web 构建校验共 20 步），
+> 当前滚动结论停在 `4604d0c`；`fd9fbf9` run `44672119353`（全 14 步）为时点值。
 > 仓库已包含可运行的 Go 代码：HTTP(S) / FTP(S) / SFTP 直链与 BT / 磁力均能走完
 > `Resolver → Resource → Transport → PostProcessor → Store` 全流水线。
 > **P1 WBS 8 已交付（2026-11-10）**：`thunder://` / `flashget://` / `qqdl://` 解码与 Metalink

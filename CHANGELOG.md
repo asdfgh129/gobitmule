@@ -36,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **边界**：分片级明细、`capability.changed` 发布、sidecar 运行时开关、真实站点回放
     均未实现；未引入 JSON-RPC 传输层（ADR-0019 不变），不宣称正式 UI 取代 CLI。
   - **文档**：`07` v0.14、`13` v0.32、`14` v1.17（WBS 20）、`23` v1.5、`docs/README` §三、
-    ADR-0025。
+    ADR-0025。本包 CI run `44692698811` **`quality: success`**（含新增
+    `build & verify embedded web console` 步骤，全 20 步通过），当前滚动结论停在 `4604d0c`。
 - **WBS 14：纯 Go Remux 后处理（2026-11-20，ADR-0011 / 0012）**：
   - **交付**：`internal/postproc/tsdemux.go`（PAT / PMT / PES、PTS/DTS 解绕、Annex B → AVCC、
     ADTS AAC → esds）、`mp4mux.go`（`ftyp` + `moov` 前置 + `mdat` 的 `stts` / `ctts` /
