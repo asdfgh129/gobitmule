@@ -16,6 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 20：Vue 3 + TypeScript Web 控制台（2026-11-20）**：
+  - **交付**：`web/` 新增 Vite + Vue 3 + TS + Pinia + vue-router 工程与提交锁文件；五个分区
+    （概览 / 任务 / 新建下载 / 设置 / 运维），类型化 RPC 方法层 `web/src/api/rpc.ts` 与
+    `types/api.ts` 一一映射 L0 REST/WS；单文件产物 `internal/api/ui/index.html`（约 174 KiB /
+    gzip 63 KiB）由 `go:embed` 直接嵌入，Go 侧路由零改动。`docs/07` v0.14 §9 是接口映射
+    真值源，`docs/13` v0.32 定义 `make web` / `make web-check` 与 CI `setup-node` 校验。
+  - **新增 additive L0 端点**：`GET /api/v1/events/history?limit=`（持久化事件，默认 50 /
+    上限 200；无 store 注入时 `503 E_CAPABILITY_UNAVAILABLE`）与 `POST /api/v1/ws-ticket`
+    + `WS /events?ticket=`（60 秒、一次性，浏览器无需在 WebSocket 握手设置 Bearer 头，
+    长期令牌不进 URL）。`internal/api/ui_rpc_test.go` 覆盖历史端点与票据重放拒绝。
+  - **交互口径**：WS 负责即时事件，`task.progress` 只更新字节数；速度 / ETA 由
+    `GET /tasks/{id}` 5 秒轮询补足（与文档示例口径一致）。「重试」映射为既有 `resume`，
+    没有伪造新的引擎能力。备份 / 恢复 / 迁移仍为离线 CLI，页面仅展示准确命令与原因。
+  - **验证**：`vue-tsc` 严格类型检查 + Vite 构建通过；在临时空目录用提交锁文件完整
+    `npm ci && npm run build`，产物 SHA-256 与仓库内一致（`3903f411…`）。真实 `udd`
+    本机冒烟：`/` 返回嵌入页面（200 / `text/html`），`/healthz`、`/capabilities`、
+    `/events/history` 正常，非 API 深链接仍 404（hash 路由不经服务端）。
+  - **边界**：分片级明细、`capability.changed` 发布、sidecar 运行时开关、真实站点回放
+    均未实现；未引入 JSON-RPC 传输层（ADR-0019 不变），不宣称正式 UI 取代 CLI。
+  - **文档**：`07` v0.14、`13` v0.32、`14` v1.17（WBS 20）、`23` v1.5、`docs/README` §三、
+    ADR-0025。
 - **WBS 14：纯 Go Remux 后处理（2026-11-20，ADR-0011 / 0012）**：
   - **交付**：`internal/postproc/tsdemux.go`（PAT / PMT / PES、PTS/DTS 解绕、Annex B → AVCC、
     ADTS AAC → esds）、`mp4mux.go`（`ftyp` + `moov` 前置 + `mdat` 的 `stts` / `ctts` /

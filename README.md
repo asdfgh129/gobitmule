@@ -8,6 +8,8 @@
 > WBS 14 内置纯 Go `remux` 与 WBS 12 opt-in `yt-dlp`（`-J` 只吐 JSON、自有格式评分）已落地。
 > **但分离 A/V 下载 + 合并、lux 进程内解析、Deno/EJS 与真实站点回放仍未完成**，
 > 「缺 ffmpeg 不退化到 720p」当时点未达成；边界详见 [`docs/23` v1.4](docs/23-当前状态审计报告.md) 与 ADR-0010 实现时点注。
+> WBS 20 Web 控制台（Vue 3 + TS，五分区）于同日交付，前端 RPC 方法映射见 `docs/07` v0.14 §9；
+> 备份 / 恢复 / 迁移仍为离线 CLI，未伪装为在线按钮。
 > 本包 `fd9fbf9` 的 CI run `44672119353` 已 `quality: success`（全 14 步通过）。
 > 仓库已包含可运行的 Go 代码：HTTP(S) / FTP(S) / SFTP 直链与 BT / 磁力均能走完
 > `Resolver → Resource → Transport → PostProcessor → Store` 全流水线。
@@ -187,7 +189,7 @@ go run ./cmd/udctl list
 go run ./cmd/udctl show <id>
 ```
 
-浏览器打开 daemon 地址可看到嵌入式最小 UI（仅用于验证控制面契约，可替换）。`GET /api/v1/healthz`、`/stats`、`/capabilities` 与 `WS /api/v1/events` 可用；接口详见 [`docs/07`](docs/07-接口规范-API.md)。
+浏览器打开 daemon 地址即为嵌入式 **Vue 3 + TypeScript Web 控制台**（`web/` 源码，构建为单文件由 `go:embed` 嵌入）：概览 / 任务 / 新建下载 / 设置 / 运维五个分区；`GET /api/v1/healthz`、`/stats`、`/capabilities`、`GET /events/history` 与 `WS /api/v1/events` 可用，前端类型化 RPC 方法到 L0 路由的映射见 [`docs/07` §9](docs/07-接口规范-API.md)。本地开发：`make web`（或 `cd web && npm run dev`，用 `UD_API_TARGET` 指向 daemon 端口）。
 
 > 若默认 Go 模块代理不可达，可覆盖：`GOPROXY=https://goproxy.cn,direct make build`。
 
@@ -236,7 +238,7 @@ go run ./cmd/udctl show <id>
 - ✅ **P1 WBS 11 已实现（套件）**：`BT-01..BT-14` 门禁注册表、自建 HTTP(S)/UDP tracker fixture、9 条可复跑回环用例与 `dist/INTEROP.md` 证据链；✅ **2026-11-16 双机实验室实测：`BT-01..BT-14` 14/14 PASS、`release_gate_met=true`；NFR-PERF-01 按 ADR-0022 达标（11.21MB/s、`met=true`）**，证据 `docs/evidence/`、报告 [`docs/19`](docs/19-L4实验室实测与发布门禁报告.md) / [`docs/20`](docs/20-NFR-PERF-01双机应用层基准实测报告.md)；但 CI 内 `make interop` 的绿灯（9 PASS + 14 `SKIPPED`、无外部配置）**仍不等于**发布门禁通过，不得把 CI 结果当作 L4 证据。✅ **补充证据（不计入 L4）**：`BX-01..BX-06`（aria2-next 3.0.9 + 真实 `libtorrent 2.1.1`，6/6 PASS、sha256 校验）均为**单向回环**证据，`BX-05` / `BX-06` 为我方做种半向；libtorrent 虽点名于 `BT-03`，但该判据要求同一真实客户端会话内双向且需抓包 / 千兆内网，故不通过。**2026-11-17 补充**：真实 `transmission-daemon 3.00` 的双向矩阵已单独实测通过（`MX-TR-A` 对方做种→我方下载、`MX-TR-B` 我方做种→对方下载，两向端到端 sha256 一致），同样**不计入 L4**、不改变 14/14，见 [`docs/21`](docs/21-第三客户端互操作矩阵Transmission实测报告.md)。性能侧 `docs/12` §5 的单机三项已用真实 `udd` 进程实测：1000 任务常驻内存增量 **8.6MB**、含 1000 任务恢复启动 **261ms**、创建→首字节 P99 **45ms**（2h 长稳 **12.5MB**），见 [`docs/22`](docs/22-性能基准实测-单机可复跑项.md)；`ffmpeg` 两项已于 2026-11-18 用**真实 ffmpeg 5.1.2** 补测（exec 中位 **163.1ms**、哈希并发为单跑 **73%**，均 PASS，见 `docs/22` §九），**仅移动端 BT 内存未执行**（需真机）。⚠️ **[`ADR-0021`](docs/adr/ADR-0021-L4门禁与P2P礼仪范围冲突裁决提案.md) 已由 `Proposed` 转 `Accepted（路径 A）`**：按项目发起人 2026-11-14 指令裁决并补齐做种实现，「未签署范围缩减（合规差距）」根因已消除（不是「ADR-0004 不做种边界」）；但 **L4 矩阵已于 2026-11-16 实测通过**（14/14，其中 `BT-02` / `BT-11` 由 `gateExternal` 以 verified upload 判定 PASS，不再固定 `UNSUPPORTED`）；该结论限于实验室环境与所列客户端版本，产品文案仍按 `16` §7 口径（待法务会签）。**评审组实名复签、法务与安全会签、R-10 复评仍待补**（**2026-11-17 当前态**：法务文案口径与 R-10 已由发起人书面结论记档——R-10 记「已接受，非已消除」、等级维持「中」、处置移交运营侧；序 6 / WBS 11 记为**按发起人裁决关闭（实名会签待补）**，见 [`docs/18` §6.1](docs/18-序6评审与L4实验室准备材料包.md)）；`make l4-preflight` 只清点条件、`PRESENT` 绝不等于 PASS（`12` §3.1.2 / §3.1.3）；`make perf` 只是 1GiB 回环参考（固定 `nfr_perf_01.met=false`），双机结论只看 `make perf-lab` 产出的 `dist/perf_lab.json`。
 - ✅ **P1 WBS 10 已实现**：goja ES5.1 插件规则引擎（manifest 严格校验、Ed25519 签名、能力裁剪、逐跳 SSRF Guard、目录指纹热更新、`udctl plugin` 离线工具链、`RULE_OUTDATED` 兜底）；**软隔离**，不承诺 WASM / Extism 硬隔离、Node/Deno / 浏览器扩展脚本兼容、现代 JS 语法、官方规则仓库与真实站点规则包（L4 互操作矩阵属 WBS 11）。
 - ✅ **P1 WBS 7 已实现**：BT / 磁力链接下载（标准 BitTorrent 网络、公开 HTTP/UDP/HTTPS tracker、magnet 经 BEP 9 取元数据）；**2026-11-14 路径 A**：受限做种 / 分享率 / `seed-time` / 上传槽 / UPnP 与统一 announce 统计已生效，私有种子禁 DHT/PEX 且不上传、诚实 PeerID（`-UD` 前缀强制回落）；**上传字节速率仍由 `scheduler.Limiter` 唯一权威管理**；标准 eD2k 网络（线协议层）为 P3 目标，尚未实现。
-- ✅ **P0 已实现**：HTTP(S) 直链、Range 分段、断点续传、暂停/恢复/取消、崩溃恢复、全局限速、L0 REST/WS/CLI、最小 UI、六平台纯 Go 构建。
+- ✅ **P0 已实现**：HTTP(S) 直链、Range 分段、断点续传、暂停/恢复/取消、崩溃恢复、全局限速、L0 REST/WS/CLI、Web 控制台（2026-11-20 起 Vue 3 + TS）、六平台纯 Go 构建。
 - ✅ **P2 可选后处理（默认关闭）**：`ffmpeg-transcode` 只处理已下载的本地文件（mp4/mov/mkv/webm），固定参数白名单、显式 muxer、进程组取消、磁盘空间预检、全局并发槽位；缺 ffmpeg 或不合规构建只降级，不影响下载。**需要 operator 自备二进制，不随包分发**。
 - ❌ **不承诺**私有 tracker 准入、迅雷 P2SP/高速通道/离线下载、ed2k 下载速度、DRM 内容解析、100% aria2 RPC 兼容。
 - ⚠️ 微信视频号嗅探为**单独分发、默认不安装**的可选插件，涉及逆向与平台条款风险。
@@ -245,7 +247,7 @@ go run ./cmd/udctl show <id>
 
 1. ~~`MemoryCredentialStore` 是进程内参考实现~~ **2026-11-17 已落地 OS 钥匙串凭据适配器（ADR-0015 ④）**：macOS 走 `/usr/bin/security`（密钥经 stdin，不进 argv）、Windows 走纯 Go DPAPI、Linux 走 `secret-tool`（需装 libsecret-tools + session bus，否则降级）；实际后端经 `GET /api/v1/capabilities` 的 `credentials` 字段如实上报，`file`（0600 文件）**不是钥匙串**、`memory` 重启即失。Windows / Linux 真机路径未验证（仅交叉编译 + 单测）。
 2. 非回环监听必须配置 `remoteToken`（否则拒绝启动），且目前只有 Bearer 鉴权，无 TLS / Origin 校验。
-3. `postProcess` 只支持 `none`；最小 UI 是契约验证占位件（OPEN-02 已定档 Flutter，正式 UI 不进入 P1 编码范围）。
+3. `postProcess` 可选 `none` / 内置 `remux` / opt-in `ffmpeg-transcode`；Web 控制台已于 2026-11-20 交付，但备份 / 恢复 / 迁移仍是离线 CLI，分片级明细与 sidecar 运行时开关未实现（见 `docs/07` v0.14 §9）。
 4. CycloneDX SBOM / `govulncheck` / 许可证扫描 / 覆盖率报告 / 回滚演练已由 `make gates-strict` 执行，覆盖率全部达标；WBS 11 起互操作套件 v1 的**本地自动化部分**已由 `make interop` 执行；`BT-01..BT-14` L4 真实客户端矩阵已于 2026-11-16 在双机实验室 **14/14 PASS**（`docs/19`），NFR-PERF-01 双机应用层基准同日 **`met=true`**（11.21MB/s ≥ 10MB/s，ADR-0022，`docs/20`）。技术验收项已满足；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；**不宣称公网全矩阵 / PT / 千兆 80MB/s 达标**。
 
 完整清单见 [`docs/11` §10](docs/11-安全与合规设计.md) 与 [`docs/14` §9](docs/14-项目计划与风险管理.md)。

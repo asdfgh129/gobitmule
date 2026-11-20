@@ -4,8 +4,10 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -23,6 +25,13 @@ import (
 //go:embed ui/index.html
 var uiFS embed.FS
 
+const (
+	// wsTicketTTL bounds the window in which a browser may open the event
+	// socket without exposing the long-lived bearer token in a URL.
+	wsTicketTTL     = 60 * time.Second
+	maxEventHistory = 200
+)
+
 type Options struct {
 	Control     core.ControlPlane
 	Config      *config.Manager
@@ -31,20 +40,28 @@ type Options struct {
 	Logger      *slog.Logger
 	AuthToken   string
 	RequireAuth bool
+	// EventHistory reads persisted events for the UI's initial timeline.
+	// Optional: when absent, GET /events/history reports E_CAPABILITY_UNAVAILABLE.
+	EventHistory func(context.Context, int) ([]core.Event, error)
 }
 
 type Server struct {
-	ctl         core.ControlPlane
-	cfg         *config.Manager
-	creds       core.CredentialStore
-	bus         *core.EventBus
-	log         *slog.Logger
-	hub         *wsHub
-	mux         *http.ServeMux
-	authToken   string
-	requireAuth bool
-	mu          sync.Mutex
-	idempotent  map[string]core.TaskID
+	ctl          core.ControlPlane
+	cfg          *config.Manager
+	creds        core.CredentialStore
+	bus          *core.EventBus
+	log          *slog.Logger
+	hub          *wsHub
+	mux          *http.ServeMux
+	authToken    string
+	requireAuth  bool
+	mu           sync.Mutex
+	idempotent   map[string]core.TaskID
+	eventHistory func(context.Context, int) ([]core.Event, error)
+	// tickets are short-lived, single-use replacements for the bearer token
+	// on the WebSocket upgrade (a browser cannot set Authorization there).
+	ticketMu sync.Mutex
+	tickets  map[string]time.Time
 }
 
 func New(opts Options) *Server {
@@ -59,6 +76,7 @@ func New(opts Options) *Server {
 		bus: opts.Bus, log: opts.Logger, hub: newWSHub(opts.Bus),
 		mux: http.NewServeMux(), authToken: opts.AuthToken,
 		requireAuth: opts.RequireAuth, idempotent: make(map[string]core.TaskID),
+		eventHistory: opts.EventHistory, tickets: make(map[string]time.Time),
 	}
 	s.routes()
 	return s
@@ -83,6 +101,8 @@ func (s *Server) routes() {
 	mux.HandleFunc("GET /api/v1/stats", s.stats)
 	mux.HandleFunc("GET /api/v1/healthz", s.health)
 	mux.HandleFunc("POST /api/v1/credentials", s.putCredential)
+	mux.HandleFunc("GET /api/v1/events/history", s.eventHistoryHandler)
+	mux.HandleFunc("POST /api/v1/ws-ticket", s.issueWSTicket)
 	mux.Handle("GET /api/v1/events", http.HandlerFunc(s.hub.ServeHTTP))
 }
 
@@ -95,10 +115,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if s.requireAuth && strings.HasPrefix(r.URL.Path, "/api/") {
-		got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if subtle.ConstantTimeCompare([]byte(got), []byte(s.authToken)) != 1 {
-			writeError(w, core.Err(core.E_INVALID_INPUT, "invalid or missing bearer token"))
-			return
+		// The browser WebSocket API cannot set an Authorization header. Remote
+		// UIs first call POST /ws-ticket (bearer-authenticated), then connect to
+		// /events?ticket=<single-use, 60s>. The long-lived token never enters a URL.
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/events" {
+			if !s.consumeWSTicket(r.URL.Query().Get("ticket")) {
+				writeError(w, core.Err(core.E_INVALID_INPUT, "invalid or expired websocket ticket"))
+				return
+			}
+		} else {
+			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if subtle.ConstantTimeCompare([]byte(got), []byte(s.authToken)) != 1 {
+				writeError(w, core.Err(core.E_INVALID_INPUT, "invalid or missing bearer token"))
+				return
+			}
 		}
 	}
 	s.mux.ServeHTTP(w, r)
@@ -482,6 +512,75 @@ func (s *Server) putCredential(w http.ResponseWriter, r *http.Request) {
 	}
 	// The response contains only the reference, never the secret.
 	writeJSON(w, http.StatusCreated, map[string]any{"credentialRef": ref})
+}
+
+// eventHistoryHandler backs the UI's initial event timeline. Live updates still
+// arrive over /events; this only fills the gap before the socket connects and
+// survives a page reload. Persisted events are already written by the scheduler.
+func (s *Server) eventHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	if s.eventHistory == nil {
+		writeError(w, core.Err(core.E_CAPABILITY_UNAVAILABLE, "event history is not available"))
+		return
+	}
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			writeError(w, core.Err(core.E_INVALID_INPUT, "invalid limit"))
+			return
+		}
+		limit = n
+	}
+	if limit > maxEventHistory {
+		limit = maxEventHistory
+	}
+	events, err := s.eventHistory(r.Context(), limit)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if events == nil {
+		events = []core.Event{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
+// issueWSTicket mints a single-use, short-lived credential for the WebSocket
+// upgrade. It is itself protected by the normal bearer check in ServeHTTP.
+func (s *Server) issueWSTicket(w http.ResponseWriter, _ *http.Request) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		writeError(w, core.Err(core.E_INTERNAL, "cannot create websocket ticket"))
+		return
+	}
+	ticket := hex.EncodeToString(b)
+	expires := time.Now().Add(wsTicketTTL)
+	now := time.Now()
+	s.ticketMu.Lock()
+	for k, exp := range s.tickets {
+		if now.After(exp) {
+			delete(s.tickets, k)
+		}
+	}
+	s.tickets[ticket] = expires
+	s.ticketMu.Unlock()
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"ticket": ticket, "expiresAt": expires.UnixMilli(),
+	})
+}
+
+func (s *Server) consumeWSTicket(ticket string) bool {
+	if ticket == "" {
+		return false
+	}
+	s.ticketMu.Lock()
+	defer s.ticketMu.Unlock()
+	expires, ok := s.tickets[ticket]
+	if !ok {
+		return false
+	}
+	delete(s.tickets, ticket)
+	return time.Now().Before(expires)
 }
 
 // ---------- helpers ----------

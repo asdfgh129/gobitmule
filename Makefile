@@ -3,6 +3,8 @@
 SHELL := /bin/bash
 GO ?= go
 PYTHON ?= python3
+NPM ?= npm
+NPM_REGISTRY ?= https://registry.npmjs.org
 GOPROXY ?= https://proxy.golang.org,direct
 export CGO_ENABLED := 0
 export GOPROXY
@@ -22,7 +24,7 @@ PLATFORMS := \
 	linux/amd64 linux/arm64 \
 	windows/amd64 windows/arm64
 
-.PHONY: all gen lint lint-arch test build docs sbom licenses cover vuln bench perf perf-lab bench-perf bench-ffmpeg peer-matrix rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
+.PHONY: all gen lint lint-arch test build docs web web-check sbom licenses cover vuln bench perf perf-lab bench-perf bench-ffmpeg peer-matrix rollback-drill gates interop interop-external interop-gate l4-preflight l4-preflight-check l4-run l4-audit sign package release check clean fmt vet
 
 all: lint test build docs
 
@@ -61,6 +63,19 @@ build:
 
 docs:
 	$(PYTHON) tools/build_docs.py
+
+# Web console: Vue 3 + TS sources in web/, single-file bundle embedded by the
+# Go daemon at internal/api/ui/index.html. Build before `make build` so the
+# six-platform binaries embed the current UI.
+web:
+	$(NPM) ci --prefix web --registry $(NPM_REGISTRY) --no-audit --no-fund
+	$(NPM) run build --prefix web
+
+# CI guard: the committed bundle must equal a fresh build (same policy as
+# `build_docs.py --check` for the documentation portal).
+web-check:
+	@git diff --exit-code -- internal/api/ui/index.html || { \
+	  echo "embedded UI is stale: run 'make web' and commit the bundle"; exit 1; }
 
 # P0 milestone review gates (docs/12 §8, docs/14 §8). All evidence lands in
 # dist/ and is gitignored; results are summarised in dist/GATES.md.

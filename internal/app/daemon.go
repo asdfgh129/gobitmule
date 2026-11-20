@@ -312,6 +312,7 @@ func Run(ctx context.Context, opts Options) error {
 	loopback := isLoopbackListen(cfg.Listen)
 	srv := api.New(api.Options{
 		Control: sch, Config: mgr, Credentials: creds, Bus: bus, Logger: log,
+		EventHistory: st.Events,
 		// Fail closed: any non-loopback listener requires a Bearer token.
 		// config.Validate already rejects the token-less case at startup.
 		AuthToken: cfg.RemoteToken, RequireAuth: !loopback,

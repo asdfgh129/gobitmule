@@ -1,0 +1,26 @@
+{
+  "name": "ud-web-console",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Universal Downloader Web Console - Vue 3 + TypeScript control plane UI",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "~5.7.3",
+    "vite": "^6.0.7",
+    "vite-plugin-singlefile": "^2.0.3",
+    "vue-tsc": "^2.2.0"
+  }
+}

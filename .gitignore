@@ -24,6 +24,12 @@ coverage.html
 config.yaml
 ud.state.json
 
+# Frontend toolchain (sources in web/, generated single-file bundle is versioned
+# at internal/api/ui/index.html just like docs/_site/).
+web/node_modules/
+web/.vite/
+web/dist/
+
 # Python build-tool caches
 __pycache__/
 *.py[cod]

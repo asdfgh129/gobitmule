@@ -1,7 +1,17 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.13 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH：`.m3u8` / `.mpd` 输入归为 `stream` 类任务（2026-11-19/20）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.14 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH：`.m3u8` / `.mpd` 输入归为 `stream` 类任务（2026-11-19/20）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
+> **v0.14 变更 / 2026-11-20 时点口径（Web 控制台；新增两条 additive L0 端点，既有 17 条契约零改动）**：
+> 为 Vue 3 + TS 控制台补齐浏览器所需的两项能力：`GET /events/history?limit=` 读取持久化事件
+> （上限 200，默认 50；无 store 注入时返回 `503 E_CAPABILITY_UNAVAILABLE`），以及
+> `POST /ws-ticket` + `WS /events?ticket=` —— 浏览器无法在 WebSocket 握手时设置
+> `Authorization`，故用 bearer 鉴权换取 60 秒一次性票据，**长期令牌不进 URL**。
+> §9 定义前端命名 RPC 方法到 L0 路由的映射；**不引入 JSON-RPC 传输层**（ADR-0019 不变）。
+> 顺带校准两处历史示例口径：`task.progress` 实际 payload 只有 `bytesDone` / `bytesTotal`
+> （速度、ETA、连接数须查 `GET /tasks/{id}`）；`capability.changed` 目前只有类型声明、
+> 生产代码尚未发布该事件，控制台只做接收不改状态。
+>
 > **v0.13 变更 / 2026-11-20 时点口径（WBS 12/14；REST / WS / CLI 契约零改动）**：
 > `GET /api/v1/capabilities` 的 `resolvers` 数组在 `sources.ytdlp.enabled=true` 时多出
 > `yt-dlp`，`postProcessors` 数组恒含内置 `remux`（与 `none` 并列，零 sidecar）；二者均
@@ -93,7 +103,7 @@
 | 基址 | `http://127.0.0.1:<port>/api/v1`（默认仅回环监听；远程需显式开启 + token） |
 | 版本 | URL 路径版本；破坏性变更升 `v2`，不静默改 `v1` |
 | 编码 | UTF-8 JSON；时间用 RFC 3339 / 毫秒 Unix 时间戳（字段以 `*_at` 标注者用毫秒整数） |
-| 鉴权 | 本机回环默认无需；远程 `Authorization: Bearer <token>`；L1 facade 用 aria2 `token:<secret>` 前缀 |
+| 鉴权 | 本机回环默认无需；远程 `Authorization: Bearer <token>`；WebSocket 例外用一次性票据（见 §4 / §9）；L1 facade 用 aria2 `token:<secret>` 前缀（未实现） |
 | 幂等 | 创建类请求可带 `Idempotency-Key`；重复提交返回首次结果 |
 | 分页 | `?cursor=&limit=`（默认 50，上限 200） |
 | 脱敏 | 响应与日志一律不返回 `cookie` / `authorization` / `passkey` 明文，以 `***` 或 `cred_ref` 代替 |
@@ -126,7 +136,9 @@
 | GET | `/stats` | 全局吞吐、连接数、任务统计 |
 | GET | `/healthz` | 健康检查（含 DB 与 sidecar 状态摘要） |
 | POST | `/credentials` | 写入凭据到钥匙串，返回 `cred_ref`。**凭据后端由 daemon 按宿主择优**（ADR-0015 ④）：`macos-keychain` / `windows-dpapi` / `linux-secret-service` 为 OS 钥匙串；`file` 为 0600 文件，**不是钥匙串**；`memory` 重启即失。实际后端经 `GET /capabilities` 的 `credentials` 字段如实上报 |
-| GET | `/events` (WS) | 事件推送 |
+| GET | `/events` (WS) | 事件推送；远程鉴权模式须带 `?ticket=`（见 §4） |
+| GET | `/events/history?limit=` | 持久化事件历史（默认 50，上限 200，按时间升序）。**2026-11-20 新增** |
+| POST | `/ws-ticket` | 用 bearer 换取 WebSocket 一次性票据：`201 {"ticket":"<48 hex>","expiresAt":<ms>}`，60 秒有效、单次消费。**2026-11-20 新增** |
 
 **创建任务示例**
 ```json
@@ -204,10 +216,17 @@ udctl daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
 
 ## 4. WebSocket 事件（`/api/v1/events`）
 
+**鉴权（2026-11-20 新增）**：浏览器 `WebSocket` API 无法设置自定义头。远程鉴权模式下，客户端先
+`POST /ws-ticket`（走正常 bearer 检查），再用 `WS /events?ticket=<ticket>` 升级；票据 60 秒过期、
+单次消费，服务端在升级前校验。旧 daemon 无该端点时，回环直连仍可用不带票据的裸连接。
+
 ```json
 { "type": "task.progress", "taskId": "01J8Z...", "ts": 1762570001000,
-  "payload": { "bytesDone": 10485760, "speed": 2097152, "connections": 8 } }
+  "payload": { "bytesDone": 10485760, "bytesTotal": 104857600 } }
 ```
+
+> 上例已按实际发布内容校准：`task.progress` **不含** `speed` / `connections`。需要实时速度、
+> ETA、连接数时查询 `GET /tasks/{id}`（`TaskDetail` 字段由 500ms EMA 计算，3 秒后过期返回 0）。
 
 | 事件 | 触发 |
 |---|---|
@@ -312,4 +331,28 @@ udctl daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
 | §6 错误码表 | `internal/core/errors.go:errorSpecs` 全量 | `internal/core/state_test.go:TestErrorCodeTable`（HTTP 状态 / retryable / kind） |
 | §2 `capabilities.rpcLevel` | 返回 `"L0"` | `TestRESTContract` |
 | §2 `capabilities.credentials`（2026-11-17，ADR-0015 ④） | 返回实际凭据后端名；`scheduler` 对非上报型实现回退 `"memory"`，`file` 后端**不得**被表述为钥匙串（`06` §6） | `TestControlPlaneSurface`、`security/keychain_test.go:TestMemoryBackendReportingAndSemantics` |
-| 最小 UI | `internal/api/ui/index.html`（`go:embed` 单文件） | `TestMinimalUIIsServed` |
+| 最小 UI → Web 控制台（2026-11-20） | `web/`（Vue 3 + TS 源码）构建为单文件 `internal/api/ui/index.html`，`go:embed` 与 `serveUI` 不变 | `TestMinimalUIIsServed`；`make web` + `make web-check`（CI 校验产物新鲜度） |
+| §2 `GET /events/history` | `api.eventHistoryHandler` → `store.Events` | `internal/api/ui_rpc_test.go:TestEventHistoryEndpoint` / `TestEventHistoryUnavailable` |
+| §2 `POST /ws-ticket` + §4 票据升级 | `api.issueWSTicket` / `consumeWSTicket` | `internal/api/ui_rpc_test.go:TestWebSocketTicket` |
+
+## 9. Web 控制台 RPC 方法映射
+
+控制台**不新增传输协议**：所谓「RPC 接口」是前端 `web/src/api/rpc.ts` 中的命名方法层，
+一一映射到上表 L0 路由，共享 `web/src/types/api.ts` 中的类型与统一错误对象
+（`code` / `message` / `retryable` / `details`）。CLI 与第三方客户端的契约完全不受影响。
+
+| RPC 方法 | 传输 | 用途 |
+|---|---|---|
+| `system.health` / `capabilities` / `stats` | GET `/healthz` / `/capabilities` / `/stats` | 仪表盘状态、能力矩阵、全局吞吐 |
+| `tasks.list` / `get` / `preview` | GET `/tasks` / `/tasks/{id}` / POST `/resolve` | 任务列表、详情抽屉、只读解析预览 |
+| `tasks.create` / `batch` | POST `/tasks` / `/tasks/batch` | 单链接（带 `?wait=1200` 预览）与批量创建 |
+| `tasks.pause` / `resume` / `cancel` / `remove` / `patch` | POST/PATCH/DELETE `/tasks/{id}...` | 生命周期操作；**「重试」映射为 `resume`**（引擎无独立 retry 方法） |
+| `config.get` / `patch` | GET/PATCH `/config` | 仅 6 个白名单键可热更新，其余只读展示 |
+| `credentials.put` | POST `/credentials` | 密文写入系统安全存储，返回 `credentialRef` 引用 |
+| `events.history` | GET `/events/history` | 首屏事件时间线；断线期间的事件靠它补齐 |
+| `events.subscribe` | WS `/events`（必要时先 `ws-ticket`） | 实时事件；`task.progress` 只更新字节数，速度由轮询详情补足 |
+
+**未暴露为 RPC 的能力（如实边界）**：`udctl backup / restore / migrate` 仍是离线 CLI
+（restore / migrate 明确拒绝 daemon 运行时执行），控制台只展示准确命令与原因；
+分片级明细、`capability.changed` 事件、运行时切换 `sources.ytdlp.*` / `postProcess.*`
+均未实现，不伪装成可用按钮。
