@@ -26,8 +26,8 @@ import (
 	"github.com/asdfgh129/ud/internal/store"
 	"github.com/asdfgh129/ud/internal/transport"
 	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
-	ftptransport "github.com/asdfgh129/ud/internal/transport/ftp"
 	dashtransport "github.com/asdfgh129/ud/internal/transport/dash"
+	ftptransport "github.com/asdfgh129/ud/internal/transport/ftp"
 	hlstransport "github.com/asdfgh129/ud/internal/transport/hls"
 	httptransport "github.com/asdfgh129/ud/internal/transport/http"
 	sftptransport "github.com/asdfgh129/ud/internal/transport/sftp"
@@ -66,6 +66,21 @@ func newBuiltinResolvers(guard core.URLGuard, beforeDirect ...core.Resolver) *re
 	r.Register(resolve.NewDirectFile(guard))
 	r.Register(resolve.Unsupported{})
 	return r
+}
+
+// newBuiltinResolversForConfig adds the optional, opt-in site resolver. It
+// stays ahead of plugin rules (docs/05 §10) and is absent entirely when
+// sources.ytdlp.enabled=false, so the zero-sidecar baseline is unchanged.
+func newBuiltinResolversForConfig(guard core.URLGuard, cfg config.Config, extra ...core.Resolver) *resolve.Registry {
+	site := make([]core.Resolver, 0, 1)
+	if cfg.Sources.YTDLP.Enabled {
+		site = append(site, resolve.NewYTDLP(guard, resolve.YTDLPOptions{
+			Binary:  cfg.Sources.YTDLP.Binary,
+			Timeout: cfg.Sources.YTDLP.EffectiveTimeout(),
+			MaxJSON: int(cfg.Sources.YTDLP.EffectiveMaxBytes()),
+		}))
+	}
+	return newBuiltinResolvers(guard, append(site, extra...)...)
 }
 
 // newBuiltinTransports wires the byte movers. HTTP stays first so the
@@ -248,7 +263,7 @@ func Run(ctx context.Context, opts Options) error {
 			"verifySignature", cfg.Plugins.VerifySignature && !cfg.Plugins.Insecure)
 	}
 
-	resolvers := newBuiltinResolvers(guard, pluginResolvers...)
+	resolvers := newBuiltinResolversForConfig(guard, cfg, pluginResolvers...)
 	// ADR-0021 path A: bt.* keys are LIVE now. The BT transport owns bounded
 	// background seeding sessions, tied to the daemon context, the persisted
 	// tasks.bytes_uploaded counter and the Completed -> Seeding -> Completed

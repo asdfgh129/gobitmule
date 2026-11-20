@@ -15,7 +15,7 @@ import (
 
 const (
 	OptLuxForce    = "lux"
-	OptLuxPlugin   = "lux_plugin"   // optional: custom plugin rule pack path
+	OptLuxPlugin   = "lux_plugin"    // optional: custom plugin rule pack path
 	OptLuxCacheDir = "lux_cache_dir" // optional: rule cache directory
 )
 
@@ -56,35 +56,35 @@ func isKnownLuxDomain(raw string) bool {
 	host := strings.ToLower(u.Hostname())
 	// Common Chinese video platforms supported by lux
 	known := map[string]bool{
-		"bilibili.com":        true,
-		"www.bilibili.com":    true,
-		"youku.com":           true,
-		"www.youku.com":       true,
-		"iqiyi.com":           true,
-		"www.iqiyi.com":       true,
-		"tencent.com":         true, // v.qq.com
-		"v.qq.com":            true,
-		"mgtv.com":            true,
-		"www.mgtv.com":        true,
-		"douyin.com":          true,
-		"www.douyin.com":      true,
-		"kuaishou.com":        true,
-		"www.kuaishou.com":    true,
-		"acfun.cn":            true,
-		"www.acfun.cn":        true,
-		"xigua.com":           true,
-		"www.xigua.com":       true,
-		"pipix.com":           true,
-		"www.pipix.com":       true,
-		"haokan.baidu.com":    true,
-		"weibo.com":           true,
-		"www.weibo.com":       true,
-		"sohu.com":            true,
-		"tv.sohu.com":         true,
-		"pptv.com":            true,
-		"1905.com":            true,
-		"fun.tv":              true,
-		"ixigua.com":          true,
+		"bilibili.com":     true,
+		"www.bilibili.com": true,
+		"youku.com":        true,
+		"www.youku.com":    true,
+		"iqiyi.com":        true,
+		"www.iqiyi.com":    true,
+		"tencent.com":      true, // v.qq.com
+		"v.qq.com":         true,
+		"mgtv.com":         true,
+		"www.mgtv.com":     true,
+		"douyin.com":       true,
+		"www.douyin.com":   true,
+		"kuaishou.com":     true,
+		"www.kuaishou.com": true,
+		"acfun.cn":         true,
+		"www.acfun.cn":     true,
+		"xigua.com":        true,
+		"www.xigua.com":    true,
+		"pipix.com":        true,
+		"www.pipix.com":    true,
+		"haokan.baidu.com": true,
+		"weibo.com":        true,
+		"www.weibo.com":    true,
+		"sohu.com":         true,
+		"tv.sohu.com":      true,
+		"pptv.com":         true,
+		"1905.com":         true,
+		"fun.tv":           true,
+		"ixigua.com":       true,
 	}
 	return known[host]
 }
@@ -111,11 +111,11 @@ func (l *LuxResolver) Resolve(ctx core.ResolveContext, in core.Input) (*core.Res
 	// For now, construct a minimal Resource with the URL passed through
 	// The actual parsing would call lux.Extract() and return format info
 	return &core.Resource{
-		ID:     "res-" + string(core.NewID()),
-		Kind:   core.KindSingle,
-		Engine: core.EngineGo,
-		Files:  []core.ResourceFile{{Index: 0, Path: "lux_parsed", Selected: true}},
-		Mirrors: []core.Mirror{{URL: in.Raw, Priority: 1}},
+		ID:         "res-" + string(core.NewID()),
+		Kind:       core.KindSingle,
+		Engine:     core.EngineGo,
+		Files:      []core.ResourceFile{{Index: 0, Path: "lux_parsed", Selected: true}},
+		Mirrors:    []core.Mirror{{URL: in.Raw, Priority: 1}},
 		Headers:    map[string]string{},
 		Credential: ctx.Credential,
 		Identity: core.ProtocolIdentity{
@@ -132,9 +132,9 @@ func (l *LuxResolver) Resolve(ctx core.ResolveContext, in core.Input) (*core.Res
 
 const (
 	OptYtDlpForce    = "yt-dlp"
-	OptYtDlpPath     = "yt_dlp_path"     // optional: path to yt-dlp binary
-	OptDenoPath      = "deno_path"       // optional: path to deno binary
-	OptFormatSelect  = "format_select"   // optional: format selection policy JSON
+	OptYtDlpPath     = "yt_dlp_path"      // optional: path to yt-dlp binary
+	OptDenoPath      = "deno_path"        // optional: path to deno binary
+	OptFormatSelect  = "format_select"    // optional: format selection policy JSON
 	OptYtDlpCacheDir = "yt_dlp_cache_dir" // optional: yt-dlp cache directory
 )
 
@@ -142,10 +142,10 @@ const (
 // yt-dlp runs as a separate process: `yt-dlp -J --skip-download <URL>`.
 // Output is parsed JSON with format list; format selection happens here.
 type YtDlpResolver struct {
-	guard       core.URLGuard
-	ytDlpPath   string
-	denoPath    string
-	cacheDir    string
+	guard        core.URLGuard
+	ytDlpPath    string
+	denoPath     string
+	cacheDir     string
 	formatSelect string // JSON format selection policy
 }
 
@@ -190,28 +190,28 @@ func isKnownYtDlpDomain(raw string) bool {
 	host := strings.ToLower(u.Hostname())
 	// YouTube and common yt-dlp sites
 	known := map[string]bool{
-		"youtube.com":     true,
-		"www.youtube.com": true,
-		"youtu.be":        true,
-		"m.youtube.com":   true,
-		"music.youtube.com": true,
-		"vimeo.com":       true,
-		"www.vimeo.com":   true,
-		"dailymotion.com": true,
+		"youtube.com":         true,
+		"www.youtube.com":     true,
+		"youtu.be":            true,
+		"m.youtube.com":       true,
+		"music.youtube.com":   true,
+		"vimeo.com":           true,
+		"www.vimeo.com":       true,
+		"dailymotion.com":     true,
 		"www.dailymotion.com": true,
-		"twitch.tv":       true,
-		"www.twitch.tv":   true,
-		"twitter.com":     true,
-		"x.com":           true,
-		"facebook.com":    true,
-		"fb.watch":        true,
-		"instagram.com":   true,
-		"www.instagram.com": true,
-		"tiktok.com":      true,
-		"www.tiktok.com":  true,
-		"soundcloud.com":  true,
-		"bandcamp.com":    true,
-		"github.com":      true, // raw files via yt-dlp
+		"twitch.tv":           true,
+		"www.twitch.tv":       true,
+		"twitter.com":         true,
+		"x.com":               true,
+		"facebook.com":        true,
+		"fb.watch":            true,
+		"instagram.com":       true,
+		"www.instagram.com":   true,
+		"tiktok.com":          true,
+		"www.tiktok.com":      true,
+		"soundcloud.com":      true,
+		"bandcamp.com":        true,
+		"github.com":          true, // raw files via yt-dlp
 	}
 	return known[host]
 }
@@ -229,11 +229,11 @@ func (y *YtDlpResolver) Resolve(ctx core.ResolveContext, in core.Input) (*core.R
 	// The actual extraction happens via the yt-dlp sidecar process.
 	// For now, return a placeholder Resource; actual extraction happens in transport.
 	return &core.Resource{
-		ID:     "res-" + string(core.NewID()),
-		Kind:   core.KindSingle,
-		Engine: core.EngineGo,
-		Files:  []core.ResourceFile{{Index: 0, Path: "yt_dlp_parsed", Selected: true}},
-		Mirrors: []core.Mirror{{URL: in.Raw, Priority: 1}},
+		ID:         "res-" + string(core.NewID()),
+		Kind:       core.KindSingle,
+		Engine:     core.EngineGo,
+		Files:      []core.ResourceFile{{Index: 0, Path: "yt_dlp_parsed", Selected: true}},
+		Mirrors:    []core.Mirror{{URL: in.Raw, Priority: 1}},
 		Headers:    map[string]string{},
 		Credential: ctx.Credential,
 		Identity: core.ProtocolIdentity{
@@ -250,28 +250,28 @@ func (y *YtDlpResolver) Resolve(ctx core.ResolveContext, in core.Input) (*core.R
 
 // YtDlpFormat represents one format from yt-dlp -J output.
 type YtDlpFormat struct {
-	FormatID      string  `json:"format_id"`
-	Ext           string  `json:"ext"`
-	Resolution    string  `json:"resolution"`
-	Width         int     `json:"width"`
-	Height        int     `json:"height"`
-	FPS           float64 `json:"fps"`
-	VCodec        string  `json:"vcodec"`
-	ACodec        string  `json:"acodec"`
-	VideoExt      string  `json:"video_ext"`
-	AudioExt      string  `json:"audio_ext"`
-	Protocol      string  `json:"protocol"`
-	URL           string  `json:"url"`
-	TBR           float64 `json:"tbr"` // total bitrate
-	VBR           float64 `json:"vbr"`
-	ABR           float64 `json:"abr"`
-	Filesize      int64   `json:"filesize"`
-	FilesizeApprox int64  `json:"filesize_approx"`
-	DynamicRange  string  `json:"dynamic_range"`
-	Quality       string  `json:"quality"`
-	FormatNote    string  `json:"format_note"`
-	Container     string  `json:"container"`
-	Downloader    string  `json:"downloader"`
+	FormatID       string  `json:"format_id"`
+	Ext            string  `json:"ext"`
+	Resolution     string  `json:"resolution"`
+	Width          int     `json:"width"`
+	Height         int     `json:"height"`
+	FPS            float64 `json:"fps"`
+	VCodec         string  `json:"vcodec"`
+	ACodec         string  `json:"acodec"`
+	VideoExt       string  `json:"video_ext"`
+	AudioExt       string  `json:"audio_ext"`
+	Protocol       string  `json:"protocol"`
+	URL            string  `json:"url"`
+	TBR            float64 `json:"tbr"` // total bitrate
+	VBR            float64 `json:"vbr"`
+	ABR            float64 `json:"abr"`
+	Filesize       int64   `json:"filesize"`
+	FilesizeApprox int64   `json:"filesize_approx"`
+	DynamicRange   string  `json:"dynamic_range"`
+	Quality        string  `json:"quality"`
+	FormatNote     string  `json:"format_note"`
+	Container      string  `json:"container"`
+	Downloader     string  `json:"downloader"`
 }
 
 // FormatSelectPolicy controls format selection from yt-dlp format list.
@@ -294,10 +294,12 @@ func DefaultFormatSelectPolicy() FormatSelectPolicy {
 		PreferContainer: "mp4",
 		MaxHeight:       4320,
 		MaxBitrate:      50, // Mbps
+		// H.264/AAC are weighted highest among comparable resolutions because
+		// the pure-Go Remux can merge them without an ffmpeg sidecar (ADR-0010).
 		PreferAV1:       true,
 		PreferVP9:       true,
-		PreferH264:      false,
-		PreferAAC:       false,
+		PreferH264:      true,
+		PreferAAC:       true,
 		PreferOpus:      true,
 		MergeVideoAudio: true,
 	}
@@ -314,7 +316,10 @@ func SelectBestFormat(formats []YtDlpFormat, policy FormatSelectPolicy) *YtDlpFo
 		if policy.MaxHeight > 0 && f.Height > policy.MaxHeight {
 			continue
 		}
-		if policy.MaxBitrate > 0 && f.TBR > policy.MaxBitrate {
+		// yt-dlp reports tbr in kbit/s while the policy is expressed in Mbit/s.
+		// Comparing raw values filtered out every real format against the
+		// 50 Mbit/s default (found by the 2026-11-20 integration run).
+		if policy.MaxBitrate > 0 && f.TBR/1000 > policy.MaxBitrate {
 			continue
 		}
 		candidates = append(candidates, f)
@@ -324,23 +329,36 @@ func SelectBestFormat(formats []YtDlpFormat, policy FormatSelectPolicy) *YtDlpFo
 	}
 	// Score and sort
 	type scoredItem struct {
-		fmt  YtDlpFormat
+		fmt   YtDlpFormat
 		score float64
 	}
 	scored := make([]scoredItem, len(candidates))
 	for i, f := range candidates {
 		s := 0.0
 		// Codec preference
-		if policy.PreferAV1 && strings.Contains(f.VCodec, "av01") { s += 1000 }
-		if policy.PreferVP9 && strings.Contains(f.VCodec, "vp9") { s += 500 }
-		if policy.PreferH264 && strings.Contains(f.VCodec, "avc1") { s += 200 }
-		if policy.PreferAV1 && strings.Contains(f.ACodec, "opus") { s += 100 }
-		if policy.PreferAAC && strings.Contains(f.ACodec, "aac") { s += 50 }
-		if policy.PreferOpus && strings.Contains(f.ACodec, "opus") { s += 100 }
+		if policy.PreferAV1 && strings.Contains(f.VCodec, "av01") {
+			s += 1000
+		}
+		if policy.PreferVP9 && strings.Contains(f.VCodec, "vp9") {
+			s += 500
+		}
+		if policy.PreferH264 && (strings.Contains(f.VCodec, "avc1") || strings.Contains(f.VCodec, "h264")) {
+			s += 600
+		}
+		if policy.PreferAAC && (strings.Contains(f.ACodec, "aac") || strings.Contains(f.ACodec, "mp4a")) {
+			s += 50
+		}
+		if policy.PreferOpus && strings.Contains(f.ACodec, "opus") {
+			s += 100
+		}
 		// Container preference
-		if policy.PreferContainer != "" && strings.EqualFold(f.Ext, policy.PreferContainer) { s += 200 }
+		if policy.PreferContainer != "" && strings.EqualFold(f.Ext, policy.PreferContainer) {
+			s += 200
+		}
 		// Resolution (higher is better up to max)
-		if f.Height > 0 { s += float64(f.Height) * 0.1 }
+		if f.Height > 0 {
+			s += float64(f.Height) * 0.1
+		}
 		// Bitrate
 		s += f.TBR * 0.01
 		scored[i] = scoredItem{fmt: f, score: s}
@@ -361,4 +379,3 @@ func urlScheme(raw string) string {
 	}
 	return u.Scheme
 }
-

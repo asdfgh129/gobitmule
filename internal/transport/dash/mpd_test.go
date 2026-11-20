@@ -167,13 +167,13 @@ func TestParseMPDRejectsInvalidDocuments(t *testing.T) {
 			<AdaptationSet contentType="video"><Representation id="v" bandwidth="1"><SegmentTemplate media="v$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet>
 			<AdaptationSet contentType="audio"><Representation id="a" bandwidth="1"><SegmentTemplate media="a$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet>
 		</Period></MPD>`,
-		"DRM": `<MPD type="static"><Period><AdaptationSet><ContentProtection/><Representation id="v" bandwidth="1"><SegmentTemplate media="v$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
-		"segment base": `<MPD type="static"><Period><AdaptationSet><Representation id="v" bandwidth="1"><BaseURL>v.mp4</BaseURL><SegmentBase indexRange="0-99"/></Representation></AdaptationSet></Period></MPD>`,
+		"DRM":                         `<MPD type="static"><Period><AdaptationSet><ContentProtection/><Representation id="v" bandwidth="1"><SegmentTemplate media="v$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
+		"segment base":                `<MPD type="static"><Period><AdaptationSet><Representation id="v" bandwidth="1"><BaseURL>v.mp4</BaseURL><SegmentBase indexRange="0-99"/></Representation></AdaptationSet></Period></MPD>`,
 		"unbounded duration template": `<MPD type="static"><Period><AdaptationSet><Representation id="v" bandwidth="1"><SegmentTemplate media="v$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
-		"time without timeline": `<MPD type="static" mediaPresentationDuration="PT4S"><Period><AdaptationSet><Representation id="v" bandwidth="1"><SegmentTemplate media="$Time$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
-		"DTD":                     `<!DOCTYPE MPD [<!ENTITY x SYSTEM "file:///etc/passwd">]><MPD type="static">&x;</MPD>`,
-		"no representations":      `<MPD type="static"><Period><AdaptationSet/></Period></MPD>`,
-		"calendar duration":       `<MPD type="static" mediaPresentationDuration="P1YT30S"><Period><AdaptationSet><Representation id="v" bandwidth="1"><SegmentTemplate media="v$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
+		"time without timeline":       `<MPD type="static" mediaPresentationDuration="PT4S"><Period><AdaptationSet><Representation id="v" bandwidth="1"><SegmentTemplate media="$Time$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
+		"DTD":                         `<!DOCTYPE MPD [<!ENTITY x SYSTEM "file:///etc/passwd">]><MPD type="static">&x;</MPD>`,
+		"no representations":          `<MPD type="static"><Period><AdaptationSet/></Period></MPD>`,
+		"calendar duration":           `<MPD type="static" mediaPresentationDuration="P1YT30S"><Period><AdaptationSet><Representation id="v" bandwidth="1"><SegmentTemplate media="v$Number$.m4s" duration="1"/></SegmentTemplate></Representation></AdaptationSet></Period></MPD>`,
 	}
 	for name, raw := range cases {
 		if _, err := ParseMPD(base, []byte(raw)); err == nil {
@@ -194,11 +194,11 @@ func TestParseMPDErrorSentinels(t *testing.T) {
 
 func TestParseISODuration(t *testing.T) {
 	cases := map[string]float64{
-		"PT10S":     10,
-		"PT1M30S":   90,
+		"PT10S":      10,
+		"PT1M30S":    90,
 		"PT1H2M3.5S": 3723.5,
-		"P1D":       86400,
-		"pt4s":      4, // case-insensitive per spec
+		"P1D":        86400,
+		"pt4s":       4, // case-insensitive per spec
 	}
 	for in, want := range cases {
 		got, err := parseISODuration(in)

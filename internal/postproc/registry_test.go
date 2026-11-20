@@ -14,8 +14,9 @@ func TestRegistryRegistersPassthroughByDefault(t *testing.T) {
 	r := NewRegistry()
 	names := r.Names()
 	sort.Strings(names)
-	if len(names) != 1 || names[0] != "none" {
-		t.Fatalf("default registry must expose exactly the passthrough processor, got %v", names)
+	// P2: Remux is built in alongside passthrough; it has no sidecar.
+	if len(names) != 2 || names[0] != "none" || names[1] != "remux" {
+		t.Fatalf("default registry must expose none + remux, got %v", names)
 	}
 	for _, alias := range []string{"", "passthrough", "none"} {
 		p, err := r.Get(alias)

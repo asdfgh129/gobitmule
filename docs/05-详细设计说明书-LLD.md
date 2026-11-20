@@ -1,6 +1,6 @@
 # 05 详细设计说明书（LLD）
 
-> 文档编号：UD-DOC-05 ｜ 版本：v0.9 ｜ 状态：草案（P0 实现基线已落地；P1 WBS 7/8/9/10/11 已补记；**§5 慢启动 2026-11-17 已落地**） ｜ 日期：2026-11-17 ｜ 上游：`04`、`06`、`07`
+> 文档编号：UD-DOC-05 ｜ 版本：v0.10 ｜ 状态：草案（P0 实现基线已落地；P1 WBS 7/8/9/10/11 已补记；**§5 慢启动 2026-11-17 已落地**；**P2 WBS 12/14 已于 2026-11-20 补记**） ｜ 日期：2026-11-20 ｜ 上游：`04`、`06`、`07`
 
 > **v0.8 变更 / 2026-11-14 时点口径（ADR-0021 路径 A，追加；下文 v0.7 及更早说明与「重要校准」为提案期时点值，保留不改）**：
 > 项目发起人明确指令「按 A 方案补齐」，ADR-0021 由 `Proposed` 转 `Accepted（路径 A）`
@@ -307,12 +307,24 @@ const (
 
 `Remux` 内部步骤：TS 解封装（PAT/PMT/PES）→ H.264 Annex B→AVCC（SPS/PPS 写 `avcC`）、ADTS AAC→MP4 sample → **PTS/DTS 重基准**（跨分片、`EXT-X-DISCONTINUITY`、分离音轨对齐）→ 写 `moov(stts/stsc/stco)` + faststart。fMP4/CMAF 可用 `mp4ff` 直接处理。
 
+> **实现时点注（WBS 14，2026-11-20）**：`internal/postproc` 已注册内置 `remux`（与
+> `none` 并列，零 sidecar）。当前实现覆盖单路 TS（H.264/AAC）→ 前置 `moov` 的渐进 MP4
+> 与结构合法的 fMP4 直通；写出 `<target>.remux.part` 由核心改名。上表中的
+> `EXT-X-DISCONTINUITY` 语义、分离音轨合并与 `mp4ff` 依赖**尚未实现**，不得据此宣称
+> 完成；输入总量上限 1GiB，超限返回 `E_CAPABILITY_UNAVAILABLE` 交可选 ffmpeg。
+
 ## 10. 插件与 Resolver 注册
 
 `resolve.Registry.Register(resolver)` / `transport.Registry.Register(transport)`，按注册顺序首个 `Match()` 命中者执行。当前链（`internal/app/daemon.go:newBuiltinResolvers()`）：
 `metalink → link-wrapper → magnet → torrent → hls → dash → [plugin] → direct-http → direct-file → unsupported`。
 
 > **2026-11-19 时点注（WBS 13，ADR-0023）**：`hls` 为协议原生 Resolver，插在 torrent 之后、插件钩子之前——`.m3u8` 直链（或 `{"hls": true}` 强制分类）在此被归为 `KindStream`，不得被站点规则吞掉；变体选流与段下载在传输层 Probe/Run 完成，解析阶段零网络 I/O。
+
+> **2026-11-20 时点注（WBS 12）**：`yt-dlp` 是**可选**站点解析器，仅当
+> `sources.ytdlp.enabled=true` 时由 `newBuiltinResolversForConfig` 插在 `dash` 之后、
+> 插件钩子之前：`… → hls → dash → yt-dlp → [plugin] → direct-http → …`。
+> 默认链仍为上表原样，零 sidecar 基线不变。它只执行 `-J` 取 JSON，
+> 不下载字节；选中格式 URL 与站点 URL 均过 SSRFGuard。
 
 协议专属 / 安全敏感内置实现恒在插件之前；插件不得覆盖 `thunder` 解码、Metalink、magnet/.torrent 解析与 SSRF Guard，`internal/plugin/manifest.go:Validate()` 在加载期直接拒绝与之冲突的 `match` 规则。插件位于泛型 `direct-http` 兜底之前，否则站点规则永无命中机会（ADR-0014 §4 的非覆盖清单不含该兜底）。SSRF Guard 在 `Resolve()` 出口统一校验所有产出 URL（含插件 `ctx.http` 的逐跳重定向）。详见 `08` §5 / §10。
 

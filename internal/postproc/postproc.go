@@ -52,6 +52,9 @@ type Registry struct {
 func NewRegistry() *Registry {
 	r := &Registry{items: make(map[string]core.PostProcessor)}
 	r.Register(Passthrough{})
+	// P2: built-in pure-Go Remux (ADR-0011/0012). It has no external binary,
+	// so the zero-sidecar capability surface is unchanged.
+	r.Register(NewRemux())
 	return r
 }
 

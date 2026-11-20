@@ -16,6 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 14：纯 Go Remux 后处理（2026-11-20，ADR-0011 / 0012）**：
+  - **交付**：`internal/postproc/tsdemux.go`（PAT / PMT / PES、PTS/DTS 解绕、Annex B → AVCC、
+    ADTS AAC → esds）、`mp4mux.go`（`ftyp` + `moov` 前置 + `mdat` 的 `stts` / `ctts` /
+    `stsc` / `stsz` / `stco` 全表）、`remux.go`（本地路径输入、1GiB 内存上限、fMP4 结构校验后
+    直通、输出 `<target>.remux.part` 交还核心原子改名）。已注册为内置 `remux` 后处理器，
+    无外部二进制，零 sidecar 基线不变。
+  - **回归**：合成 TS / MP4 结构用例 + 真实 ffmpeg 生成的 TS fixture（H.264 320×180 50 帧 +
+    AAC 95 帧）解码干净；`internal/postproc` 覆盖率 **82.5%**（阈值 80%），`go test -race`
+    全绿。
+  - **边界**：仅 H.264/AAC TS → 渐进 MP4；AV1 / VP9 / 其他编码不走 Remux，交可选 ffmpeg。
+- **WBS 12：yt-dlp 站点解析与自有格式选取（2026-11-20，ADR-0010）**：
+  - **交付**：`internal/resolve/ytdlp.go`（`sources.ytdlp.enabled` 显式开启才注册；
+    `-J --skip-download --no-warnings --no-playlist -- <URL>` 只取 JSON；站点 URL 与每个
+    格式 URL 均过 SSRFGuard；自有格式评分优先 H.264/AAC 渐进流；JSON 16MiB 上限与
+    最小环境变量白名单）。`internal/config` 新增 `sources.ytdlp.*` 与 `UD_YTDLP_*` 覆盖；
+    `internal/app` 链序 `… hls → dash → yt-dlp → [plugin] → direct-http …`。
+  - **范围与时点限制**：当前调度器每任务只搬一个 `Resource.Files[0]`，因此仅接纳
+    **渐进（视频+音频同容器）格式**；只有分离 A/V 格式时明确返回
+    `E_CAPABILITY_UNAVAILABLE`，不产出无声音/无画面的假成功。分离流下载 + Remux 合并
+    纳入 P3 多文件计划；「无 ffmpeg 也不退化到 720p」在本时点**不宣称达成**。
+  - **同批修复**：`internal/resolve/site.go` / `site_test.go`（远端 WBS 12 占位包）原本
+    语法错误、重复字段与错误断言导致 `go test ./...` 失败；修复语法、`tbr`(kbit/s) 与
+    策略 `MaxBitrate`(Mbit/s) 单位换算，并把同分辨率 H.264/AAC 的权重对齐 ADR-0010。
+  - **回归**：`resolve` 新增 yt-dlp fixture / 错误码 / 真实二进制参数用例，覆盖率 **83.9%**；
+    `config` 96.1%、`app` 81.2%；lint / race / 六平台构建本地全绿。
+  - **文档**：`09` §7、`05` §10、`07` v0.13、`12` v1.14、`13` v0.30 与 `config.example.yaml`、
+    `14` v1.16、`23` v1.4、ADR-0010 实现时点注。
+
 - **WBS 13（收口）：DASH L1 流媒体传输（2026-11-20，ADR-0024）**：
   - **交付**：`internal/transport/dash`（静态 MPD 解析、BaseURL 链、SegmentTemplate
     `@duration` 与 SegmentTimeline 两种定界、模板属性继承、`$Number%05d$` / `$Time$` /

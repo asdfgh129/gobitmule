@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/asdfgh129/ud/internal/config"
 	"github.com/asdfgh129/ud/internal/core"
 )
 
@@ -239,6 +240,24 @@ func TestNewLoggerLevels(t *testing.T) {
 		if l := newLogger(level); l == nil {
 			t.Fatalf("newLogger(%q) returned nil", level)
 		}
+	}
+}
+
+// WBS 12: the yt-dlp sidecar is opt-in. With the default config no external
+// binary is part of the chain; once enabled, it is placed after the
+// protocol-native stream resolvers and before plugin rules / direct-http.
+func TestSiteResolverOptIn(t *testing.T) {
+	cfg := config.Defaults()
+	base := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash",
+		"direct-http", "direct-file", "unsupported"}
+	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, base) {
+		t.Fatalf("default chain = %v, want %v", got, base)
+	}
+	cfg.Sources.YTDLP.Enabled = true
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "yt-dlp",
+		"direct-http", "direct-file", "unsupported"}
+	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("enabled chain = %v, want %v", got, want)
 	}
 }
 

@@ -1,6 +1,6 @@
 # 09 Sidecar 与外部依赖契约
 
-> 文档编号：UD-DOC-09 ｜ 版本：v0.2 ｜ 状态：草案 ｜ 日期：2026-11-18 ｜ 相关：ADR-0008、ADR-0010、ADR-0011、ADR-0012
+> 文档编号：UD-DOC-09 ｜ 版本：v0.3 ｜ 状态：草案 ｜ 日期：2026-11-20 ｜ 相关：ADR-0008、ADR-0010、ADR-0011、ADR-0012
 
 ## 1. 判定标准
 
@@ -117,6 +117,16 @@ FFmpeg 9.0「Lei」（2026-08）做了七个库 ABI break：删除 `-vsync`（�
 4. Deno 仅作为求解器，不参与数据传输；`yt-dlp[default]` 的 EJS 脚本需校验完整性。
 5. Python worker 走独立更新通道（规则失效是常态），与主程序发版解耦。
 6. 站点规则失败 → `E_RESOLVE_FAILED` + 明确提示，不允许静默丢弃任务。
+
+> **实现落地注（WBS 12，2026-11-20）**：`internal/resolve/ytdlp.go` 只在
+> `sources.ytdlp.enabled=true` 时注册。实际参数为
+> `-J --skip-download --no-warnings --no-playlist -- <已校验的 http(s) URL>`：
+> `--` 阻断参数注入，站点 URL 与选中格式 URL 均过 SSRFGuard，stdout 超过
+> `sources.ytdlp.maxBytes`（默认 16MiB）即 `E_INVALID_INPUT`，stderr 只保留末 512 字节；
+> 子进程 environment 仅含 `PATH` 与 `HOME` / `USERPROFILE` / 临时目录 / `LANG` 白名单，
+> 不继承 daemon 令牌。第 3 条的「不退化 720p」只在不依赖 ffmpeg 的**渐进**格式上成立；
+> 仅返回分离 A/V 时明确 `E_CAPABILITY_UNAVAILABLE`，不假装完成（见 ADR-0010 实现时点注）。
+> 第 4 条的 Deno / EJS 仍未接入，第 5 条的独立更新通道仍未实现。
 
 ## 8. 降级矩阵
 

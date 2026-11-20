@@ -106,3 +106,44 @@ func TestManagerPatchValidationAndCallback(t *testing.T) {
 		t.Fatal("onChange must not fire for a rejected patch")
 	}
 }
+
+// WBS 12: the sidecar stays off by default; enabling it fails closed on a
+// missing binary, bad duration or impossible JSON budget.
+func TestYTDLPSourcesConfig(t *testing.T) {
+	cfg := Defaults()
+	if cfg.Sources.YTDLP.Enabled || cfg.Sources.YTDLP.Binary != "yt-dlp" {
+		t.Fatalf("default ytdlp config = %+v", cfg.Sources.YTDLP)
+	}
+	if cfg.Sources.YTDLP.EffectiveTimeout().Minutes() != 2 || cfg.Sources.YTDLP.EffectiveMaxBytes() != 16<<20 {
+		t.Fatalf("defaults = %v / %d", cfg.Sources.YTDLP.EffectiveTimeout(), cfg.Sources.YTDLP.EffectiveMaxBytes())
+	}
+	cfg.Sources.YTDLP.Enabled = true
+	cfg.Sources.YTDLP.Binary = "  "
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("enabled sidecar without binary must be rejected")
+	}
+	cfg.Sources.YTDLP.Binary = "yt-dlp"
+	cfg.Sources.YTDLP.Timeout = "0s"
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("zero timeout must be rejected")
+	}
+	cfg.Sources.YTDLP.Timeout = "30s"
+	cfg.Sources.YTDLP.MaxBytes = 1 << 31
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("oversized JSON budget must be rejected")
+	}
+
+	t.Setenv("UD_YTDLP_ENABLED", "true")
+	t.Setenv("UD_YTDLP_BINARY", "/opt/bin/yt-dlp")
+	t.Setenv("UD_YTDLP_TIMEOUT", "45s")
+	loaded, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.Sources.YTDLP.Enabled || loaded.Sources.YTDLP.Binary != "/opt/bin/yt-dlp" {
+		t.Fatalf("env overrides not applied: %+v", loaded.Sources.YTDLP)
+	}
+	if loaded.Sources.YTDLP.EffectiveTimeout().Seconds() != 45 {
+		t.Fatalf("timeout = %v", loaded.Sources.YTDLP.EffectiveTimeout())
+	}
+}

@@ -137,6 +137,60 @@ func (p PostProcessConfig) Validate() error {
 	return nil
 }
 
+// SourcesConfig gates optional content-source resolvers. yt-dlp is a sidecar
+// that only emits JSON (ADR-0010); it stays OFF by default so the zero-sidecar
+// baseline and the P0/P1 capability surface are unchanged.
+type SourcesConfig struct {
+	YTDLP YTDLPConfig `yaml:"ytdlp" json:"ytdlp"`
+}
+
+type YTDLPConfig struct {
+	Enabled  bool   `yaml:"enabled" json:"enabled"`
+	Binary   string `yaml:"binary" json:"binary"`
+	Timeout  string `yaml:"timeout" json:"timeout"`
+	MaxBytes int64  `yaml:"maxBytes" json:"maxBytes"`
+}
+
+func (y YTDLPConfig) EffectiveTimeout() time.Duration {
+	if strings.TrimSpace(y.Timeout) == "" {
+		return 2 * time.Minute
+	}
+	d, err := time.ParseDuration(y.Timeout)
+	if err != nil || d <= 0 {
+		return 2 * time.Minute
+	}
+	return d
+}
+
+func (y YTDLPConfig) EffectiveMaxBytes() int64 {
+	if y.MaxBytes > 0 {
+		return y.MaxBytes
+	}
+	return 16 << 20
+}
+
+func (s SourcesConfig) Validate() error {
+	if !s.YTDLP.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(s.YTDLP.Binary) == "" {
+		return errors.New("sources.ytdlp.binary is required when enabled")
+	}
+	if strings.ContainsAny(s.YTDLP.Binary, "\x00\r\n") {
+		return errors.New("sources.ytdlp.binary contains control characters")
+	}
+	if s.YTDLP.Timeout != "" {
+		d, err := time.ParseDuration(s.YTDLP.Timeout)
+		if err != nil || d < time.Second || d > 30*time.Minute {
+			return errors.New("sources.ytdlp.timeout must be within 1s..30m")
+		}
+	}
+	if s.YTDLP.MaxBytes < 0 || s.YTDLP.MaxBytes > 1<<30 {
+		return errors.New("sources.ytdlp.maxBytes must be within 0..1GiB")
+	}
+	return nil
+}
+
 type TelemetryConfig struct {
 	Enabled bool `yaml:"enabled" json:"enabled"`
 }
@@ -214,6 +268,7 @@ type Config struct {
 	Plugins     PluginsConfig     `yaml:"plugins" json:"plugins"`
 	Events      EventsConfig      `yaml:"events" json:"events"`
 	PostProcess PostProcessConfig `yaml:"postProcess" json:"postProcess"`
+	Sources     SourcesConfig     `yaml:"sources" json:"sources"`
 	Telemetry   TelemetryConfig   `yaml:"telemetry" json:"telemetry"`
 }
 
@@ -255,6 +310,9 @@ func Defaults() Config {
 			FFmpegEnabled: false, FFmpegBinary: "ffmpeg",
 			FFmpegThreads: 2, FFmpegMaxConcurrent: 1, FFmpegTimeout: "30m",
 		},
+		Sources: SourcesConfig{YTDLP: YTDLPConfig{
+			Binary: "yt-dlp", Timeout: "2m", MaxBytes: 16 << 20,
+		}},
 		Telemetry: TelemetryConfig{Enabled: false},
 	}
 }
@@ -292,6 +350,13 @@ func applyEnv(c *Config) {
 	set("UD_PLUGINS_DIR", &c.Plugins.Dir)
 	set("UD_PLUGINS_RUNTIME", &c.Plugins.Runtime)
 	set("UD_PLUGINS_RELOAD_INTERVAL", &c.Plugins.ReloadInterval)
+	set("UD_YTDLP_BINARY", &c.Sources.YTDLP.Binary)
+	set("UD_YTDLP_TIMEOUT", &c.Sources.YTDLP.Timeout)
+	if v := os.Getenv("UD_YTDLP_ENABLED"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			c.Sources.YTDLP.Enabled = b
+		}
+	}
 	set("UD_FFMPEG_BINARY", &c.PostProcess.FFmpegBinary)
 	set("UD_FFMPEG_TIMEOUT", &c.PostProcess.FFmpegTimeout)
 	if v := os.Getenv("UD_FFMPEG_ENABLED"); v != "" {
@@ -376,6 +441,9 @@ func (c Config) Validate() error {
 	}
 	if c.Security.MaxRedirects < 0 || c.Security.MaxRedirects > 10 {
 		return errors.New("security.maxRedirects must be within 0..10")
+	}
+	if err := c.Sources.Validate(); err != nil {
+		return fmt.Errorf("sources: %w", err)
 	}
 	if err := c.Plugins.Validate(); err != nil {
 		return fmt.Errorf("plugins: %w", err)

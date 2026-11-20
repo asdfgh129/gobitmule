@@ -8,10 +8,8 @@ import (
 )
 
 func TestLuxResolverMatch(t *testing.T) {
-	r := NewLuxResolver(nil, nil)
 	yes := []string{
 		"https://www.bilibili.com/video/BV123456",
-		"https://www.youtube.com/watch?v=abc", // youtube not in lux known list
 		"https://v.qq.com/x/cover/abc",
 		"https://www.iqiyi.com/v_123.html",
 	}
@@ -19,6 +17,9 @@ func TestLuxResolverMatch(t *testing.T) {
 		"magnet:?xt=urn:btih:abc",
 		"https://github.com/user/repo",
 		"ftp://example.com/file",
+		// YouTube is owned by the yt-dlp resolver, not the in-process lux rule
+		// channel (docs/05 §10: one owner per input).
+		"https://www.youtube.com/watch?v=abc",
 	}
 	for _, raw := range yes {
 		if !NewLuxResolver(nil, nil).Match(core.Input{Raw: raw, Kind: core.InputURL}) {
@@ -51,7 +52,7 @@ func TestLuxResolverResolve(t *testing.T) {
 		t.Fatalf("variant = %s, want lux", res.Identity.VariantID)
 	}
 	if res.Mirrors[0].URL != "https://www.bilibili.com/video/BV123456" {
-		t.Fatalf("mirror = %s", res.Mirrors[0].URL
+		t.Fatalf("mirror = %s", res.Mirrors[0].URL)
 	}
 }
 
@@ -61,7 +62,8 @@ func TestLuxResolverForcedClassification(t *testing.T) {
 	if r.Match(core.Input{Raw: "https://unknown.example.com/video", Kind: core.InputURL}) {
 		t.Fatal("unknown domain should not match by default")
 	}
-	// With forced option, Resolve should accept any http(s) URL
+	// With the forced option, Resolve accepts http(s) URLs outside the
+	// built-in domain list (ADR-0023/0024 forced-classification pattern).
 	res, err := r.Resolve(core.ResolveContext{
 		Ctx:     context.Background(),
 		Options: map[string]any{OptLuxForce: true},
@@ -82,7 +84,6 @@ func TestLuxResolverForcedClassification(t *testing.T) {
 }
 
 func TestYtDlpResolverMatch(t *testing.T) {
-	r := NewYtDlpResolver(nil, nil)
 	yes := []string{
 		"https://www.youtube.com/watch?v=abc",
 		"https://youtu.be/xyz",
@@ -128,7 +129,8 @@ func TestYtDlpForcedClassification(t *testing.T) {
 	if r.Match(core.Input{Raw: "https://unknown.example.com/video", Kind: core.InputURL}) {
 		t.Fatal("unknown domain should not match by default")
 	}
-	// With forced option
+	// With the forced option, Resolve accepts http(s) URLs outside the
+	// built-in domain list.
 	res, err := NewYtDlpResolver(nil, nil).Resolve(core.ResolveContext{
 		Ctx:     context.Background(),
 		Options: map[string]any{OptYtDlpForce: true},
@@ -150,10 +152,10 @@ func TestYtDlpForcedClassification(t *testing.T) {
 
 func TestSelectBestFormat(t *testing.T) {
 	formats := []YtDlpFormat{
-		{FormatID: "137", Ext: "mp4", Height: 1080, VCodec: "avc1", ACodec: "mp4a.40.2", Ext: "mp4", TBR: 5000},
-		{FormatID: "248", Ext: "webm", Height: 1080, VCodec: "vp9", ACodec: "opus", Ext: "webm", TBR: 4500},
-		{FormatID: "399", Ext: "mp4", Height: 2160, VCodec: "av01", ACodec: "opus", Ext: "mp4", TBR: 15000},
-		{FormatID: "18", Ext: "mp4", Height: 360, VCodec: "avc1", ACodec: "mp4a.40.2", Ext: "mp4", TBR: 800},
+		{FormatID: "137", Ext: "mp4", Height: 1080, VCodec: "avc1", ACodec: "mp4a.40.2", TBR: 5000},
+		{FormatID: "248", Ext: "webm", Height: 1080, VCodec: "vp9", ACodec: "opus", TBR: 4500},
+		{FormatID: "399", Ext: "mp4", Height: 2160, VCodec: "av01", ACodec: "opus", TBR: 15000},
+		{FormatID: "18", Ext: "mp4", Height: 360, VCodec: "avc1", ACodec: "mp4a.40.2", TBR: 800},
 	}
 	policy := DefaultFormatSelectPolicy()
 	best := SelectBestFormat(formats, policy)
