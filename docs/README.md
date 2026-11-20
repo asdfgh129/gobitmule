@@ -1,7 +1,17 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.32 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0023 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023 为 HLS L1 流媒体传输，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-19 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.33 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0024 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023 为 HLS L1、0024 为 DASH L1，均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-19 ｜ 维护责任：架构组
 
+> **v1.33 变更 / 2026-11-20 时点口径（P2 WBS 13 收口：DASH L1 + 两处分发缺陷修复）**：
+> 新增 [ADR-0024](adr/ADR-0024-DASH-L1流媒体传输.md)：`internal/transport/dash` +
+> `internal/resolve/dash`——静态 MPD、SegmentTemplate（@duration / SegmentTimeline）、
+> SegmentList、init 段前置拼接、BANDWIDTH 选流；与 HLS 共享顺序提交原语
+> `tputil.SequentialCommit`。**边界**：仅静态 / 单 Period 单 AdaptationSet（分离音视频轨
+> 待 WBS 14 Remux）/ 仅明文（CENC 拒绝）/ SegmentBase 拒绝；`14` WBS 13 记 ✅（技术交付）。
+> **两处分发缺陷修复**：① 通用 HTTP 传输 Kind 盲声明会吞掉流任务（仅声明 single/multi）；
+> ② `{"hls"|"dash": true}` forced 选项死代码 → `resolve.Registry` 集中强制路由。
+> `dash` 包 24 例 / 覆盖率 83.2%；`03` / `05` / `06` / `07` v0.12 / `12` / `14` / `16` 同步，门户重建。
+>
 > **v1.32 变更 / 2026-11-19 时点口径（P2 WBS 13 半边：HLS L1 流媒体传输落地）**：
 > 新增 [ADR-0023](adr/ADR-0023-HLS-L1流媒体传输.md)（Accepted，发起人全权授权按建议裁决）：
 > `internal/transport/hls` + `internal/resolve/hls`——RFC 8216 清单解析、AES-128（仅

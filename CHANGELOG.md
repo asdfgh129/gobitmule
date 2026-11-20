@@ -16,6 +16,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 13（收口）：DASH L1 流媒体传输（2026-11-20，ADR-0024）**：
+  - **交付**：`internal/transport/dash`（静态 MPD 解析、BaseURL 链、SegmentTemplate
+    `@duration` 与 SegmentTimeline 两种定界、模板属性继承、`$Number%05d$` / `$Time$` /
+    `$$` 标识符、SegmentList、init 段前置拼接、BANDWIDTH 选流、日历型时长拒绝）+
+    `internal/resolve/dash`（`.mpd` 分类、http(s) 白名单、SSRF 出口校验）。与 HLS 共享
+    顺序提交原语 `tputil.SequentialCommit` / `tputil.NewChanReader`（本次从 hls 提炼，
+    首 chunk / 越界 / Release 语义全顺序传输一处实现）。
+  - **范围（ADR-0024）**：仅静态 / 单 Period / 单 AdaptationSet（分离音视频轨待 WBS 14
+    Remux 并显式指向）/ 仅明文（CENC/DRM 拒绝）/ SegmentBase 拒绝；WBS 13 技术交付收口。
+  - **分发缺陷修复（两处，均由本轮测试发现）**：① 通用 HTTP 传输 `Supports` 不看 Kind，
+    先注册的它把 `.m3u8` / `.mpd` 任务当普通文件下载（现仅声明 `single` / `multi`，
+    兼容空 Kind）；② `{"hls"|"dash": true}` forced 选项原为死代码（`Resolver.Match`
+    冻结签名拿不到任务选项）——由 `resolve.Registry` 集中强制路由修复。新增内部路由
+    标记 `X-Ud-Stream`（持久化于 resources.headers、传输出网前剥离）+ 两个流传输的
+    Kind 分区 + 跨段续传回归测试（hls / dash 各 1 例：resume 点落在后续段内时按段
+    偏移跳过，修复两处首 chunk 偏移过跳缺陷）。
+  - **回归**：`dash` 包 24 例（解析 12 / 传输端到端 12，覆盖率 83.2%，阈值 80%）；
+    `resolve` +4；`app` 链序与分发断言更新（`.mpd` → dash / 标记 → dash / 默认 → hls）；
+    hls / http / scheduler 回归全绿。
+  - **文档**：`docs/adr/ADR-0024`、`03` FR-TRN-08 收口时点注、`05` §10 链序、`06` §3、
+    `07` v0.12、`12` §3.3、`14` WBS 13 ✅、`16` 时点注、`tools/gates.py` 新包阈值。
+
 - **WBS 13（半边）：HLS L1 流媒体传输（2026-11-19，ADR-0023）**：
   - **交付**：`internal/transport/hls`（RFC 8216 master/media 清单解析、AES-128 CBC/PKCS7
     解密、`EXT-X-BYTERANGE`、fMP4 探测、未知 tag 容忍；有界探测 + 字节信号量（64MiB）+

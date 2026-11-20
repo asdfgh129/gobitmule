@@ -118,7 +118,12 @@
 | FR-TRN-06 | BT 流式读取（边下边播）：`File.NewReader` 语义可对接自有存储后端 | S |
 | FR-TRN-07 | ed2k：eD2k server + Kad、AICH、Secure Ident、积分、Source Exchange、混淆、Low ID 回调 | C |
 | FR-TRN-08 | HLS/DASH：清单解析、AES-128 解密、按分辨率/音轨选流、分片并发与顺序提交 | M |
-  > **2026-11-19 时点注**：HLS 半边已由 `internal/transport/hls`（ADR-0023）交付——RFC 8216 清单解析、AES-128（CBC/PKCS7，IV 显式或序列号）、BANDWIDTH 选流、有界并发下载 + 按序提交进 ChunkWriter、字节边界断点续传；**仅 VOD**（live 拒绝）、**仅 AES-128**（SAMPLE-AES 拒绝）、多音轨字幕轨与 DASH 未落地，属同一 WBS 后续包。
+    > **2026-11-20 时点注（WBS 13 收口）**：DASH 半边已由 `internal/transport/dash`（ADR-0024）
+  > 交付——静态 MPD、SegmentTemplate（$Number$/$Time$+Timeline）/SegmentList、init 段前置
+  > 拼接、BANDWIDTH 选流、与 HLS 共享的顺序提交原语；**仅单 Period 单 AdaptationSet**（分离
+  > 音视频轨待 WBS 14 Remux）、**仅明文**（CENC/DRM 拒绝）、SegmentBase 拒绝。至此 FR-TRN-08
+  > 的实现范围（除上述明示边界）达成。原 2026-11-19 HLS 时点注保留如下：
+> **2026-11-19 时点注**：HLS 半边已由 `internal/transport/hls`（ADR-0023）交付——RFC 8216 清单解析、AES-128（CBC/PKCS7，IV 显式或序列号）、BANDWIDTH 选流、有界并发下载 + 按序提交进 ChunkWriter、字节边界断点续传；**仅 VOD**（live 拒绝）、**仅 AES-128**（SAMPLE-AES 拒绝）、多音轨字幕轨与 DASH 未落地，属同一 WBS 后续包。
 | FR-TRN-09 | 所有 Transport 由同一个 Scheduler 支配；禁止外部组件自建队列/限速 | M |
 | FR-TRN-10 | 重试策略可配（指数退避、最大次数、错误分类）；tracker/镜像失败自动降级 | M |
 

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/ud/internal/transport/tputil"
 )
 
 // FetchLimits bound the transport's memory and request behaviour.
@@ -75,8 +76,29 @@ func New(g core.URLGuard) *Transport {
 
 func (t *Transport) Name() string { return "hls" }
 
+// Supports claims stream resources, distinguishing DASH by the internal
+// routing marker or the .mpd extension (ADR-0024: the registry picks the
+// first claimant, so the two stream transports must partition the kind).
 func (t *Transport) Supports(r *core.Resource) bool {
-	return r != nil && r.Kind == core.KindStream
+	if r == nil || r.Kind != core.KindStream {
+		return false
+	}
+	if v := r.Headers[core.HeaderStreamKind]; v != "" {
+		return v == core.StreamKindHLS
+	}
+	return !strings.HasSuffix(strings.ToLower(mirrorPath(r)), ".mpd")
+}
+
+// mirrorPath returns the path part of the first mirror URL, "" when absent.
+func mirrorPath(r *core.Resource) string {
+	if len(r.Mirrors) == 0 {
+		return ""
+	}
+	u, err := url.Parse(r.Mirrors[0].URL)
+	if err != nil {
+		return ""
+	}
+	return u.Path
 }
 
 // checkURL applies the SSRF guard when one is wired.
@@ -290,7 +312,11 @@ func headerOf(r *core.Resource) http.Header {
 	for k, v := range r.Headers {
 		// Resource.Headers at transport time is runtime-injected by the
 		// scheduler (credential store / task options) or persisted as
-		// non-sensitive headers; both are safe to forward.
+		// non-sensitive headers; both are safe to forward. The internal
+		// stream-kind routing marker stays local (ADR-0024).
+		if k == core.HeaderStreamKind {
+			continue
+		}
 		h.Set(k, v)
 	}
 	return h
@@ -539,56 +565,17 @@ func (t *Transport) fetchSegment(ctx context.Context, pl *MediaPlaylist, sizes [
 	return body, nil
 }
 
-// segmentReader turns the ordered segment channel into one sequential
-// io.Reader over the concatenated (decrypted) stream. Every byte — written
-// or skipped — is charged to the Budget here, keeping the scheduler's Limiter
-// the single rate authority.
-type segmentReader struct {
-	src    <-chan fetchedSegment
-	stop   func()
-	cur    []byte
-	err    error
-	done   bool
-	budget core.Budget
-	offset int64 // bytes consumed so far (skipped + written)
-}
-
-func (sr *segmentReader) Read(p []byte) (int, error) {
-	if sr.err != nil {
-		return 0, sr.err
-	}
-	for len(sr.cur) == 0 {
-		if sr.done {
-			return 0, io.EOF
-		}
-		seg, ok := <-sr.src
+// segmentReader bridges the ordered segment channel to the shared
+// tputil.SequentialCommit machinery via tputil.NewChanReader.
+func newSegmentReader(src <-chan fetchedSegment, stop func(), b core.Budget) *tputil.ChanReader {
+	return tputil.NewChanReader(func() ([]byte, error, bool) {
+		seg, ok := <-src
 		if !ok {
-			sr.done = true
-			return 0, io.EOF
+			return nil, nil, false
 		}
-		if seg.err != nil {
-			sr.err = seg.err
-			return 0, seg.err
-		}
-		sr.cur = seg.body
-	}
-	n := len(p)
-	if n > len(sr.cur) {
-		n = len(sr.cur)
-	}
-	if sr.budget != nil {
-		if err := sr.budget.Consume(context.Background(), n); err != nil {
-			sr.err = err
-			return 0, err
-		}
-	}
-	copy(p[:n], sr.cur[:n])
-	sr.cur = sr.cur[n:]
-	sr.offset += int64(n)
-	return n, nil
+		return seg.body, seg.err, true
+	}, stop, b)
 }
-
-func (sr *segmentReader) Close() { sr.stop() }
 
 // Run drives the download: parse playlist → compute boundaries → start the
 // ordered segment stream at the first pending chunk → copy bytes into the
@@ -632,61 +619,24 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 		return core.Err(core.E_INVALID_INPUT, "chunk start %d outside stream size %d", first.Start, total)
 	}
 
+	// The source starts AT startSeg, so the skip must be measured from the
+	// segment's own offset in the concatenated stream, not from byte 0 of the
+	// task (fixed by the 2026-11-20 cross-segment resume test: a resume point
+	// in a later segment previously over-skipped by the earlier segments'
+	// length and hit EOF).
+	var streamStart int64
+	for i := 0; i < startSeg; i++ {
+		streamStart += sizes[i]
+	}
+
 	source, stop := t.segmentSource(ctx, pl, sizes, startSeg, hdr)
-	sr := &segmentReader{src: source, stop: stop, budget: b}
+	sr := newSegmentReader(source, stop, b)
 	defer sr.Close()
 
-	// Skip forward to the first pending chunk's offset (crash recovery
-	// reuses verified progress; those bytes are already on disk and only
-	// re-traverse the network, charged to the budget like any other byte).
-	if skip := first.Start; skip > 0 {
-		if _, err := io.CopyN(io.Discard, sr, skip); err != nil {
-			_ = w.Release(ctx, first, err)
-			return err
-		}
-	}
-	cur := first
-	for {
-		if cur.Start+cur.Length > total {
-			_ = w.Release(ctx, cur, core.Err(core.E_INVALID_INPUT,
-				"chunk [%d,%d) outside stream size %d", cur.Start, cur.Start+cur.Length, total))
-			return core.Err(core.E_INVALID_INPUT, "chunk outside stream size")
-		}
-		buf := make([]byte, cur.Length)
-		if _, err := readFullBudgeted(sr, buf); err != nil {
-			_ = w.Release(ctx, cur, err)
-			return err
-		}
-		if err := w.WriteChunk(ctx, cur, buf); err != nil {
-			return err
-		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		next, ok, err := w.Next(ctx)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return nil
-		}
-		cur = next
-	}
-}
-
-// readFullBudgeted fills buf entirely; the budget is charged inside the
-// reader for every byte, so a stalled stream still consumes budget only for
-// bytes actually delivered.
-func readFullBudgeted(sr *segmentReader, buf []byte) (int, error) {
-	total := 0
-	for total < len(buf) {
-		n, err := sr.Read(buf[total:])
-		total += n
-		if err != nil {
-			return total, err
-		}
-	}
-	return total, nil
+	// Every byte (skipped or written) is charged to the Budget by the reader;
+	// the shared commit loop owns first-chunk / bounds / release semantics
+	// for all sequential transports.
+	return tputil.SequentialCommit(ctx, sr, total, streamStart, w, first)
 }
 
 // segmentAt returns the index of the segment containing byte offset off, or

@@ -81,8 +81,13 @@ func (h *HLSResolver) Resolve(rc core.ResolveContext, in core.Input) (*core.Reso
 		Files: []core.ResourceFile{{
 			Index: 0, Path: name, Selected: true,
 		}},
-		Mirrors:    []core.Mirror{{URL: in.Raw}},
-		Headers:    map[string]string{},
+		Mirrors: []core.Mirror{{URL: in.Raw}},
+		Headers: map[string]string{
+			// Internal routing marker (never reaches the wire; the transport
+			// strips it) so dispatch survives restarts and extension-less
+			// forced URLs pick the right byte mover (ADR-0024).
+			core.HeaderStreamKind: core.StreamKindHLS,
+		},
 		Credential: rc.Credential,
 		Identity: core.ProtocolIdentity{
 			IsAdaptive: true, // confirmed or corrected by the transport at Probe

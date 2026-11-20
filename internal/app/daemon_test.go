@@ -248,9 +248,10 @@ func TestNewLoggerLevels(t *testing.T) {
 // .torrent parsers added in WBS 7).
 func TestBuiltinResolverChainOrderAndDispatch(t *testing.T) {
 	r := newBuiltinResolvers(allowGuard{})
-	// WBS 13: the hls resolver sits after torrent and before the plugin hook
-	// (docs/05 §10 keeps protocol-native resolvers ahead of plugins).
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "direct-http", "direct-file", "unsupported"}
+	// WBS 13: the hls / dash resolvers sit after torrent and before the
+	// plugin hook (docs/05 §10 keeps protocol-native resolvers ahead of
+	// plugins).
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "direct-http", "direct-file", "unsupported"}
 	if got := r.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolver order = %v, want %v", got, want)
 	}
@@ -308,7 +309,7 @@ func TestBuiltinResolverChainOrderAndDispatch(t *testing.T) {
 func TestBuiltinTransportChainOrder(t *testing.T) {
 	creds := &noopCreds{}
 	r := newBuiltinTransports(allowGuard{}, creds)
-	want := []string{"http", "ftp", "sftp", "bt", "hls"}
+	want := []string{"http", "ftp", "sftp", "bt", "hls", "dash"}
 	if got := r.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("transport order = %v, want %v", got, want)
 	}
@@ -331,9 +332,18 @@ func TestBuiltinTransportChainOrder(t *testing.T) {
 	if err != nil || tr.Name() != "bt" {
 		t.Fatalf("Select(torrent) = %v, %v; want bt", tr, err)
 	}
-	// WBS 13: a stream-kind Resource is dispatched to the HLS Transport.
+	// WBS 13: stream resources dispatch by the internal routing marker first,
+	// then by URL extension (ADR-0024 partition).
 	if tr, err := r.Select(&core.Resource{Kind: core.KindStream}); err != nil || tr.Name() != "hls" {
-		t.Fatalf("Select(stream) = %v, %v; want hls", tr, err)
+		t.Fatalf("Select(stream default) = %v, %v; want hls", tr, err)
+	}
+	if tr, err := r.Select(&core.Resource{Kind: core.KindStream,
+		Headers: map[string]string{core.HeaderStreamKind: core.StreamKindDASH}}); err != nil || tr.Name() != "dash" {
+		t.Fatalf("Select(stream dash marker) = %v, %v; want dash", tr, err)
+	}
+	if tr, err := r.Select(&core.Resource{Kind: core.KindStream,
+		Mirrors: []core.Mirror{{URL: "https://a.example.com/live.mpd"}}}); err != nil || tr.Name() != "dash" {
+		t.Fatalf("Select(.mpd) = %v, %v; want dash", tr, err)
 	}
 	if _, err := r.Select(&core.Resource{Mirrors: []core.Mirror{{URL: "file:///etc/passwd"}}}); core.AsError(err).Code != core.E_CAPABILITY_UNAVAILABLE {
 		t.Fatalf("unsupported scheme must fail cleanly, got %v", err)
@@ -381,7 +391,7 @@ func (fakePluginResolver) Resolve(core.ResolveContext, core.Input) (*core.Resour
 func TestPluginResolverPlacementInChain(t *testing.T) {
 	r := newBuiltinResolvers(allowGuard{}, fakePluginResolver{}, nil)
 	// WBS 13: hls joins the protocol-native built-ins ahead of the plugin hook.
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "plugin",
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "plugin",
 		"direct-http", "direct-file", "unsupported"}
 	if got := r.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolver order = %v, want %v", got, want)

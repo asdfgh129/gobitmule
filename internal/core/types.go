@@ -25,6 +25,19 @@ const (
 	EngineBYOAdapter Engine = "byo_adapter"
 )
 
+// HeaderStreamKind is an INTERNAL routing header the hls / dash Resolvers
+// stamp onto stream Resources so the Transport registry can pick the right
+// byte mover even for extension-less (force-classified) URLs. It persists in
+// resources.headers (it is not sensitive) so dispatch survives restarts, and
+// it NEVER reaches the wire: both transports strip it before any request.
+const HeaderStreamKind = "X-Ud-Stream"
+
+// Values of HeaderStreamKind (ADR-0024).
+const (
+	StreamKindHLS  = "hls"
+	StreamKindDASH = "dash"
+)
+
 // InputKind classifies user input. It is not a transport protocol:
 // "thunder" is a link wrapper, "site" is a content source (docs/02 术语表).
 type InputKind string

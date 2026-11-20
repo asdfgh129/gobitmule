@@ -27,6 +27,7 @@ import (
 	"github.com/asdfgh129/ud/internal/transport"
 	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
 	ftptransport "github.com/asdfgh129/ud/internal/transport/ftp"
+	dashtransport "github.com/asdfgh129/ud/internal/transport/dash"
 	hlstransport "github.com/asdfgh129/ud/internal/transport/hls"
 	httptransport "github.com/asdfgh129/ud/internal/transport/http"
 	sftptransport "github.com/asdfgh129/ud/internal/transport/sftp"
@@ -51,10 +52,11 @@ func newBuiltinResolvers(guard core.URLGuard, beforeDirect ...core.Resolver) *re
 	r.Register(resolve.NewWrapperResolver(guard))
 	r.Register(resolve.NewMagnetResolver(guard))
 	r.Register(resolve.NewTorrentResolver(guard))
-	// WBS 13: playlist URLs must be classified before the plugin hook so a
-	// site rule cannot accidentally swallow a direct .m3u8 link (docs/05 §10
-	// keeps protocol-native resolvers ahead of plugins).
+	// WBS 13: playlist / MPD URLs must be classified before the plugin hook
+	// so a site rule cannot accidentally swallow a direct .m3u8 / .mpd link
+	// (docs/05 §10 keeps protocol-native resolvers ahead of plugins).
 	r.Register(resolve.NewHLSResolver(guard))
+	r.Register(resolve.NewDASHResolver(guard))
 	for _, x := range beforeDirect {
 		if x != nil {
 			r.Register(x)
@@ -78,9 +80,11 @@ func newBuiltinTransports(guard core.URLGuard, creds core.CredentialStore, btOpt
 	r.Register(ftptransport.New(guard, creds))
 	r.Register(sftptransport.New(guard, creds))
 	r.Register(bttransport.New(guard, creds, btOpts...))
-	// WBS 13 L1: HLS streaming. Supports() only claims core.KindStream, so
-	// registration order does not change behaviour for existing kinds.
+	// WBS 13 L1: HLS and DASH streaming. Supports() only claims
+	// core.KindStream, so registration order does not change behaviour for
+	// existing kinds.
 	r.Register(hlstransport.New(guard))
+	r.Register(dashtransport.New(guard))
 	return r
 }
 

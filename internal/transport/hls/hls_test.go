@@ -283,6 +283,25 @@ func TestRunResumesFromVerifiedProgress(t *testing.T) {
 	}
 }
 
+func TestRunResumesInsideLaterSegment(t *testing.T) {
+	// Resume point in the SECOND segment: the source starts at segment 1 and
+	// the skip must be measured from that segment's stream offset (the
+	// 2026-11-20 cross-segment regression; a naive first.Start skip hit EOF).
+	segs := [][]byte{bytes.Repeat([]byte{0x23}, 5000), bytes.Repeat([]byte{0x24}, 5000)}
+	srv := newHLSServer(t, segs)
+	tr := New(nil)
+	w := newTestWriter(totalSize(segs), 3000)
+	w.markDoneUpTo(2) // chunks [0,6000) verified; first pending starts at 6000
+	if err := tr.Run(context.Background(), streamResource(srv.URL+"/media.m3u8"), w, nil); err != nil {
+		t.Fatalf("Run cross-segment resume: %v", err)
+	}
+	got := w.concatenation()
+	want := bytes.Join(segs, nil)[6000:]
+	if !bytes.Equal(got, want) {
+		t.Fatalf("cross-segment resume mismatch: got %d bytes, want %d", len(got), len(want))
+	}
+}
+
 func TestRunEncryptedSegmentsSequenceIV(t *testing.T) {
 	segs := [][]byte{bytes.Repeat([]byte{0x33}, 2400), bytes.Repeat([]byte{0x34}, 1600)}
 	srv := newHLSServer(t, segs)

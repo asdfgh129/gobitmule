@@ -1,7 +1,15 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.11 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS 半边：`.m3u8` 输入归为 `stream` 类任务（2026-11-19）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.12 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH：`.m3u8` / `.mpd` 输入归为 `stream` 类任务（2026-11-19/20）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
+> **v0.12 变更 / 2026-11-20 时点口径（WBS 13 收口：DASH 半边；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
+> 输入分类新增：URL 路径以 `.mpd` 结尾（或任务选项 `{"dash": true}` 强制，经注册表集中路由）时由
+> 内置 `dash` Resolver（ADR-0024）归为 `kind: "stream"`；传输枚举新增 `dash`。`{"hls": true}` /
+> `{"dash": true}` 强制选项此时点起真正生效（`Resolver.Match` 冻结签名拿不到任务选项，路由由
+> `resolve.Registry` 集中实现）。内部路由标记 `X-Ud-Stream` 持久化于 `resources.headers`
+> 但不出网（两个流传输在 `headerOf` 剥离）。通用 HTTP 传输补 Kind 守卫：仅声明
+> `single` / `multi`（兼容空 Kind），流 / 种子 Kind 不再被其抢先。
+>
 > **v0.11 变更 / 2026-11-19 时点口径（WBS 13 HLS 半边；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
 > 输入分类新增：URL 路径以 `.m3u8` 结尾（或任务选项 `{"hls": true}` 强制）时由内置
 > `hls` Resolver（ADR-0023）归为 `kind: "stream"`，`POST /resolve` 与 `POST /tasks`

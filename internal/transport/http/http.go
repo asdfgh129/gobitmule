@@ -54,7 +54,19 @@ func New(g core.URLGuard) *Transport {
 
 func (t *Transport) Name() string { return "http" }
 
+// Supports claims the generic file kinds on http(s) mirrors. The kind guard
+// is not cosmetic: stream resources (HLS / DASH, ADR-0024) also carry
+// http(s) URLs, and a kind-blind match made the FIRST-registered generic
+// transport swallow them — the .m3u8 / .mpd task would download the manifest
+// as a plain file instead of streaming (found by the 2026-11-20 dispatch
+// tests; unit-level Supports checks had passed because they used resources
+// without mirrors). The empty kind keeps legacy/fixture shapes working.
 func (t *Transport) Supports(r *core.Resource) bool {
+	switch r.Kind {
+	case core.KindSingle, core.KindMulti, "":
+	default:
+		return false
+	}
 	for _, m := range r.Mirrors {
 		s := core.SchemeOf(m.URL)
 		if s == "http" || s == "https" {
