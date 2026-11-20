@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `config` 96.1%、`app` 81.2%；lint / race / 六平台构建本地全绿。
   - **文档**：`09` §7、`05` §10、`07` v0.13、`12` v1.14、`13` v0.30 与 `config.example.yaml`、
     `14` v1.16、`23` v1.4、ADR-0010 实现时点注。
+  - **CI（回填）**：本包 `fd9fbf9` run `44672119353` `quality: success`（全 14 步通过，
+    strict 门禁 6 PASS / 0 WARN / 0 FAIL）；上一提交 `cce31fe` 的失败 run
+    `44668706736`（`site_test.go` 语法错误）如实留档，当前滚动结论停在 `fd9fbf9`。
 
 - **WBS 13（收口）：DASH L1 流媒体传输（2026-11-20，ADR-0024）**：
   - **交付**：`internal/transport/dash`（静态 MPD 解析、BaseURL 链、SegmentTemplate

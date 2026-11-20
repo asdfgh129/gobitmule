@@ -8,6 +8,7 @@
 > WBS 14 内置纯 Go `remux` 与 WBS 12 opt-in `yt-dlp`（`-J` 只吐 JSON、自有格式评分）已落地。
 > **但分离 A/V 下载 + 合并、lux 进程内解析、Deno/EJS 与真实站点回放仍未完成**，
 > 「缺 ffmpeg 不退化到 720p」当时点未达成；边界详见 [`docs/23` v1.4](docs/23-当前状态审计报告.md) 与 ADR-0010 实现时点注。
+> 本包 `fd9fbf9` 的 CI run `44672119353` 已 `quality: success`（全 14 步通过）。
 > 仓库已包含可运行的 Go 代码：HTTP(S) / FTP(S) / SFTP 直链与 BT / 磁力均能走完
 > `Resolver → Resource → Transport → PostProcessor → Store` 全流水线。
 > **P1 WBS 8 已交付（2026-11-10）**：`thunder://` / `flashget://` / `qqdl://` 解码与 Metalink
