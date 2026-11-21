@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/asdfgh129/ud/internal/config"
 	"github.com/asdfgh129/ud/internal/core"
 )
 
@@ -117,11 +118,41 @@ func newRPCFacade(s *Server) *rpcFacade {
 // HTTP + WebSocket handlers
 // ---------------------------------------------------------------------------
 
+// setRPCCORS mirrors aria2's --rpc-allow-origin-all for the opt-in facade:
+// AriaNg is served from a different origin and the browser preflights POST.
+// Reflected origin is safe here because every state-changing call still
+// requires the bearer/token secret (constant-time compared); a cross-site
+// page cannot obtain it. Loopback/no-auth deployments have no data to steal
+// beyond what is already locally reachable.
+func (s *Server) setRPCCORS(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return
+	}
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Vary", "Origin")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Max-Age", "600")
+}
+
+// jsonRPCPreflight answers the browser CORS preflight without requiring a
+// token (preflights never carry credentials). The real request is authenticated.
+func (s *Server) jsonRPCPreflight(w http.ResponseWriter, r *http.Request) {
+	if s.rpc == nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.setRPCCORS(w, r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) jsonRPC(w http.ResponseWriter, r *http.Request) {
 	if s.rpc == nil {
 		http.NotFound(w, r)
 		return
 	}
+	s.setRPCCORS(w, r)
 	var raw json.RawMessage
 	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		s.rpc.writeErr(w, nil, rpcErrParse, "parse error")
@@ -238,7 +269,7 @@ var rpcMethods = map[string]bool{
 	"remove": true, "forceRemove": true, "removeDownloadResult": true,
 	"tellStatus": true, "tellActive": true, "tellWaiting": true, "tellStopped": true,
 	"getUris": true, "getFiles": true, "getPeers": true, "getServers": true,
-	"getGlobalStat": true, "getOption": true,
+	"getGlobalStat": true, "getOption": true, "getGlobalOption": true,
 	"changeOption": true, "changeGlobalOption": true, "changeUri": true, "changePosition": true,
 	"getVersion": true, "getSessionInfo": true, "saveSession": true,
 	"shutdown": true, "forceShutdown": true,
@@ -283,6 +314,8 @@ func (f *rpcFacade) call(ctx context.Context, method string, params []json.RawMe
 		return f.getGlobalStat(ctx)
 	case "getOption":
 		return f.getOption(ctx, params)
+	case "getGlobalOption":
+		return f.getGlobalOption()
 	case "changeOption", "changeGlobalOption":
 		return f.changeOption(ctx, params, method)
 	case "changeUri", "changePosition":
@@ -614,6 +647,49 @@ func (f *rpcFacade) getGlobalStat(ctx context.Context) (any, *rpcError) {
 		"numStopped":      strconv.Itoa(st.Failed + st.Completed),
 		"numStoppedTotal": strconv.Itoa(st.Tasks),
 	}, nil
+}
+
+// getGlobalOption returns the option keys AriaNg's settings panel reads on
+// connect. Real ud values are mapped where they exist (ADR-0031 compat subset);
+// the rest are honest aria2-compatible defaults so the frontend renders and can
+// round-trip changeGlobalOption. Unknown options remain accepted-but-ignored.
+func (f *rpcFacade) getGlobalOption() (any, *rpcError) {
+	g := config.Defaults().Global
+	if f.s.cfg != nil {
+		g = f.s.cfg.Get().Global
+	}
+	return map[string]any{
+		"dir":                       "", // ud has no global default dir; per-task
+		"max-concurrent-downloads":  strconv.Itoa(g.MaxConcurrentTasks),
+		"max-overall-download-limit": rateToAria2(g.MaxDownloadRate),
+		"max-overall-upload-limit":  rateToAria2(g.MaxUploadRate),
+		"max-connection-per-server": strconv.Itoa(g.MaxConnectionsPerTask),
+		"min-split-size":            g.ChunkSize,
+		"split":                     strconv.Itoa(g.MaxConnectionsPerTask),
+		"continue":                  "true",
+		"file-allocation":           "none",
+		"input-file":                "",
+		"max-download-limit":        "0",
+		"max-upload-limit":          "0",
+		"auto-file-renaming":        "false",
+		"remove-after-finished":     "",
+		"bt-tracker":                "",
+		"bt-max-peers":              "0",
+		"rpc-listen-port":           "6800",
+		"rpc-allow-origin-all":      "false",
+		"rpc-save-upload-metadata":  "false",
+	}, nil
+}
+
+// rateToAria2 converts a ud rate string ("8MiB/s") to aria2's integer
+// bytes-per-second form; "0" means unlimited in both. Unparseable values fall
+// back to "0" so AriaNg never sees a malformed rate.
+func rateToAria2(s string) string {
+	b, err := config.ParseRate(s)
+	if err != nil {
+		return "0"
+	}
+	return strconv.FormatInt(b, 10)
 }
 
 func (f *rpcFacade) getOption(ctx context.Context, params []json.RawMessage) (any, *rpcError) {

@@ -1,0 +1,87 @@
+{
+  "schema": "ud.ariang-lab/v1",
+  "generated_at": "2026-11-21T14:40:00Z",
+  "feature": "WBS 17 / ADR-0031 aria2 JSON-RPC facade (L1)",
+  "status": "PASS (lab)",
+  "scope": "隔离实验室双机真机；非公网。AriaNg 1.3.15 前端 + udd 0.1.0+dev (linux/amd64, CGO_ENABLED=0)",
+  "lab": {
+    "host_a": "192.168.1.222 (Ubuntu 23.04, kernel 6.2.0-39-generic) — udd :6800 + AriaNg :8080",
+    "host_b": "192.168.1.221 (Ubuntu 23.04) — python3 http.server :18080 提供 1MiB sample.bin",
+    "host_209": "192.168.1.209 — SSH 拒绝当前密钥 (publickey/password/keyboard-interactive), 未使用",
+    "note": "控制面旧地址 192.168.34.222 / NAT 112.5.60.4:54022 已不可达；本轮用内网 192.168.1.0/24 直连。实验室机无 Go 工具链、无外网，二进制在主机侧交叉编译后 scp。"
+  },
+  "config": {
+    "listen": "0.0.0.0:6800",
+    "rpc.enabled": true,
+    "remoteToken": "present (bearer + token: secret)",
+    "security.blockPrivateNetworks": false,
+    "note": "隔离段放行私网以连 221 HTTP 源；非回环监听由 remoteToken fail-closed 保护"
+  },
+  "results": [
+    {
+      "id": "RPC-01", "title": "capabilities 报告 rpcLevel=L1", "status": "PASS",
+      "evidence": {"resolvers": "含 ed2k", "rpcLevel": "L1", "credentials": "linux-secret-service"}
+    },
+    {
+      "id": "RPC-02", "title": "鉴权 fail-closed：无 token 请求 /jsonrpc", "status": "PASS",
+      "evidence": {"request": "POST getGlobalOption 无 Authorization", "response": {"code": -32001, "message": "Unauthorized"}}
+    },
+    {
+      "id": "RPC-03", "title": "读取类方法（getGlobalOption/getVersion/tellActive）", "status": "PASS",
+      "evidence": {
+        "getGlobalOption": "返回 AriaNg 设置页所需键；max-overall-download-limit=16777216 (16MiB/s 正确换算)",
+        "getVersion": {"version": "1.37.0-ud"},
+        "tellActive": "初始为空数组"
+      }
+    },
+    {
+      "id": "RPC-04", "title": "端到端真实下载：addUri → tellStatus → 落盘校验", "status": "PASS",
+      "evidence": {
+        "addUri": "gid=4af9d1b38ddc24df, uri=http://192.168.1.221:18080/sample.bin",
+        "tellStatus": "status=complete, completedLength=1048576, totalLength=1048576 (aria2 字符串格式)",
+        "source_sha256": "fbbab289f7f94b25736c58be46a994c441fd02552cc6022352e3d86d2fab7c83",
+        "downloaded_sha256": "fbbab289f7f94b25736c58be46a994c441fd02552cc6022352e3d86d2fab7c83",
+        "match": true,
+        "bytes": 1048576
+      }
+    },
+    {
+      "id": "RPC-05", "title": "URI/文件/multicall/listMethods", "status": "PASS",
+      "evidence": {
+        "getUris": "[{status:used, uri:...sample.bin}]",
+        "getFiles": "index=1, length=1048576, path=/root/udlab/downloads/sample.bin, selected=true",
+        "system.multicall": "批处理 getGlobalStat + tellActive 正常",
+        "system.listMethods": 35
+      }
+    },
+    {
+      "id": "RPC-06", "title": "AriaNg 1.3.15 连接握手（CORS 预检 + 7 方法）", "status": "PASS",
+      "evidence": {"file": "handshake.json", "result": "HANDSHAKE_OK (7/7 methods + CORS preflight)", "cors_origin_reflected": true}
+    },
+    {
+      "id": "RPC-07", "title": "AriaNg 静态页可访问", "status": "PASS",
+      "evidence": {"url": "http://192.168.1.222:8080/", "http": 200, "bytes": 2322131, "frontend": "AriaNg-1.3.15-AllInOne"}
+    }
+  ],
+  "defects_found_and_fixed": [
+    {
+      "id": "D-01",
+      "title": "getGlobalOption 缺失导致 AriaNg 设置页 -32601",
+      "found_by": "从 AriaNg 1.3.15 前端源码提取实际方法清单，发现 getGlobalOption 必调但 facade 未实现（单测盲区）",
+      "fix": "internal/api/jsonrpc.go 新增 getGlobalOption，映射真实全局配置 + AriaNg 默认值；rateToAria2 换算速率；补单测 TestRPCGetGlobalOption/TestRateToAria2",
+      "verified": "真机 RPC-03 通过"
+    },
+    {
+      "id": "D-02",
+      "title": "OPTIONS /jsonrpc 返回 405，浏览器 CORS 预检失败",
+      "found_by": "真机从 :8080 跨域预检 :6800/jsonrpc，得到 405 Method Not Allowed（单测盲区）",
+      "fix": "注册 OPTIONS /jsonrpc → jsonRPCPreflight(204)；POST/GET 回显 Origin + CORS 头；鉴权仍强制 token（ConstantTimeCompare）；补单测 TestRPCORS",
+      "verified": "真机预检 405→204，见 RPC-06"
+    }
+  ],
+  "notes": [
+    "tellActive 中保留一条早期失败任务（私网拦截时期 status=error），属真实持久行为，非缺陷。",
+    "blockPrivateNetworks=false 仅用于隔离实验室；生产默认 true 不变。",
+    "本验收不覆盖公网、非 1.3.15 版本 AriaNg、WS 通知长稳运行（需真实浏览器常驻）。"
+  ]
+}

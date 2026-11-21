@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 17 AriaNg 真机验收 + 两处 facade 缺口修复（2026-11-21）**：
+  - **真机环境**：隔离实验室双机 `192.168.1.222`（udd :6800 + AriaNg 1.3.15
+    静态页 :8080）/ `192.168.1.221`（HTTP 源 :18080）。交叉编译 `CGO_ENABLED=0`
+    linux/amd64 udd scp 部署；rpc.enabled + remoteToken + 隔离段放行私网。
+    `209` 拒绝当前密钥、无 Go/无 eD2k 客户端，ED 门禁仍 NOT_EXECUTED。
+  - **端到端证据**（`docs/evidence/ariang-2026-11-21/`）：capabilities `rpcLevel=L1`；
+    鉴权 fail-closed（无 token → `-32001`）；`addUri` 真实跨机下载 1MiB 文件
+    → `tellStatus=complete` → 落盘 SHA256 与源一致；`getUris`/`getFiles`/
+    `system.multicall`/`listMethods`（35 方法）全通过；AriaNg 握手 7/7 方法 +
+    CORS 预检通过；AriaNg 静态页 HTTP 200。
+  - **真机暴露并修复两个单测盲区**：① `getGlobalOption` 缺失使 AriaNg 设置页
+    报 `-32601`——新增实现并映射真实全局配置（`rateToAria2` 速率换算）+ 单测；
+    ② `OPTIONS /jsonrpc` 返回 405 致浏览器 CORS 预检失败——注册预检回 204、
+    POST/GET 回显 Origin，鉴权仍强制 token，+ 单测。`internal/api` 覆盖率 80.9%。
+  - **WBS 16 spike**：`docs/25-goed2k-fork-api-spike.md` 源码勘察确认低成本
+    BT 同构 reader 适配路径（不必重写 `PieceManager`），细化 ADR-0030 改造范围；
+    ED-01/02/05/06 因缺 eD2k 客户端 + KAD + 209 凭据仍 NOT_EXECUTED，不翻转发布结论。
 - **P3 WBS 16–18 三项 OPEN 裁决（2026-11-21，ADR-0030/0031/0032）**：
   - **决策**：发起人指令启动剩余三个 P3 工作包并逐项裁决——**OPEN-03** = goed2k
     **fork 自维护**（上游 8 stars / 7 commits / 无 tag / bus factor 1，任务型 API

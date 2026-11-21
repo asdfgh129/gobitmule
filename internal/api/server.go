@@ -115,11 +115,13 @@ func (s *Server) routes() {
 	// ADR-0031: L1 aria2 facade. Routes are always registered so a disabled
 	// facade returns a clean 404 from the handler (not a 405 from the "/" fallback).
 	mux.HandleFunc("POST /jsonrpc", s.jsonRPC)
+	mux.HandleFunc("OPTIONS /jsonrpc", s.jsonRPCPreflight)
 	mux.HandleFunc("GET /jsonrpc", func(w http.ResponseWriter, r *http.Request) {
 		if s.rpc == nil {
 			http.NotFound(w, r)
 			return
 		}
+		s.setRPCCORS(w, r)
 		// AriaNg connects over WS with the token in the query string; validated
 		// here with constant-time compare so the long-lived token is the only
 		// secret and it is never echoed back.

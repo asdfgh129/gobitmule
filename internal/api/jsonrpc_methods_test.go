@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -264,6 +265,69 @@ func TestApplyRPCOptions(t *testing.T) {
 	}
 }
 
+func TestRPCGetGlobalOption(t *testing.T) {
+	srv, _ := newRPCServer(t, true)
+	_, out := rpcCall(t, srv, `{"jsonrpc":"2.0","id":1,"method":"getGlobalOption"}`)
+	if out["error"] != nil {
+		t.Fatalf("getGlobalOption errored: %v", out)
+	}
+	res, ok := out["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("result not object: %T", out["result"])
+	}
+	// AriaNg settings panel requires these keys; all must be present strings.
+	for _, k := range []string{"max-concurrent-downloads", "max-overall-download-limit",
+		"max-connection-per-server", "min-split-size", "continue", "file-allocation"} {
+		if _, ok := res[k].(string); !ok {
+			t.Fatalf("missing/non-string global option %q: %v", k, res[k])
+		}
+	}
+	if res["max-concurrent-downloads"] != "5" {
+		t.Fatalf("expected default max-concurrent-downloads=5, got %v", res["max-concurrent-downloads"])
+	}
+}
+
+// rateToAria2 must produce aria2 integer bytes/s, never a malformed unit string.
+func TestRateToAria2(t *testing.T) {
+	cases := map[string]string{
+		"8MiB/s": strconv.FormatInt(8<<20, 10),
+		"512KiB/s": strconv.FormatInt(512<<10, 10),
+		"0": "0",
+		"": "0",
+		"garbage": "0",
+	}
+	for in, want := range cases {
+		if got := rateToAria2(in); got != want {
+			t.Fatalf("rateToAria2(%q)=%q want %q", in, got, want)
+		}
+	}
+}
+
 func TestContextUsed(t *testing.T) {
 	_ = context.Background()
+}
+
+// CORS preflight must succeed without a token so AriaNg (different origin)
+// can reach /jsonrpc; the real call still requires the token.
+func TestRPCORS(t *testing.T) {
+	srv, _ := newRPCServer(t, true)
+
+	// Preflight: OPTIONS, no token, must be 204 with reflected CORS headers.
+	preq := httptest.NewRequest(http.MethodOptions, "/jsonrpc", nil)
+	preq.Header.Set("Origin", "http://ariang.example:8080")
+	preq.Header.Set("Access-Control-Request-Method", "POST")
+	pw := httptest.NewRecorder()
+	srv.ServeHTTP(pw, preq)
+	if pw.Code != http.StatusNoContent {
+		t.Fatalf("preflight status=%d want 204", pw.Code)
+	}
+	if pw.Header().Get("Access-Control-Allow-Origin") != "http://ariang.example:8080" {
+		t.Fatalf("missing reflected CORS origin: %v", pw.Header())
+	}
+
+	// Actual POST carries CORS headers too.
+	_, out := rpcCall(t, srv, `{"jsonrpc":"2.0","id":1,"method":"getVersion"}`)
+	if out["error"] != nil {
+		t.Fatalf("post after preflight errored: %v", out)
+	}
 }

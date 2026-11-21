@@ -1,0 +1,156 @@
+{
+  "preflight": {
+    "status": 204,
+    "allowOrigin": "http://192.168.1.222:8080",
+    "allowHeaders": "Content-Type, Authorization"
+  },
+  "getGlobalOption": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "auto-file-renaming": "false",
+        "bt-max-peers": "0",
+        "bt-tracker": "",
+        "continue": "true",
+        "dir": "",
+        "file-allocation": "none",
+        "input-file": "",
+        "max-concurrent-downloads": "5",
+        "max-connection-per-server": "16",
+        "max-download-limit": "0",
+        "max-overall-download-limit": "16777216",
+        "max-overall-upload-limit": "4194304",
+        "max-upload-limit": "0",
+        "min-split-size": "4MiB",
+        "remove-after-finished": "",
+        "rpc-allow-origin-all": "false",
+        "rpc-listen-port": "6800",
+        "rpc-save-upload-metadata": "false",
+        "split": "16"
+      }
+    }
+  },
+  "getVersion": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "features": [],
+        "version": "1.37.0-ud"
+      }
+    }
+  },
+  "getSessionInfo": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": {
+        "sessionId": "21ca9b53cde266a3"
+      }
+    }
+  },
+  "tellActive": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": [
+        {
+          "bitfield": "",
+          "completedLength": "0",
+          "connections": "16",
+          "dir": "/root/udlab/downloads",
+          "downloadSpeed": "0",
+          "errorCode": "",
+          "errorMessage": "address 192.168.1.221 for 192.168.1.221 is blocked (private)",
+          "files": [],
+          "gid": "d310d727d44a84df",
+          "numPieces": "0",
+          "pieceLength": "0",
+          "status": "error",
+          "totalLength": "0",
+          "uploadLength": "0",
+          "uploadSpeed": "0"
+        }
+      ]
+    }
+  },
+  "tellWaiting": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": []
+    }
+  },
+  "tellStopped": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": [
+        {
+          "bitfield": "80",
+          "completedLength": "1048576",
+          "connections": "16",
+          "dir": "/root/udlab/downloads",
+          "downloadSpeed": "0",
+          "errorCode": "",
+          "errorMessage": "",
+          "files": [],
+          "gid": "4af9d1b38ddc24df",
+          "numPieces": "1",
+          "pieceLength": "1048576",
+          "status": "complete",
+          "totalLength": "1048576",
+          "uploadLength": "0",
+          "uploadSpeed": "0"
+        },
+        {
+          "bitfield": "",
+          "completedLength": "0",
+          "connections": "16",
+          "dir": "/root/udlab/downloads",
+          "downloadSpeed": "0",
+          "errorCode": "",
+          "errorMessage": "address 192.168.1.221 for 192.168.1.221 is blocked (private)",
+          "files": [],
+          "gid": "d310d727d44a84df",
+          "numPieces": "0",
+          "pieceLength": "0",
+          "status": "error",
+          "totalLength": "0",
+          "uploadLength": "0",
+          "uploadSpeed": "0"
+        }
+      ]
+    }
+  },
+  "getGlobalStat": {
+    "http": 200,
+    "cors": "http://192.168.1.222:8080",
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": {
+        "downloadSpeed": "0",
+        "numActive": "0",
+        "numStopped": "2",
+        "numStoppedTotal": "2",
+        "numWaiting": "0",
+        "uploadSpeed": "0"
+      }
+    }
+  }
+}
+HANDSHAKE_OK (7/7 methods + CORS preflight)

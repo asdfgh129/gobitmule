@@ -57,3 +57,19 @@ P3 推进至 WBS 16 时该决策成为阻塞项。
 - fork 内所有改动保留上游 LICENSE 与版权声明；`tools/gates.py` 许可证门禁须 0 copyleft。
 - 离线：ed2k resolver 单测（解析/拒绝/Identity 字段）、`make gates-strict` 全绿。
 - 真实：ED-01/02/05/06 在隔离实验室执行并归档证据；未执行前如实标 `NOT_EXECUTED`。
+
+## 落地补记（2026-11-21 源码 Spike）
+
+`docs/25-goed2k-fork-api-spike.md` 对上游源码（pseudo-version
+`v0.0.0-20260602122456-f2a71d599dee`）做了只读勘察，细化本决策：
+
+- **fork 必要性成立**（bus factor=1、无 tag、ED-05/06 开关缺失），不撤销。
+- **改造量低于初判**：发现 `internal/transport/bt` 已建立「第三方引擎下载到临时
+  目录 → reader 按 ud chunk 边界读回喂 `ChunkWriter`」的适配模式；goed2k 提供
+  `AddTransfer(Handler)` / `Wait()` / `ReadRange()`，可用同构薄适配层对接，
+  **不必改写 `PieceManager`、不触碰 ADR-0002 单一调度器不变量**。故本决策第 1 条
+  中「关闭库内调度改为暴露流式钩子」细化为「以 reader 模式包装，并隔离库内自
+  持久化/限速」。
+- **门禁可达性**：实验室 `222`/`221` 无 Go、无 eD2k 客户端、隔离段无外网；
+  `209` 拒绝当前 SSH 密钥。ED-01/02/05/06 仍 `NOT_EXECUTED`，需补客户端 + KAD
+  `nodes.dat` + 端口入站 + 209 凭据后方可执行，不因本 spike 翻转。
