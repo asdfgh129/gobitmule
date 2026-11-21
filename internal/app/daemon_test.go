@@ -253,8 +253,14 @@ func TestSiteResolverOptIn(t *testing.T) {
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, base) {
 		t.Fatalf("default chain = %v, want %v", got, base)
 	}
+	cfg.Sources.Lux.Enabled = true
+	luxChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux",
+		"direct-http", "direct-file", "unsupported"}
+	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, luxChain) {
+		t.Fatalf("lux chain = %v, want %v", got, luxChain)
+	}
 	cfg.Sources.YTDLP.Enabled = true
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "yt-dlp",
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux", "yt-dlp",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("enabled chain = %v, want %v", got, want)

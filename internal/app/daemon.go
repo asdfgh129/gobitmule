@@ -72,7 +72,14 @@ func newBuiltinResolvers(guard core.URLGuard, beforeDirect ...core.Resolver) *re
 // stays ahead of plugin rules (docs/05 §10) and is absent entirely when
 // sources.ytdlp.enabled=false, so the zero-sidecar baseline is unchanged.
 func newBuiltinResolversForConfig(guard core.URLGuard, cfg config.Config, extra ...core.Resolver) *resolve.Registry {
-	site := make([]core.Resolver, 0, 1)
+	site := make([]core.Resolver, 0, 2)
+	if cfg.Sources.Lux.Enabled {
+		// WBS 12 / ADR-0026: in-process Chinese-site extraction (lux curated
+		// subset). Opt-in like the yt-dlp resolver: enabled=false keeps the
+		// chain byte-identical to the pre-lux behaviour. Site resolvers sit
+		// ahead of plugin rules (docs/05 §10).
+		site = append(site, resolve.NewLuxResolver(guard, cfg.Sources.Lux.EffectiveTimeout()))
+	}
 	if cfg.Sources.YTDLP.Enabled {
 		site = append(site, resolve.NewYTDLP(guard, resolve.YTDLPOptions{
 			Binary:  cfg.Sources.YTDLP.Binary,

@@ -68,5 +68,8 @@ func forcedStreamResolver(opts map[string]any) (string, bool) {
 	if v, ok := opts[OptDASHForce].(bool); ok && v {
 		return "dash", true
 	}
+	if v, ok := opts[OptLuxForce].(bool); ok && v {
+		return "lux", true
+	}
 	return "", false
 }

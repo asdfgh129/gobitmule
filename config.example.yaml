@@ -66,6 +66,9 @@ events:
 # 开启后 sidecar 只执行 `-J --skip-download` 吐 JSON；站点 URL 与格式 URL 均过 SSRFGuard。
 # UD_YTDLP_ENABLED / UD_YTDLP_BINARY / UD_YTDLP_TIMEOUT 可覆盖；改配置需重启 daemon。
 sources:
+  lux:
+    enabled: false          # true = 注册 lux 进程内站点解析（ADR-0026，精选 B站/抖音/爱奇艺/芒果/西瓜/快手）
+    timeout: "60s"          # 单次提取上限，1s..5m；超时后放弃提取（lux API 不支持 ctx，后台协程自行结束）
   ytdlp:
     enabled: false          # true = 注册 yt-dlp Resolver（仅渐进格式；分离 A/V 明确失败）
     binary: "yt-dlp"        # PATH 名称或绝对路径；不要指向不可信二进制

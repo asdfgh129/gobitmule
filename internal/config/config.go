@@ -142,6 +142,28 @@ func (p PostProcessConfig) Validate() error {
 // baseline and the P0/P1 capability surface are unchanged.
 type SourcesConfig struct {
 	YTDLP YTDLPConfig `yaml:"ytdlp" json:"ytdlp"`
+	Lux   LuxConfig   `yaml:"lux" json:"lux"`
+}
+
+// LuxConfig gates the in-process Chinese-site parser (ADR-0010 decision 1 /
+// ADR-0026). It is pure Go with no sidecar; disabled by default so enabling
+// it is an explicit operator decision (the extraction makes same-site network
+// requests for the page itself).
+type LuxConfig struct {
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	Timeout string `yaml:"timeout" json:"timeout"`
+}
+
+// EffectiveTimeout returns the extraction bound, falling back to 60s.
+func (l LuxConfig) EffectiveTimeout() time.Duration {
+	if strings.TrimSpace(l.Timeout) == "" {
+		return 60 * time.Second
+	}
+	d, err := time.ParseDuration(l.Timeout)
+	if err != nil || d <= 0 {
+		return 60 * time.Second
+	}
+	return d
 }
 
 type YTDLPConfig struct {
@@ -170,6 +192,14 @@ func (y YTDLPConfig) EffectiveMaxBytes() int64 {
 }
 
 func (s SourcesConfig) Validate() error {
+	if l := s.Lux; l.Enabled {
+		if l.Timeout != "" {
+			d, err := time.ParseDuration(l.Timeout)
+			if err != nil || d < time.Second || d > 5*time.Minute {
+				return fmt.Errorf("sources.lux.timeout %q must be a duration within 1s..5m", l.Timeout)
+			}
+		}
+	}
 	if !s.YTDLP.Enabled {
 		return nil
 	}

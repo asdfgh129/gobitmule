@@ -131,6 +131,10 @@
 | 编号 | 需求 | 优先级 |
 |---|---|---|
 | FR-SRC-01 | 中文视频站进程内解析（`lux` + goja 规则插件），规则包可热更新 | S |
+  > **2026-11-21 时点注（ADR-0026）**：lux 进程内解析已接入链（opt-in `sources.lux.enabled`，
+  > 精选提取器子集 B站/抖音/爱奇艺/芒果/西瓜/快手、SSRF 双检、确定性选流、单 Part 边界；
+  > 未覆盖站点干净拒绝）；goja 规则包路径由既有 WBS 10 插件引擎承担（热更新已具备）。
+  > Deno/EJS、分离 A/V 合并、真实站点验证属 P3。
 | FR-SRC-02 | 长尾站点与 YouTube 经 `yt-dlp` sidecar 解析（`-J --skip-download`） | C |
 | FR-SRC-03 | YouTube 链路需 Deno 2.3+（或 Node 22+）作为 yt-dlp 子依赖，随包/按需提供 | C |
 | FR-SRC-04 | Telegram 经 `gotd/td` 纯 Go MTProto 下载，支持 2GB（Premium 4GB）、CDN 重定向、`FLOOD_WAIT`、会话持久化、流式写入自有 Transport | S |

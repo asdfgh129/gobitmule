@@ -316,7 +316,8 @@ const (
 ## 10. 插件与 Resolver 注册
 
 `resolve.Registry.Register(resolver)` / `transport.Registry.Register(transport)`，按注册顺序首个 `Match()` 命中者执行。当前链（`internal/app/daemon.go:newBuiltinResolvers()`）：
-`metalink → link-wrapper → magnet → torrent → hls → dash → [plugin] → direct-http → direct-file → unsupported`。
+`metalink → link-wrapper → magnet → torrent → hls → dash → lux? → yt-dlp? → [plugin] → direct-http → direct-file → unsupported`。
+（`lux?` / `yt-dlp?` 为 opt-in 站点解析器：`sources.lux.enabled` / `sources.ytdlp.enabled` 开启才注册；lux 为进程内纯 Go（ADR-0026），yt-dlp 为 sidecar（ADR-0010 时点注）。）
 
 > **2026-11-19 时点注（WBS 13，ADR-0023）**：`hls` 为协议原生 Resolver，插在 torrent 之后、插件钩子之前——`.m3u8` 直链（或 `{"hls": true}` 强制分类）在此被归为 `KindStream`，不得被站点规则吞掉；变体选流与段下载在传输层 Probe/Run 完成，解析阶段零网络 I/O。
 

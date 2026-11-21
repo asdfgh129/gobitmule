@@ -1,6 +1,6 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.14 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH：`.m3u8` / `.mpd` 输入归为 `stream` 类任务（2026-11-19/20）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.14 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH（2026-11-19/20）+ **WBS 12 lux 进程内站点解析 opt-in（2026-11-21）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
 > **v0.14 变更 / 2026-11-20 时点口径（Web 控制台；新增两条 additive L0 端点，既有 17 条契约零改动）**：
 > 为 Vue 3 + TS 控制台补齐浏览器所需的两项能力：`GET /events/history?limit=` 读取持久化事件
@@ -19,6 +19,13 @@
 > `identity.variant_id` 为 `yt-dlp`，`kind` 仍为 `single`。当且仅当站点只提供分离 A/V
 > 格式时，创建请求 returned `503 E_CAPABILITY_UNAVAILABLE`（可重试语义为 capability），
 > 不会生成残缺文件。配置只在 daemon 启动时生效，`PATCH /config` 不支持运行时开关 sidecar。
+>
+> **v0.13 变更 / 2026-11-21 时点口径（WBS 12 收口：lux 进程内站点解析；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
+> 配置新增 `sources.lux.{enabled,timeout}`（默认关）；开启后解析链插入 `lux` Resolver（ADR-0026，
+> 精选 B站/抖音/爱奇艺/芒果/西瓜/快手提取器子集）。任务选项 `{"lux": true}` 强制路由（注册表
+> 集中实现，与 `{"hls"|"dash": true}` 同机制）；未覆盖站点干净返回 `E_CAPABILITY_UNAVAILABLE`。
+> lux 提取的媒体 URL 过 SSRF Guard 出口校验；站点 Referer 头随 Resource 下发（无 cookie/密钥）。
+> 多 Part（分段待合并）流拒绝，指向 P3 合并管线。
 >
 > **v0.12 变更 / 2026-11-20 时点口径（WBS 13 收口：DASH 半边；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
 > 输入分类新增：URL 路径以 `.mpd` 结尾（或任务选项 `{"dash": true}` 强制，经注册表集中路由）时由

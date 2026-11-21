@@ -16,6 +16,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 12（收口）：lux 进程内站点解析（2026-11-21，ADR-0026）**：
+  - **交付**：`internal/resolve/lux.go`——lux v0.24.1（MIT）**精选提取器子集**
+    （B站/抖音/爱奇艺/芒果/西瓜/快手；+12 链接模块全 MIT/BSD，许可证门禁实测 PASS；
+    全 extractors 树 160+ 模块含第二 JS 引擎 otto 与 colly 抓取框架，刻意不导入）；
+    opt-in `sources.lux.{enabled,timeout}`（默认关，关闭时链路逐字节不变）；
+    页面 URL + 提取产出媒体 URL 的 SSRF 双检；站点 Referer 头表（B站 CDN 无 Referer 403）；
+    确定性选流（Size 主导 / 并列字典序 / 空 ID 以 map key 兜底）；单 Part 边界
+    （多 Part 拒绝并指向 P3 合并管线）。
+  - **发现并修复（两处库级/设计缺陷）**：① lux 分发对无匹配站点取 nil extractor 并
+    **panic**（可打挂 daemon）——Resolve 域名覆盖预检（子域后缀匹配、形近域拒绝）+
+    提取 goroutine 统一 recover 双层防御；② `{"lux": true}` forced 选项经
+    `resolve.Registry` 集中路由（与 hls/dash 同机制），未覆盖站点干净分类拒绝。
+  - **占位清理**：未注册的 `site.go` 占位 LuxResolver 与未接链的 SelectBestFormat
+    工具集整体移除（yt-dlp 自有评分在 `ytdlp.go`，无共享死代码）。
+  - **回归**：`lux` 测试 11 例（seam 假提取器离线，`12` §1 纪律）、`app` 链序断言
+    （lux 位次先于 yt-dlp、均先于插件钩子）、config Validate 边界；许可证门禁
+    PASS（0 copyleft / 0 unknown）。
+  - **文档**：`docs/adr/ADR-0026`、`03` FR-SRC-01 时点注、`05` §10 链序、`07` v0.13、
+    `10` §4 落地注、`12` §3.3 用例清单、`14` WBS 12 收口。
+  - **边界（不宣称）**：未列入子集的站点（youku/微博/qq 等）不支持；多 Part 合并、
+    分离 A/V 双流 + Remux 合成、Deno/EJS、真实站点互通验证属 P3（ADR-0010 时点注
+    口径不变）。
+
 - **WBS 20：Vue 3 + TypeScript Web 控制台（2026-11-20）**：
   - **交付**：`web/` 新增 Vite + Vue 3 + TS + Pinia + vue-router 工程与提交锁文件；五个分区
     （概览 / 任务 / 新建下载 / 设置 / 运维），类型化 RPC 方法层 `web/src/api/rpc.ts` 与
