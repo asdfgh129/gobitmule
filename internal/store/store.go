@@ -68,6 +68,7 @@ func Open(path string, bus *core.EventBus) (*Store, error) {
 }
 
 func (s *Store) migrate() error {
+	ctx := context.Background()
 	entries, err := migrations.ReadDir("migrations")
 	if err != nil {
 		return err
@@ -81,24 +82,58 @@ func (s *Store) migrate() error {
 	sort.Strings(names)
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
+	// v2 runner (ADR-0027): applied migrations are recorded in
+	// schema_migrations so NON-IDEMPOTENT statements (ALTER TABLE ADD COLUMN)
+	// run exactly once. The v1 runner re-executed every file on each open and
+	// therefore only accepted idempotent SQL; existing v1 databases record
+	// all filenames on their first v2-runner open (v1 SQL was idempotent, so
+	// skipping the re-run is safe).
+	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		name       TEXT PRIMARY KEY,
+		applied_at INTEGER NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("migration bookkeeping: %w", err)
+	}
+	applied := map[string]bool{}
+	rows, err := s.db.QueryContext(ctx, `SELECT name FROM schema_migrations`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return err
+		}
+		applied[name] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
 	for _, name := range names {
+		if applied[name] {
+			continue
+		}
 		body, err := migrations.ReadFile("migrations/" + name)
 		if err != nil {
 			return err
 		}
-		if _, err := s.db.ExecContext(context.Background(), string(body)); err != nil {
+		if _, err := s.db.ExecContext(ctx, string(body)); err != nil {
 			return fmt.Errorf("migration %s: %w", name, err)
+		}
+		if _, err := s.db.ExecContext(ctx,
+			`INSERT INTO schema_migrations(name,applied_at) VALUES(?,?)`, name, s.now()); err != nil {
+			return fmt.Errorf("record migration %s: %w", name, err)
 		}
 	}
 	version := fmt.Sprint(len(names))
-	_, err = s.db.ExecContext(context.Background(),
+	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO app_meta(key,value) VALUES('schema_version',?) 
-		 ON CONFLICT(key) DO UPDATE SET value=excluded.value`, version)
+			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, version)
 	if err != nil {
 		return fmt.Errorf("set schema_version: %w", err)
 	}
-	_, _ = s.db.ExecContext(context.Background(),
-		`INSERT OR IGNORE INTO app_meta(key,value) VALUES('created_at',?)`, fmt.Sprint(time.Now().UnixMilli()))
 	return nil
 }
 

@@ -87,6 +87,44 @@ func (s *Store) Next(ctx context.Context, taskID core.TaskID) (core.Chunk, bool,
 	return c, found, err
 }
 
+// NextForFile is Next scoped to one file of a multi-file task (ADR-0027):
+// the scheduler downloads a task's selected files one at a time, so each
+// per-file ChunkWriter must claim chunks from its own file_idx only.
+func (s *Store) NextForFile(ctx context.Context, taskID core.TaskID, fileIdx int) (core.Chunk, bool, error) {
+	var c core.Chunk
+	found := false
+	err := s.withTx(ctx, func(tx *sql.Tx) error {
+		var mirror sql.NullInt64
+		var hashOK int
+		err := tx.QueryRowContext(ctx, `SELECT id,task_id,file_idx,idx,start,length,state,attempt,mirror_id,hash_ok
+			FROM chunks WHERE task_id=? AND file_idx=? AND state='pending' ORDER BY idx LIMIT 1`, string(taskID), fileIdx).
+			Scan(&c.ID, &c.TaskID, &c.FileIndex, &c.Index, &c.Start, &c.Length,
+				&c.State, &c.Attempt, &mirror, &hashOK)
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE chunks SET state='assigned', attempt=attempt+1,
+			mirror_id=?, updated_at=? WHERE id=? AND state='pending'`, mirror, s.now(), c.ID)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil || n != 1 {
+			return fmt.Errorf("chunk %d was claimed concurrently", c.ID)
+		}
+		c.State = core.ChunkAssigned
+		c.Attempt++
+		c.MirrorIndex = int(mirror.Int64)
+		c.HashOK = hashOK != 0
+		found = true
+		return nil
+	})
+	return c, found, err
+}
+
 // ChunkDone is one completed-chunk record, the unit of the batched write path.
 // ADR-0015 decision ③ requires progress to be flushed in batches (500ms or 4MB
 // aggregate) rather than one transaction per chunk, so the writer buffers these

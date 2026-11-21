@@ -42,10 +42,11 @@ func (s *Store) SaveResource(ctx context.Context, taskID core.TaskID, r *core.Re
 			if f.Selected {
 				selected = 1
 			}
-			if _, err := tx.ExecContext(ctx, `INSERT INTO files(resource_id,idx,rel_path,size,selected)
-				VALUES(?,?,?,?,?) ON CONFLICT(resource_id,idx) DO UPDATE SET
-				size=excluded.size, selected=excluded.selected, rel_path=excluded.rel_path`,
-				r.ID, f.Index, f.Path, f.Size, selected); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO files(resource_id,idx,rel_path,size,selected,url)
+				VALUES(?,?,?,?,?,?) ON CONFLICT(resource_id,idx) DO UPDATE SET
+				size=excluded.size, selected=excluded.selected, rel_path=excluded.rel_path,
+				url=excluded.url`,
+				r.ID, f.Index, f.Path, f.Size, selected, f.URL); err != nil {
 				return err
 			}
 		}
@@ -129,7 +130,7 @@ func (s *Store) GetResource(ctx context.Context, id string) (*core.Resource, err
 		return nil, err
 	}
 
-	files, err := s.db.QueryContext(ctx, `SELECT idx,rel_path,size,COALESCE(selected,1),COALESCE(final_path,'')
+	files, err := s.db.QueryContext(ctx, `SELECT idx,rel_path,size,COALESCE(selected,1),COALESCE(final_path,''),COALESCE(url,'')
 		FROM files WHERE resource_id=? ORDER BY idx`, id)
 	if err != nil {
 		return nil, err
@@ -137,12 +138,13 @@ func (s *Store) GetResource(ctx context.Context, id string) (*core.Resource, err
 	for files.Next() {
 		var f core.ResourceFile
 		var selected int
-		var final string
-		if err := files.Scan(&f.Index, &f.Path, &f.Size, &selected, &final); err != nil {
+		var final, url string
+		if err := files.Scan(&f.Index, &f.Path, &f.Size, &selected, &final, &url); err != nil {
 			files.Close()
 			return nil, err
 		}
 		f.Selected = selected != 0
+		f.URL = url
 		r.Files = append(r.Files, f)
 	}
 	files.Close()

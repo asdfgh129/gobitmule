@@ -5,10 +5,12 @@ package scheduler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -522,6 +524,250 @@ func (s *Scheduler) process(id core.TaskID) {
 	}
 }
 
+// selectedFiles returns the task's selected files in index order (ADR-0027).
+func selectedFiles(res *core.Resource) []core.ResourceFile {
+	out := make([]core.ResourceFile, 0, len(res.Files))
+	for _, f := range res.Files {
+		if f.Selected {
+			out = append(out, f)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Index < out[j].Index })
+	return out
+}
+
+// tempPathOptionKey mirrors the store's per-file temp-path option keys:
+// "temp_path" for file 0, "temp_path:{i}" for additional files.
+func tempPathOptionKey(fileIdx int) string {
+	if fileIdx == 0 {
+		return "temp_path"
+	}
+	return fmt.Sprintf("temp_path:%d", fileIdx)
+}
+
+// runMultiFileTask downloads a task's selected files one at a time (ADR-0027,
+// docs/06 §4.4 separated-stream model): each file has its own source URL,
+// chunk plan and .part path; per-file verification keeps crash-recovery
+// semantics; the postprocessor (remux by default) merges every downloaded
+// file into the final output, which the core commits atomically as before.
+func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
+	res *core.Resource, t *core.Task, tr core.Transport) error {
+	files := selectedFiles(res)
+	if len(files) < 2 {
+		return core.Err(core.E_INVALID_INPUT, "multi-file task needs at least two selected files")
+	}
+	for i, f := range files {
+		if f.URL == "" {
+			return core.Err(core.E_INVALID_INPUT, "file %d (%s) has no source URL", i, f.Path)
+		}
+		if f.Size <= 0 {
+			return core.Err(core.E_INVALID_INPUT,
+				"file %d (%s) has no declared size; multi-file tasks need known sizes", i, f.Path)
+		}
+	}
+
+	cfg := s.cfg.Get()
+	chunks, err := s.st.Chunks(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(chunks) == 0 {
+		// First run: create per-file temp paths and chunk plans. Sizes come
+		// from the resolver (yt-dlp formats carry them); no Probe — the
+		// Transport probe contract describes one stream.
+		var total int64
+		sizes := make(map[int]int64, len(files))
+		chunkSize := res.Limits.ChunkSize
+		if chunkSize <= 0 {
+			chunkSize, _ = config.ParseSize(cfg.Global.ChunkSize)
+		}
+		for i, f := range files {
+			final, err := s.pathGuard.Clean(t.Options.Dir, f.Path)
+			if err != nil {
+				return err
+			}
+			tempPath := security.TempPath(final, cfg.TempSuffix)
+			if err := s.st.SetOption(ctx, id, tempPathOptionKey(i), tempPath); err != nil {
+				return err
+			}
+			sizes[i] = f.Size
+			total += f.Size
+			if _, err := s.st.CreateChunks(ctx, id, i, f.Size, chunkSize); err != nil {
+				return err
+			}
+		}
+		if err := s.st.UpdateFileSizes(ctx, res.ID, sizes); err != nil {
+			return err
+		}
+		if err := s.st.UpdateState(ctx, id, store.StateUpdate{
+			To: core.StateReady, BytesTotal: &total, Force: true}); err != nil {
+			return err
+		}
+	}
+
+	if err := s.transition(ctx, id, core.StateRunning); err != nil {
+		return err
+	}
+	if t.Options.MaxDownloadLimit != "" {
+		if rate, err := config.ParseRate(t.Options.MaxDownloadLimit); err == nil {
+			s.limiter.SetTaskRate(string(id), core.BytesPerSec(rate))
+		}
+	}
+	host := hostOf(files[0].URL)
+	budget, err := s.limiter.Acquire(ctx, core.Scope{
+		TaskID: string(id), Host: host, Transport: tr.Name(), Direction: core.DirectionDownload,
+	}, res.Limits.ChunkSize)
+	if err != nil {
+		return err
+	}
+
+	counter := &speedCounter{last: time.Now()}
+	s.mu.Lock()
+	s.speeds[id] = counter
+	s.mu.Unlock()
+
+	// Sequential per-file download: one budget (the task's rate lease), one
+	// transport, a fresh file-scoped ChunkWriter per file.
+	for i, f := range files {
+		tempPath, err := s.st.Option(ctx, id, tempPathOptionKey(i))
+		if err != nil {
+			return err
+		}
+		if tempPath == "" {
+			return core.Err(core.E_INTERNAL, "file %d has no temp path", i)
+		}
+		cw, err := newChunkWriterForFile(s.st, id, res.ID, tempPath, i, f.Size,
+			s.bus, s.maxAttempts, counter.add)
+		if err != nil {
+			return err
+		}
+		sub := &core.Resource{
+			ID:       res.ID,
+			Kind:     res.Kind,
+			Engine:   res.Engine,
+			Files:    []core.ResourceFile{f},
+			Mirrors:  []core.Mirror{{URL: f.URL, Priority: 1, Weight: 1}},
+			Limits:   res.Limits,
+			Identity: res.Identity,
+		}
+		s.injectHeaders(ctx, sub, t.Options)
+		runErr := tr.Run(ctx, sub, cw, budget)
+		syncErr := cw.Sync()
+		closeErr := cw.Close()
+		if runErr == nil {
+			runErr = syncErr
+		}
+		if runErr == nil {
+			runErr = closeErr
+		}
+		if runErr != nil {
+			return runErr
+		}
+	}
+	if err := s.checkFailedChunks(ctx, id); err != nil {
+		return err
+	}
+
+	commitCtx := context.WithoutCancel(ctx)
+	var bad []core.Chunk
+	for i := range files {
+		tempPath, err := s.st.Option(ctx, id, tempPathOptionKey(i))
+		if err != nil {
+			return err
+		}
+		fileBad, err := s.st.VerifyFileChunks(commitCtx, id, res.ID, i, tempPath)
+		if err != nil {
+			return err
+		}
+		bad = append(bad, fileBad...)
+	}
+	if len(bad) > 0 {
+		seen := map[int64]bool{}
+		for _, c := range bad {
+			if seen[c.ID] {
+				continue
+			}
+			seen[c.ID] = true
+			if c.State == core.ChunkDone || c.State == core.ChunkVerified {
+				_ = s.st.ResetChunk(commitCtx, c)
+			} else {
+				_ = s.st.Release(commitCtx, c, true)
+			}
+		}
+		if err := s.st.UpdateState(commitCtx, id,
+			store.StateUpdate{To: core.StatePaused, Force: true}); err != nil {
+			return err
+		}
+		s.enqueue(id)
+		return nil
+	}
+
+	if err := s.transition(ctx, id, core.StatePostProcessing); err != nil {
+		return err
+	}
+	// Final merged name: Options.Out wins, else file 0's path.
+	name := files[0].Path
+	if t.Options.Out != "" {
+		name = filepath.Base(t.Options.Out)
+	}
+	final, err := s.pathGuard.Clean(t.Options.Dir, name)
+	if err != nil {
+		return err
+	}
+	mergeName := t.Options.PostProcess
+	if mergeName == "" || mergeName == "none" {
+		// Multi-file resources exist to be merged (docs/06 §4.4); "remux" is
+		// the only built-in processor that consumes several inputs.
+		mergeName = "remux"
+	}
+	pp, err := s.postprocs.Get(mergeName)
+	if err != nil {
+		return err
+	}
+	tempPaths := make([]string, 0, len(files))
+	for i := range files {
+		tempPath, err := s.st.Option(ctx, id, tempPathOptionKey(i))
+		if err != nil {
+			return err
+		}
+		tempPaths = append(tempPaths, tempPath)
+	}
+	pres, err := pp.Process(ctx,
+		core.LocalFiles{BaseDir: filepath.Dir(tempPaths[0]), Paths: tempPaths},
+		core.OutputSpec{Target: final, TempSuffix: cfg.TempSuffix})
+	if err != nil {
+		return err
+	}
+	if len(pres.Outputs) == 0 {
+		return core.Err(core.E_POSTPROCESS_FAILED, "postprocessor returned no output")
+	}
+	// The core (not the plugin) performs the atomic commit (ADR-0012).
+	if err := os.Rename(pres.Outputs[0], final); err != nil {
+		return core.Err(core.E_POSTPROCESS_FAILED, "atomic rename failed: %v", err)
+	}
+	if d, err := os.Open(filepath.Dir(final)); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
+	if err := s.st.Commit(context.WithoutCancel(ctx), id, res.ID, 0, final); err != nil {
+		return err
+	}
+	// The per-stream .part files are merge inputs and no longer needed.
+	for _, p := range tempPaths {
+		_ = os.Remove(p)
+	}
+	s.mu.Lock()
+	delete(s.inputs, id)
+	s.mu.Unlock()
+	var total int64
+	for _, f := range files {
+		total += f.Size
+	}
+	s.emit(ctx, core.Event{Type: core.EventTaskCompleted, TaskID: id,
+		Payload: map[string]any{"bytesTotal": total}})
+	return nil
+}
+
 func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 	t, err := s.st.GetTask(ctx, id)
 	if err != nil || core.IsTerminal(t.State) {
@@ -561,8 +807,12 @@ func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 		}
 		res.Limits = limits
 		res.PostProcess = []core.ProcessSpec{{Type: t.Options.PostProcess}}
-		// Never persist user headers: they may contain Authorization/Cookie.
-		res.Headers = nil
+		// Resolver-derived headers (site Referer/UA, yt-dlp http_headers) MUST
+		// survive persistence: SaveResource strips sensitive values via
+		// StripSensitiveHeaders (docs/06 §6) — nil-ing here broke every
+		// site-header flow after a restart (ADR-0027 fix). Never persist user
+		// task-option headers raw: they carry Authorization/Cookie and are
+		// merged in-memory at download time by injectHeaders.
 		if err := s.st.SaveResource(ctx, id, res); err != nil {
 			return err
 		}
@@ -576,6 +826,13 @@ func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 	tr, err := s.transports.Select(res)
 	if err != nil {
 		return err
+	}
+	// ADR-0027: a resource with more than one selected file (separated
+	// audio/video streams) downloads its files one at a time — each with its
+	// own source URL, chunk plan and .part path — then merges them through
+	// the postprocessor (remux by default).
+	if len(selectedFiles(res)) > 1 {
+		return s.runMultiFileTask(ctx, id, res, t, tr)
 	}
 	cfg := s.cfg.Get()
 	tempPath, err := s.st.Option(ctx, id, "temp_path")
@@ -828,16 +1085,25 @@ func (s *Scheduler) speedOf(id core.TaskID) int64 {
 	return c.value()
 }
 
+// injectHeaders merges the headers a Resource needs for its download:
+// resolver-derived site headers (yt-dlp http_headers, lux Referer — required
+// by the CDN, stripped of secrets at persistence) first, then the task's own
+// options (user intent wins), then the credential secret. A full replace
+// here silently broke every site-header flow (ADR-0027 fix).
 func (s *Scheduler) injectHeaders(ctx context.Context, r *core.Resource, opt core.TaskOptions) {
-	r.Headers = make(map[string]string, len(opt.Headers)+1)
+	merged := make(map[string]string, len(r.Headers)+len(opt.Headers)+1)
+	for k, v := range r.Headers {
+		merged[k] = v
+	}
 	for k, v := range opt.Headers {
-		r.Headers[k] = v
+		merged[k] = v
 	}
 	if opt.CredentialRef != "" && s.creds != nil {
 		if secret, err := s.creds.Get(ctx, opt.CredentialRef); err == nil && secret != "" {
-			r.Headers["Authorization"] = secret
+			merged["Authorization"] = secret
 		}
 	}
+	r.Headers = merged
 }
 
 func shallowResource(r *core.Resource) *core.Resource {

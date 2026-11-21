@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
@@ -159,8 +160,58 @@ func (y *YTDLP) Resolve(ctx core.ResolveContext, in core.Input) (*core.Resource,
 		return nil, err
 	}
 	if choice.Separate {
-		return nil, core.Err(core.E_CAPABILITY_UNAVAILABLE,
-			"yt-dlp returned only separated A/V formats; progressive merging is not implemented (ADR-0010)")
+		// ADR-0027: separated A/V becomes a multi-file resource — one file
+		// per stream with declared sizes — and the scheduler's postprocessor
+		// (remux by default) merges them into the final output. Without a
+		// declared size the chunk plan cannot be built, so the task is
+		// refused cleanly instead of guessing.
+		files := make([]core.ResourceFile, 0, len(choice.Files))
+		var mergedHeaders map[string]string
+		sizesOK := true
+		for i, f := range choice.Files {
+			if err := y.guardSiteURL(cctx, f.URL); err != nil {
+				return nil, err
+			}
+			size := f.Size
+			if size <= 0 {
+				sizesOK = false
+				break
+			}
+			label := "video"
+			if i > 0 || (f.Ext != "" && f.AudioOnly) {
+				label = fmt.Sprintf("audio%d", i)
+			}
+			files = append(files, core.ResourceFile{
+				Index: i, Path: label + "." + extOr(f.Ext, "mp4"),
+				Size: size, Selected: true, URL: f.URL,
+			})
+			for k, v := range f.Headers {
+				if _, ok := mergedHeaders[k]; !ok {
+					if mergedHeaders == nil {
+						mergedHeaders = map[string]string{}
+					}
+					mergedHeaders[k] = v
+				}
+			}
+		}
+		if !sizesOK || len(files) < 2 {
+			return nil, core.Err(core.E_CAPABILITY_UNAVAILABLE,
+				"yt-dlp returned only separated A/V formats without declared sizes; multi-file download needs known sizes (ADR-0027)")
+		}
+		finalName := safeSiteName(info.Title, info.ID) + ".mp4"
+		files[0].Path = finalName
+		return &core.Resource{
+			ID:         "res-" + string(core.NewID()),
+			Kind:       core.KindSingle,
+			Engine:     core.EngineGo,
+			Files:      files,
+			Mirrors:    []core.Mirror{{URL: files[0].URL, Priority: 1, Weight: 1}},
+			Headers:    mergedHeaders,
+			Credential: ctx.Credential,
+			Identity: core.ProtocolIdentity{
+				VariantID: ytdlpName,
+			},
+		}, nil
 	}
 	f := choice.Files[0]
 	if err := y.guardSiteURL(cctx, f.URL); err != nil {
@@ -241,9 +292,11 @@ type FormatChoice struct {
 }
 
 type chosenFile struct {
-	URL     string
-	Ext     string
-	Headers map[string]string
+	URL       string
+	Ext       string
+	Headers   map[string]string
+	Size      int64
+	AudioOnly bool
 }
 
 // ChooseFormats implements ADR-0010 §4: prefer the highest-resolution
@@ -325,7 +378,19 @@ func score(f ytdlpFormat) int64 {
 }
 
 func toChosen(f ytdlpFormat) chosenFile {
-	return chosenFile{URL: f.URL, Ext: f.Ext, Headers: f.HTTPHeaders}
+	size := f.Filesize
+	if size <= 0 {
+		size = f.ApproxSize
+	}
+	return chosenFile{URL: f.URL, Ext: f.Ext, Headers: f.HTTPHeaders,
+		Size: size, AudioOnly: f.VCodec == "" || strings.EqualFold(f.VCodec, "none")}
+}
+
+func extOr(ext, def string) string {
+	if strings.TrimSpace(ext) == "" {
+		return def
+	}
+	return strings.ToLower(strings.TrimPrefix(ext, "."))
 }
 
 func safeSiteName(title, id string) string {

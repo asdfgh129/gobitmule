@@ -204,6 +204,11 @@
 | UC-02 | 下载磁力 | 提交 magnet → 获取元数据 → 用户选文件 → BT 分片 → 做种 | DHT 无 peer、private flag |
 | UC-03 | 下载视频页（合流格式） | Resolver 只取 JSON → 核心下 progressive 单文件 → 完成 | 站点规则失效，降级/提示更新 |
 | UC-04 | 下载视频页（分离流） | 取两条流 → 各存一份 → Remux → 原子提交 | 无 ffmpeg 时画质受限（yt-dlp 默认退化）→ 由自有 formats 选取规避 |
+  > **2026-11-21 时点注（ADR-0027）**：UC-04 主流程已可运行——yt-dlp 分离 A/V（带声明
+  > 尺寸）发射双文件资源，调度器顺序双流下载（独立 chunk 计划与 `.part`）、逐文件校验、
+  > 内置 Remux 合并为单 MP4、原子提交；调度器级集成测试（零 ffmpeg，`12` §3.3 补记）
+  > 兑现 ADR-0010 验证清单「删除 ffmpeg 后仍能拿到高画质格式并完成合并」。**仍不宣称**：
+  > 真实 YouTube 端到端（回放 fixture 待建）、Deno/EJS。
 | UC-05 | 下载 Telegram 大文件 | MTProto 解析 → `Stream(io.Writer)` → 自有 Transport 落盘 | `FLOOD_WAIT`、DC 迁移、会话失效 |
 | UC-06 | 导入 Metalink | 解析多镜像 + piece hash → 多源分段 → 逐片校验 | 恶意清单：私网 URL、超大 XML、镜像爆炸 |
 | UC-07 | 崩溃恢复 | 重启 → 读 SQLite → 校验已落盘分片 → 续传 | 分片文件被外部改动，重下该片 |

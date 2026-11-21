@@ -16,6 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **P3 首项：多文件下载与容器合并（2026-11-21，ADR-0027）**：
+  - **交付**：调度器顺序多文件下载——每 selected 文件独立源 URL（`ResourceFile.URL` +
+    **DDL v2** `files.url` 列）、chunk 计划（`chunks.file_idx` 既有列 + `NextForFile`）、
+    `.part` 路径（`temp_path:{i}`）、逐文件校验（`VerifyFileChunks`）与逐文件崩溃恢复；
+    全部通过后默认 `remux` 合并为最终文件、原子提交、合并输入清理。传输接口零改动
+    （调度器对每文件构造单文件子 Resource 调同一 Transport.Run）；限速权威不变
+    （一任务一 Budget 租约跨文件复用）。
+  - **迁移运行器升级**：v1 每次 Open 重跑全部迁移、仅容忍幂等 SQL——ALTER TABLE
+    会在二次打开失败（drill 实测 `duplicate column name`）；v2 以 `schema_migrations`
+    表记录已应用迁移，旧库首次打开补记全部文件名。`schema_version` 现为 2，
+    备份/迁移/恢复与 drill 断言同步。
+  - **yt-dlp 分离 A/V 发射**：`ChooseFormats` 的分离结果在两路均带声明尺寸时发射
+    双文件资源（尺寸未知维持 `E_CAPABILITY_UNAVAILABLE` 诚实拒绝）；站点
+    `http_headers` 以并集随 Resource 下发。
+  - **发现并修复：resolver 站点头双断流**——resolve 阶段 `res.Headers = nil` 与
+    `injectHeaders` 全量替换使站点必需头（Referer/UA，yt-dlp http_headers、lux
+    Referer）在持久化与运行两处丢失；修正为 SaveResource 经既有
+    `StripSensitiveHeaders` 剥离敏感项后持久化非敏感头、`injectHeaders` 改为
+    合并（resolver 头 < 任务选项 < 凭据）。
+  - **验证（ADR-0010 清单兑现）**：调度器级集成
+    `TestMultiFileSeparatedStreamsRemuxToMP4`（真实 HTTP + 真实 Remux，零 ffmpeg）：
+    分离双流 → 逐文件下载校验 → 单 MP4 双轨样例字节断言 → 原子提交；
+    全量 22 包回归零 FAIL。
+  - **供应链修复**：govulncheck 抓到 lux HTML 解析路径引入的可达漏洞
+    `golang.org/x/net GO-2026-6860`（v0.60.0 → v0.62.0），vuln 门禁 PASS。
+  - **文档**：`docs/adr/ADR-0027`、`03` UC-04 时点注、`05` ResourceFile.URL、
+    `06` §4.4 落地注 + DDL v2、`07` v0.14、`12` §3.3 集成兑现、`14` WBS 12 P3 余项更新。
+
 - **WBS 12（收口）：lux 进程内站点解析（2026-11-21，ADR-0026）**：
   - **交付**：`internal/resolve/lux.go`——lux v0.24.1（MIT）**精选提取器子集**
     （B站/抖音/爱奇艺/芒果/西瓜/快手；+12 链接模块全 MIT/BSD，许可证门禁实测 PASS；

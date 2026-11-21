@@ -32,6 +32,7 @@ type chunkWriter struct {
 	taskID      core.TaskID
 	resourceID  string
 	tempPath    string
+	fileIdx     int
 	f           *os.File
 	mu          sync.Mutex
 	bus         *core.EventBus
@@ -54,6 +55,14 @@ type chunkWriter struct {
 
 func newChunkWriter(st *store.Store, taskID core.TaskID, resourceID, tempPath string,
 	total int64, bus *core.EventBus, maxAttempts int, onWrite func(int64)) (*chunkWriter, error) {
+	return newChunkWriterForFile(st, taskID, resourceID, tempPath, 0, total, bus, maxAttempts, onWrite)
+}
+
+// newChunkWriterForFile scopes the writer to one file of a (possibly
+// multi-file) task: chunks are claimed from that file_idx only and written
+// to that file's own .part path (ADR-0027).
+func newChunkWriterForFile(st *store.Store, taskID core.TaskID, resourceID, tempPath string,
+	fileIdx int, total int64, bus *core.EventBus, maxAttempts int, onWrite func(int64)) (*chunkWriter, error) {
 	if err := os.MkdirAll(filepath.Dir(tempPath), 0o755); err != nil {
 		return nil, core.Err(core.E_STORAGE_FULL, "create output directory: %v", err)
 	}
@@ -69,7 +78,7 @@ func newChunkWriter(st *store.Store, taskID core.TaskID, resourceID, tempPath st
 	}
 	w := &chunkWriter{
 		st: st, taskID: taskID, resourceID: resourceID, tempPath: tempPath,
-		f: f, bus: bus, maxAttempts: maxAttempts, onWrite: onWrite,
+		fileIdx: fileIdx, f: f, bus: bus, maxAttempts: maxAttempts, onWrite: onWrite,
 		flushWindow: chunkFlushWindow, flushBytes: chunkFlushBytes,
 		stopFlush: make(chan struct{}), flushStopped: make(chan struct{}),
 	}
@@ -139,7 +148,11 @@ func (w *chunkWriter) flushPending(ctx context.Context) error {
 }
 
 func (w *chunkWriter) Next(ctx context.Context) (core.Chunk, bool, error) {
-	return w.st.Next(ctx, w.taskID)
+	// Multi-file tasks (ADR-0027) scope the claim to the writer's file_idx:
+	// the scheduler downloads a task's selected files one at a time, each
+	// with its own chunk plan and .part path. Single-file tasks run through
+	// the exact same path with fileIdx 0.
+	return w.st.NextForFile(ctx, w.taskID, w.fileIdx)
 }
 
 func (w *chunkWriter) WriteChunk(ctx context.Context, c core.Chunk, p []byte) error {

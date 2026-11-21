@@ -24,6 +24,13 @@ const ytdlpProgressiveJSON = `{
 
 const ytdlpSeparatedJSON = `{
   "id":"sep", "title":"Separated", "formats":[
+    {"format_id":"137","url":"https://cdn.example/v.mp4","ext":"mp4","vcodec":"avc1","acodec":"none","height":1080,"tbr":5000,"filesize":5000000,"http_headers":{"Referer":"https://www.youtube.com/","User-Agent":"test-agent"}},
+    {"format_id":"140","url":"https://cdn.example/a.m4a","ext":"m4a","vcodec":"none","acodec":"mp4a.40.2","tbr":128,"filesize":128000,"http_headers":{"Referer":"https://www.youtube.com/"}}
+  ]
+}`
+
+const ytdlpSeparatedNoSizeJSON = `{
+  "id":"sepns", "title":"Separated No Size", "formats":[
     {"format_id":"137","url":"https://cdn.example/v.mp4","ext":"mp4","vcodec":"avc1","acodec":"none","height":1080,"tbr":5000},
     {"format_id":"140","url":"https://cdn.example/a.m4a","ext":"m4a","vcodec":"none","acodec":"mp4a.40.2","tbr":128}
   ]
@@ -111,7 +118,7 @@ func TestYTDLPResolveFailures(t *testing.T) {
 		{name: "bad JSON", opt: YTDLPOptions{Runner: ytdlpRunner("not json")}, input: in, code: core.E_RESOLVE_FAILED},
 		{name: "oversized JSON", opt: YTDLPOptions{Runner: ytdlpRunner(ytdlpProgressiveJSON), MaxJSON: 16},
 			input: in, code: core.E_INVALID_INPUT},
-		{name: "separated only", opt: YTDLPOptions{Runner: ytdlpRunner(ytdlpSeparatedJSON)},
+		{name: "separated without sizes", opt: YTDLPOptions{Runner: ytdlpRunner(ytdlpSeparatedNoSizeJSON)},
 			input: in, code: core.E_CAPABILITY_UNAVAILABLE},
 		{name: "no formats", opt: YTDLPOptions{Runner: ytdlpRunner(`{"id":"x","formats":[]}`)},
 			input: in, code: core.E_RESOLVE_FAILED},
@@ -192,5 +199,32 @@ func TestYTDLPRealBinaryArguments(t *testing.T) {
 	want := "-J\n--skip-download\n--no-warnings\n--no-playlist\n--\nhttps://youtu.be/abc"
 	if got != want {
 		t.Fatalf("sidecar args =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// ADR-0027: separated A/V formats with declared sizes become a two-file
+// resource; the scheduler's postprocessor merges them (docs/06 §4.4).
+func TestYTDLPSeparatedBecomesMultiFile(t *testing.T) {
+	y := NewYTDLP(&fakeGuard{}, YTDLPOptions{Runner: ytdlpRunner(ytdlpSeparatedJSON)})
+	res, err := y.Resolve(core.ResolveContext{}, core.Input{Kind: core.InputURL,
+		Raw: "https://www.youtube.com/watch?v=sep"})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if len(res.Files) != 2 {
+		t.Fatalf("files = %d, want 2", len(res.Files))
+	}
+	v, a := res.Files[0], res.Files[1]
+	if v.URL != "https://cdn.example/v.mp4" || v.Size != 5000000 {
+		t.Fatalf("video file = %+v", v)
+	}
+	if a.URL != "https://cdn.example/a.m4a" || a.Size != 128000 {
+		t.Fatalf("audio file = %+v", a)
+	}
+	if !strings.HasSuffix(v.Path, ".mp4") {
+		t.Fatalf("final name = %q, want the merged .mp4", v.Path)
+	}
+	if res.Headers == nil {
+		t.Fatal("merged site headers missing")
 	}
 }

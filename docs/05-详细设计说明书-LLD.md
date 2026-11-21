@@ -187,11 +187,12 @@ type Resource struct {
 }
 
 type ResourceFile struct {
-    Index   int    `json:"index"`
-    Path    string `json:"path"`     // 相对路径，必须经 PathGuard 校验（禁止穿越）
-    Size    int64  `json:"size"`
-    Offset  int64  `json:"offset"`
-    Selected bool  `json:"selected"` // BT 选择下载
+    Index    int    `json:"index"`
+    Path     string `json:"path"`
+    Size     int64  `json:"size"`
+    Offset   int64  `json:"offset,omitempty"`
+    Selected bool   `json:"selected"`
+    URL      string `json:"url,omitempty"` // ADR-0027: 多文件任务的每文件源 URL
 }
 
 type ProtocolIdentity struct {

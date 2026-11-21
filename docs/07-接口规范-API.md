@@ -20,6 +20,13 @@
 > 格式时，创建请求 returned `503 E_CAPABILITY_UNAVAILABLE`（可重试语义为 capability），
 > 不会生成残缺文件。配置只在 daemon 启动时生效，`PATCH /config` 不支持运行时开关 sidecar。
 >
+> **v0.14 变更 / 2026-11-21 时点口径（P3 多文件下载与合并；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
+> 资源模型新增每文件源 URL：`Resource` 的 `files[].url`（DDl v2 `files.url` 列，ADR-0027）；
+> 含多个 selected files 的任务由调度器顺序下载各文件（独立 chunk 计划与 `.part`），
+> 后处理默认 `remux` 合并为最终文件（用户显式选择的处理器优先）。yt-dlp 分离 A/V
+> 格式（带 `filesize`/`filesize_approx`）现发射双文件资源而非拒绝；无声明尺寸维持
+> `E_CAPABILITY_UNAVAILABLE`。`GET /tasks` 的 `resource.files[]` 可见 `url` 字段。
+>
 > **v0.13 变更 / 2026-11-21 时点口径（WBS 12 收口：lux 进程内站点解析；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
 > 配置新增 `sources.lux.{enabled,timeout}`（默认关）；开启后解析链插入 `lux` Resolver（ADR-0026，
 > 精选 B站/抖音/爱奇艺/芒果/西瓜/快手提取器子集）。任务选项 `{"lux": true}` 强制路由（注册表

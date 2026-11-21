@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 
@@ -69,11 +70,17 @@ func (s *Store) Recover(ctx context.Context) ([]core.TaskID, error) {
 	return out, nil
 }
 
-func (s *Store) verifyTaskChunks(ctx context.Context, id core.TaskID, resourceID string) error {
-	tempPath, err := s.Option(ctx, id, "temp_path")
-	if err != nil {
-		return err
+// tempPathOptionFor returns the persisted temp-path option key for one file
+// of a task: "temp_path" for file 0 (the original single-file key) and
+// "temp_path:{i}" for additional files of a multi-file task (ADR-0027).
+func tempPathOptionFor(fileIdx int) string {
+	if fileIdx == 0 {
+		return "temp_path"
 	}
+	return fmt.Sprintf("temp_path:%d", fileIdx)
+}
+
+func (s *Store) verifyTaskChunks(ctx context.Context, id core.TaskID, resourceID string) error {
 	chunks, err := s.Chunks(ctx, id)
 	if err != nil {
 		return err
@@ -81,39 +88,60 @@ func (s *Store) verifyTaskChunks(ctx context.Context, id core.TaskID, resourceID
 	if len(chunks) == 0 {
 		return nil
 	}
-	f, err := os.Open(tempPath)
-	if err != nil {
-		// No .part: every claimed chunk must be re-downloaded.
-		for _, c := range chunks {
-			if c.State == core.ChunkDone || c.State == core.ChunkVerified || c.State == core.ChunkAssigned {
-				if err := s.ResetChunk(ctx, c); err != nil {
-					return err
-				}
-			}
-		}
-		return s.SetProgress(ctx, id, 0, s.totalSize(chunks))
-	}
-	defer f.Close()
-
-	var done int64
+	// Group chunks by file: a multi-file task (ADR-0027) keeps one .part per
+	// file, so each file's chunks verify against its own temp path. A
+	// single-file task has exactly one group and behaves exactly as before.
+	byFile := map[int][]core.Chunk{}
+	var order []int
 	for _, c := range chunks {
-		if c.State != core.ChunkDone && c.State != core.ChunkVerified {
-			continue
+		if _, ok := byFile[c.FileIndex]; !ok {
+			order = append(order, c.FileIndex)
 		}
-		want, err := s.ChunkDigest(ctx, resourceID, c.FileIndex, c.Index)
+		byFile[c.FileIndex] = append(byFile[c.FileIndex], c)
+	}
+	var done int64
+	var total int64
+	for _, fileIdx := range order {
+		fileChunks := byFile[fileIdx]
+		total += s.totalSize(fileChunks)
+		tempPath, err := s.Option(ctx, id, tempPathOptionFor(fileIdx))
 		if err != nil {
 			return err
 		}
-		ok := want != "" && hashRange(f, c) == want
-		if !ok {
-			if err := s.ResetChunk(ctx, c); err != nil {
-				return err
+		f, ferr := os.Open(tempPath)
+		if ferr != nil {
+			// No .part for this file: every claimed chunk must be re-downloaded.
+			for _, c := range fileChunks {
+				if c.State == core.ChunkDone || c.State == core.ChunkVerified || c.State == core.ChunkAssigned {
+					if err := s.ResetChunk(ctx, c); err != nil {
+						return err
+					}
+				}
 			}
 			continue
 		}
-		done += c.Length
+		for _, c := range fileChunks {
+			if c.State != core.ChunkDone && c.State != core.ChunkVerified {
+				continue
+			}
+			want, err := s.ChunkDigest(ctx, resourceID, c.FileIndex, c.Index)
+			if err != nil {
+				f.Close()
+				return err
+			}
+			ok := want != "" && hashRange(f, c) == want
+			if !ok {
+				if err := s.ResetChunk(ctx, c); err != nil {
+					f.Close()
+					return err
+				}
+				continue
+			}
+			done += c.Length
+		}
+		f.Close()
 	}
-	return s.SetProgress(ctx, id, done, s.totalSize(chunks))
+	return s.SetProgress(ctx, id, done, total)
 }
 
 func (s *Store) totalSize(chunks []core.Chunk) int64 {
@@ -156,6 +184,51 @@ func (s *Store) VerifyAllChunks(ctx context.Context, id core.TaskID, resourceID,
 	defer f.Close()
 	var bad []core.Chunk
 	for _, c := range chunks {
+		if c.State != core.ChunkDone && c.State != core.ChunkVerified {
+			bad = append(bad, c)
+			continue
+		}
+		want, err := s.ChunkDigest(ctx, resourceID, c.FileIndex, c.Index)
+		if err != nil {
+			return nil, err
+		}
+		if want == "" || hashRange(f, c) != want {
+			bad = append(bad, c)
+			continue
+		}
+		if c.State == core.ChunkDone {
+			if err := s.Verified(ctx, c); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return bad, nil
+}
+
+// VerifyFileChunks verifies one file's chunks against its own temp path
+// (ADR-0027 multi-file tasks: each file has its own .part and chunk range).
+// Mirrors VerifyAllChunks semantics scoped to file_idx.
+func (s *Store) VerifyFileChunks(ctx context.Context, id core.TaskID, resourceID string, fileIdx int, tempPath string) ([]core.Chunk, error) {
+	chunks, err := s.Chunks(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(tempPath)
+	if err != nil {
+		var scoped []core.Chunk
+		for _, c := range chunks {
+			if c.FileIndex == fileIdx {
+				scoped = append(scoped, c)
+			}
+		}
+		return scoped, err
+	}
+	defer f.Close()
+	var bad []core.Chunk
+	for _, c := range chunks {
+		if c.FileIndex != fileIdx {
+			continue
+		}
 		if c.State != core.ChunkDone && c.State != core.ChunkVerified {
 			bad = append(bad, c)
 			continue

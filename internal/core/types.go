@@ -88,6 +88,11 @@ type ResourceFile struct {
 	Size     int64  `json:"size"`
 	Offset   int64  `json:"offset,omitempty"`
 	Selected bool   `json:"selected"`
+	// URL is the per-file source for multi-file (separated-stream) tasks
+	// (docs/06 §4.4, ADR-0027). Empty for single-file resources, whose URL
+	// lives on Mirrors. Every non-empty URL is SSRF-guard-checked by the
+	// resolver before it is persisted.
+	URL string `json:"url,omitempty"`
 }
 
 // Mirror is one source URL with its scheduling metadata.

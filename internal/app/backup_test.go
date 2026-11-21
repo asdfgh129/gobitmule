@@ -86,7 +86,7 @@ func TestBackupRestoreBundleRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BackupBundle: %v", err)
 	}
-	if m.SchemaVersion != 1 || m.Format != BackupFormat {
+	if m.SchemaVersion != 2 || m.Format != BackupFormat {
 		t.Fatalf("manifest = %+v", m)
 	}
 	if len(m.KeychainRefs) != 1 || m.KeychainRefs[0] != "dpapi://ud/cred/abcd1234abcd1234abcd1234abcd1234" {
@@ -115,7 +115,7 @@ func TestBackupRestoreBundleRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := raw2.Exec(`UPDATE app_meta SET value='2' WHERE key='schema_version'`); err != nil {
+	if _, err := raw2.Exec(`UPDATE app_meta SET value='3' WHERE key='schema_version'`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := raw2.Exec(`UPDATE chunks SET state='pending'`); err != nil {
@@ -127,7 +127,7 @@ func TestBackupRestoreBundleRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RestoreBundle: %v", err)
 	}
-	if rep.SchemaVersion != 1 || rep.RecoveredTasks != 1 {
+	if rep.SchemaVersion != 2 || rep.RecoveredTasks != 1 {
 		t.Fatalf("report = %+v", rep)
 	}
 	if rep.PreRestoreBackup == "" {
@@ -268,15 +268,15 @@ func TestMigrateAlreadyCurrentAndFromMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	if !rep.AlreadyCurrent || rep.From != 1 || rep.To != 1 {
-		t.Fatalf("report = %+v, want already-current v1", rep)
+	if !rep.AlreadyCurrent || rep.From != 2 || rep.To != 2 {
+		t.Fatalf("report = %+v, want already-current v2", rep)
 	}
 
-	_, err = Migrate(ctx, live, 2)
+	_, err = Migrate(ctx, live, 3)
 	if err == nil {
-		t.Fatal("--from 2 must refuse a v1 database")
+		t.Fatal("--from 3 must refuse a v2 database")
 	}
-	if !strings.Contains(err.Error(), "--from 2") {
+	if !strings.Contains(err.Error(), "--from 3") {
 		t.Fatalf("refusal must name the mismatch: %v", err)
 	}
 

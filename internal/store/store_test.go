@@ -36,7 +36,7 @@ func TestSchemaAndIdempotentMigration(t *testing.T) {
 			t.Fatalf("open #%d: %v", i, err)
 		}
 		v, err := st.SchemaVersion(context.Background())
-		if err != nil || v != 1 {
+		if err != nil || v != 2 {
 			t.Fatalf("schema_version=%d err=%v", v, err)
 		}
 		st.Close()
@@ -395,9 +395,11 @@ func TestBackupRestoreRollbackDrill(t *testing.T) {
 
 	// 2. Bad upgrade: schema bumped, task cancelled, all chunk progress lost.
 	_ = st.UpdateState(ctx, id, StateUpdate{To: core.StateCanceled})
-	_, _ = st.db.ExecContext(ctx, `UPDATE app_meta SET value='2' WHERE key='schema_version'`)
+	// DDL v2 (ADR-0027): the simulated bad upgrade must exceed the CURRENT
+	// schema version (2), so the rollback restores the v2 baseline.
+	_, _ = st.db.ExecContext(ctx, `UPDATE app_meta SET value='3' WHERE key='schema_version'`)
 	_, _ = st.db.ExecContext(ctx, `UPDATE chunks SET state='pending'`)
-	if v, _ := st.SchemaVersion(ctx); v != 2 {
+	if v, _ := st.SchemaVersion(ctx); v != 3 {
 		t.Fatalf("simulated upgrade did not bump schema_version: %d", v)
 	}
 	if err := st.Close(); err != nil {
@@ -427,8 +429,8 @@ func TestBackupRestoreRollbackDrill(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restored.Close()
-	if v, _ := restored.SchemaVersion(ctx); v != 1 {
-		t.Fatalf("schema_version after rollback = %d, want 1", v)
+	if v, _ := restored.SchemaVersion(ctx); v != 2 {
+		t.Fatalf("schema_version after rollback = %d, want 2", v)
 	}
 	ids, err := restored.Recover(ctx)
 	if err != nil {
