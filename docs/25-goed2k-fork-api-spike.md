@@ -107,3 +107,42 @@ for { c, ok, _ := w.Next(ctx); reader.Seek(c.Start); readWithBudget(ctx, reader,
 
 **建议**：下一步先落 `internal/transport/ed2k` 离线骨架（与已落地的
 `resolve/ed2k.go` 衔接），再在获取 eD2k 客户端/凭据后补真实联调与 ED 门禁。
+
+## 6. 落地补记（2026-11-21 同日）
+
+### 6.1 离线骨架已实现
+
+`internal/transport/ed2k/ed2k.go` + `ed2k_test.go` 已落地，94% 语句覆盖并
+纳入 `tools/gates.py` 80% 门禁集：
+
+- `Downloader` seam：`Open(ctx, r) (io.ReadSeekCloser, int64, error)`。生产
+  实现（fork goed2k：`AddTransfer`+`Wait`+`ReadRange`）**未接入**；注入前
+  `Run` 返回 `E_CAPABILITY_UNAVAILABLE`，绝不静默半下载。
+- `Probe` 纯离线：从 `Resource.Files[0].Size` + `Identity.ED2KFileHash` 读取，
+  零网络、零新增字段（ADR-0013）。
+- `Run` 复用 BT reader 模式：`reader.Seek(c.Start)` → `readWithBudget` →
+  `w.WriteChunk`，逐 chunk 计费走唯一 Limiter；越界 chunk `Release` 并报错，
+  引擎上报 size 与 link size 不符时 `E_CHECKSUM_MISMATCH`。
+- **默认不注册**到 daemon：无生产 Downloader 时不改变 dispatch 行为；
+  fork 落地后 `transports.Register(ed2ktransport.New(goed2kDL))` 一行启用，
+  `Supports` 只认 `KindED2K`，不影响其他 kind。
+
+**刻意不 `go get goed2k`**：它是带 `charmbracelet/bubbletea/lipgloss/bubbles`
+整套 TUI 的完整应用库，直接依赖会把 TUI 全家桶污染进生产依赖树，与
+ADR-0030「fork 自维护、剥离 TUI」相悖。故骨架零新增依赖，用 seam 隔离。
+
+### 6.2 实验室 209 补探（凭据已获取）
+
+用 `bemin` 凭据成功登录 209（OpenSSH `SSH_ASKPASS` 通道）。**209 实为
+Windows 10（build 19044）主机**，非 Linux，纠正 §4 的推断：
+
+- IP：`192.168.1.209` / `192.168.34.209`；有 Python 3.11、Tailscale、Wireshark。
+- **关键**：`emule.exe` 正在运行（PID 12124，路径
+  `C:\Program Files (x86)\eMule\emule.exe`）——实验室已有真实 eD2k 客户端。
+- 但 `netstat` 无 4662/4672/4711 监听，未见 `nodes.dat`/`server.met`，
+  Tailscale 处于 NoState。即 eMule 在运行但 **KAD 引导与入站端口未配置**。
+
+**结论**：ED 门禁的「客户端」前置条件已部分满足（eMule 存在），但
+「KAD + TCP/UDP 入站 + 真实互通」仍缺，ED-01/02/05/06 维持 `NOT_EXECUTED`。
+下一步需在 209 上配置 eMule KAD（导入 nodes.dat / 开放 4662 TCP + 4672 UDP）
+并与 221/222 侧 ud 实例做真实互通，方可执行门禁。

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/asdfgh129/ud/internal/config"
 	"github.com/asdfgh129/ud/internal/core"
 )
 
@@ -287,7 +288,8 @@ func TestRPCGetGlobalOption(t *testing.T) {
 	}
 }
 
-// rateToAria2 must produce aria2 integer bytes/s, never a malformed unit string.
+// GlobalConfig.Aria2GlobalLimits must produce aria2 integer bytes/s, never a
+// malformed unit string. (Rate reading is confined to config — check_arch 4.)
 func TestRateToAria2(t *testing.T) {
 	cases := map[string]string{
 		"8MiB/s": strconv.FormatInt(8<<20, 10),
@@ -297,8 +299,9 @@ func TestRateToAria2(t *testing.T) {
 		"garbage": "0",
 	}
 	for in, want := range cases {
-		if got := rateToAria2(in); got != want {
-			t.Fatalf("rateToAria2(%q)=%q want %q", in, got, want)
+		down, _ := config.GlobalConfig{MaxDownloadRate: in}.Aria2GlobalLimits()
+		if down != want {
+			t.Fatalf("Aria2GlobalLimits(%q)=%q want %q", in, down, want)
 		}
 	}
 }

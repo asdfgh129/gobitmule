@@ -610,6 +610,25 @@ func ExpandHome(p string) string {
 	return p
 }
 
+// Aria2GlobalLimits maps the global down/up rate caps into aria2's wire
+// format (integer bytes-per-second, "0" = unlimited). It lives in config so
+// the global rate fields are read ONLY here or by the Limiter — check_arch
+// guard 4 forbids any other package from reading MaxDownloadRate/MaxUploadRate.
+// Used by the opt-in L1 aria2 facade (ADR-0031) for getGlobalOption.
+func (g GlobalConfig) Aria2GlobalLimits() (download, upload string) {
+	return rateToAria2Bytes(g.MaxDownloadRate), rateToAria2Bytes(g.MaxUploadRate)
+}
+
+// rateToAria2Bytes converts a ud rate string to aria2's integer bytes/s form.
+// Unparseable values fall back to "0" so AriaNg never sees a malformed unit.
+func rateToAria2Bytes(s string) string {
+	b, err := ParseRate(s)
+	if err != nil {
+		return "0"
+	}
+	return strconv.FormatInt(b, 10)
+}
+
 // ParseRate parses "8MiB/s" / "512KiB/s" / "0" (unlimited) into bytes per second.
 func ParseRate(s string) (int64, error) {
 	s = strings.TrimSpace(s)

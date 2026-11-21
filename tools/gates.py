@@ -56,6 +56,7 @@ THRESHOLDS = {
     "internal/transport/ftp": 80.0,
     "internal/transport/sftp": 80.0,
     "internal/transport/bt": 80.0,
+    "internal/transport/ed2k": 80.0,
     "internal/transport/dash": 80.0,
     "internal/resolve/site": 80.0,
     "internal/transport/hls": 80.0,

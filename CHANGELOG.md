@@ -16,11 +16,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16 eD2k Transport 离线骨架 + 209 实验室补探（2026-11-21）**：
+  - **实现**：`internal/transport/ed2k/`（`ed2k.go` + `ed2k_test.go`）。按
+    `docs/25` spike 的 BT 同构 reader 模式落地：`Downloader` seam（生产实现
+    = fork goed2k `AddTransfer`+`Wait`+`ReadRange`，未接入）、`Probe` 纯离线
+    （复用 ADR-0013 冻结 Identity，零新增字段）、`Run` 逐 chunk `Seek`+计费
+    走唯一 Limiter + 越界/size 不符显式报错。**默认不注册** daemon，无
+    Downloader 时 `E_CAPABILITY_UNAVAILABLE` Fail-closed，不改现有 dispatch。
+    94% 覆盖并纳入 `gates.py` 80% 门禁集。刻意不 `go get goed2k`（带 bubbletea
+    TUI 全家桶，与 ADR-0030 剥离 TUI 相悖）。
+  - **209 补探**：用 `bemin` 凭据成功登录——**209 实为 Windows 10**（非 Linux，
+    纠正 `docs/25` §4 推断），有 Python 3.11/Tailscale/Wireshark；**发现真实
+    `emule.exe` 在运行**（`C:\Program Files (x86)\eMule\`）。但无 4662/4672/
+    4711 监听、无 `nodes.dat`/`server.met`，KAD 与入站未配置。
+  - **门禁状态**：ED-01/02/05/06 仍 `NOT_EXECUTED`（客户端前置条件部分满足，
+    KAD + 真机互通仍缺），不翻转发布结论。`docs/14`/`docs/25` 同步。
+  - **顺带修复**：`getGlobalOption` 直接读全局速率字段违反 `check_arch` 守卫 4
+    ——速率换算下沉到 `config.GlobalConfig.Aria2GlobalLimits()`，api 不再读
+    `MaxDownloadRate`；`check_arch.py` 6 守卫全过（0 violation）。
 - **WBS 17 AriaNg 真机验收 + 两处 facade 缺口修复（2026-11-21）**：
   - **真机环境**：隔离实验室双机 `192.168.1.222`（udd :6800 + AriaNg 1.3.15
     静态页 :8080）/ `192.168.1.221`（HTTP 源 :18080）。交叉编译 `CGO_ENABLED=0`
     linux/amd64 udd scp 部署；rpc.enabled + remoteToken + 隔离段放行私网。
-    `209` 拒绝当前密钥、无 Go/无 eD2k 客户端，ED 门禁仍 NOT_EXECUTED。
+    当时 `209` 尚无凭据（注：同日稍后用 `bemin` 凭据登录，确认 209 为 Windows
+    且有 eMule 在运行，见上方 WBS 16 条目；ED 门禁仍 NOT_EXECUTED）。
   - **端到端证据**（`docs/evidence/ariang-2026-11-21/`）：capabilities `rpcLevel=L1`；
     鉴权 fail-closed（无 token → `-32001`）；`addUri` 真实跨机下载 1MiB 文件
     → `tellStatus=complete` → 落盘 SHA256 与源一致；`getUris`/`getFiles`/

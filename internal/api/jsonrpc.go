@@ -658,11 +658,15 @@ func (f *rpcFacade) getGlobalOption() (any, *rpcError) {
 	if f.s.cfg != nil {
 		g = f.s.cfg.Get().Global
 	}
+	// Global rate fields are read only inside the config package (check_arch
+	// guard 4: the Limiter is the sole rate authority). The mapping is done
+	// there; this facade merely renders the result for AriaNg.
+	downLimit, upLimit := g.Aria2GlobalLimits()
 	return map[string]any{
-		"dir":                       "", // ud has no global default dir; per-task
-		"max-concurrent-downloads":  strconv.Itoa(g.MaxConcurrentTasks),
-		"max-overall-download-limit": rateToAria2(g.MaxDownloadRate),
-		"max-overall-upload-limit":  rateToAria2(g.MaxUploadRate),
+		"dir":                        "", // ud has no global default dir; per-task
+		"max-concurrent-downloads":   strconv.Itoa(g.MaxConcurrentTasks),
+		"max-overall-download-limit": downLimit,
+		"max-overall-upload-limit":   upLimit,
 		"max-connection-per-server": strconv.Itoa(g.MaxConnectionsPerTask),
 		"min-split-size":            g.ChunkSize,
 		"split":                     strconv.Itoa(g.MaxConnectionsPerTask),
@@ -679,17 +683,6 @@ func (f *rpcFacade) getGlobalOption() (any, *rpcError) {
 		"rpc-allow-origin-all":      "false",
 		"rpc-save-upload-metadata":  "false",
 	}, nil
-}
-
-// rateToAria2 converts a ud rate string ("8MiB/s") to aria2's integer
-// bytes-per-second form; "0" means unlimited in both. Unparseable values fall
-// back to "0" so AriaNg never sees a malformed rate.
-func rateToAria2(s string) string {
-	b, err := config.ParseRate(s)
-	if err != nil {
-		return "0"
-	}
-	return strconv.FormatInt(b, 10)
 }
 
 func (f *rpcFacade) getOption(ctx context.Context, params []json.RawMessage) (any, *rpcError) {
