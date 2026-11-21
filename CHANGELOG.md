@@ -16,6 +16,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **P3 三项：Telegram MTProto L1（2026-11-21，ADR-0029）**：
+  - **交付**：`internal/transport/tg`——gotd/td v0.166.1（MIT，**+16 链接模块全宽松
+    许可**，门禁实测 PASS）；四形态链接解析（t.me / t.me/c 私有 / tg://resolve /
+    tg://privatepost）归一化为内部 `tg://ud` 镜像（无 http(s) 传输可声明、分发无歧义）；
+    `MediaClient` seam（生产 `gotdMedia`：ResolveUsername → ChannelsGetMessages →
+    Document → `downloader.Stream`，`WithPartSize(512KiB)` + `WithAllowCDN(true)` 按
+    ADR-0009）；`Stream` 写入 io.Pipe 经 `tputil.NewChanReader` + `SequentialCommit`
+    进 chunk 计划（与 hls/dash 同一提交语义，逐字节过 Budget）；FLOOD_WAIT 按
+    服务端时长归类 `E_TRANSIENT_NETWORK`；会话经 `POST /credentials` 存钥匙串
+    （FR-SRC-06，L1 只读）；私有链接干净拒绝（需账号侧 access hash，P3）。
+    `internal/resolve/tg` 分类 + credentialRef 透传；opt-in
+    `sources.telegram.{enabled,apiId,apiHash,timeout}`（apiHash 为 APP 凭据，不经
+    `GET /config` 回显）。
+  - **发现并修复：streamErr 双接收死锁**——Run 的 `return <-streamErr` 与延迟清理各
+    接收一次 writer 侧错误，第二次永久阻塞（集成测试超时抓出）；改为提交结束后
+    单次接收。另修 tg:// 深链 host 解析与 Match 启发式过宽（parse-as-match）。
+  - **验证**：链接解析 10+ 形态与拒绝、归一化往返、seam 假媒体 Probe/Run 经 chunk
+    计划逐字节一致 + Budget 计量、FLOOD_WAIT 42s 断言、私有/无会话拒绝、app 链序
+    断言（telegram 位次 lux 后、yt-dlp 前）。全量 22 包回归零 FAIL。
+  - **边界（NOT_EXECUTED，如实）**：真实 MTProto 互通（2GB 文件 / DC 迁移 / 会话
+    失效 / MTProxy——ADR-0009 验证清单）需真实凭据与网络，CI 禁止；生产客户端已
+    编译接线、待实验室凭据补测（同 Windows 钥匙串先例）。
+  - **文档**：`docs/adr/ADR-0029`、`03` FR-SRC-04 时点注、`05` 链序、`07` v0.16、
+    `10` §4 落地注、`11` 会话落地注、`12` §3.3、`14` WBS 15。
+
 - **P3 次项：HLS 多 rendition 分离发射（2026-11-21，ADR-0028）**：
   - **交付**：可选 `core.FilePlanner` 能力接口（`PlanFiles`）——流传输可声明「本资源
     可展开为多个每流文件」，调度器采纳计划（`store.ReplaceResourceFiles` 原子替换

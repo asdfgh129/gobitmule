@@ -13,6 +13,11 @@
 > 前置 moov MP4 + fMP4 直通），`EXT-X-DISCONTINUITY` 与坏流容错仍属边界。决策本身不变，
 > 详细边界见对应 ADR 的实现时点注与 `23` v1.4。
 >
+> **v0.15 变更（2026-11-21，新增 ADR-0029）**：WBS 15 L1——Telegram MTProto 传输
+> [ADR-0029](ADR-0029-Telegram-MTProto-L1.md)：gotd/td v0.166.1（+16 链接模块全宽松许可）、
+> 四形态链接归一化、会话凭据化（L1 只读）、FLOOD_WAIT 分类、MediaClient seam 离线测试；
+> **真实 MTProto 互通 NOT_EXECUTED**（需真实凭据与网络）。已批准 ADR 计数 28 → **29**。
+>
 > **v0.14 变更（2026-11-21，新增 ADR-0028）**：HLS 多 rendition 分离发射——
 > 可选 `core.FilePlanner` 能力接口 + EXT-X-MEDIA 音频组解析 + 调度器计划采纳与
 > 逐文件 Probe 补尺寸；DASH 多集维持拒绝（表示级选择不同构，如实边界）。
@@ -134,6 +139,7 @@ ADR 是本项目**架构决策的唯一真值源**。任何与已接受 ADR 冲�
 | [0026](ADR-0026-lux进程内站点解析.md) | lux 进程内站点解析（精选提取器子集 / opt-in / SSRF 双检 / 单 Part 边界） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、07、10、12、14、ADR-0010 |
 | [0027](ADR-0027-多文件下载与容器合并.md) | 多文件下载与容器合并（DDL v2 files.url / 记录式迁移 / 顺序多文件 / yt-dlp 分离发射 / 站点头持久化修正） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、06、07、10、12、14、ADR-0010 |
 | [0028](ADR-0028-HLS多rendition分离发射.md) | HLS 多 rendition 分离发射（可选 FilePlanner 能力 / EXT-X-MEDIA / 逐文件 Probe 补尺寸） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、06、07、12、14、ADR-0027 |
+| [0029](ADR-0029-Telegram-MTProto-L1.md) | Telegram MTProto L1（gotd/td / 会话凭据化 / FLOOD_WAIT 分类 / 公开链接 L1） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、07、10、11、12、14、ADR-0009/0027 |
 
 ## 决策演进时间线
 

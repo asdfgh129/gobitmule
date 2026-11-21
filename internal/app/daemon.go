@@ -31,6 +31,7 @@ import (
 	hlstransport "github.com/asdfgh129/ud/internal/transport/hls"
 	httptransport "github.com/asdfgh129/ud/internal/transport/http"
 	sftptransport "github.com/asdfgh129/ud/internal/transport/sftp"
+	tgtransport "github.com/asdfgh129/ud/internal/transport/tg"
 	"github.com/asdfgh129/ud/internal/version"
 )
 
@@ -79,6 +80,11 @@ func newBuiltinResolversForConfig(guard core.URLGuard, cfg config.Config, extra 
 		// chain byte-identical to the pre-lux behaviour. Site resolvers sit
 		// ahead of plugin rules (docs/05 §10).
 		site = append(site, resolve.NewLuxResolver(guard, cfg.Sources.Lux.EffectiveTimeout()))
+	}
+	if cfg.Sources.Telegram.Enabled {
+		// WBS 15 / ADR-0029: telegram message links. The MTProto session
+		// travels via the task's credentialRef (keychain), never config.
+		site = append(site, resolve.NewTGResolver())
 	}
 	if cfg.Sources.YTDLP.Enabled {
 		site = append(site, resolve.NewYTDLP(guard, resolve.YTDLPOptions{
@@ -281,6 +287,12 @@ func Run(ctx context.Context, opts Options) error {
 		bttransport.WithLifecycleContext(ctx),
 	}
 	transports := newBuiltinTransports(guard, creds, btOpts...)
+	if cfg.Sources.Telegram.Enabled {
+		// WBS 15 / ADR-0029: MTProto file transport (opt-in). Claims only
+		// tg://ud mirror URLs, so existing transports are unaffected.
+		transports.Register(tgtransport.New(creds, cfg.Sources.Telegram.APIID,
+			cfg.Sources.Telegram.APIHash, cfg.Sources.Telegram.EffectiveTimeout()))
+	}
 	defer transports.Close()
 
 	postprocs := postproc.NewRegistry()

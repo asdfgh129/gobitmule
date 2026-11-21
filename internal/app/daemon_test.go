@@ -253,14 +253,20 @@ func TestSiteResolverOptIn(t *testing.T) {
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, base) {
 		t.Fatalf("default chain = %v, want %v", got, base)
 	}
+	cfg.Sources.Telegram.Enabled = true
+	tgChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "telegram",
+		"direct-http", "direct-file", "unsupported"}
+	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, tgChain) {
+		t.Fatalf("telegram chain = %v, want %v", got, tgChain)
+	}
 	cfg.Sources.Lux.Enabled = true
-	luxChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux",
+	luxChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux", "telegram",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, luxChain) {
 		t.Fatalf("lux chain = %v, want %v", got, luxChain)
 	}
 	cfg.Sources.YTDLP.Enabled = true
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux", "yt-dlp",
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux", "telegram", "yt-dlp",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("enabled chain = %v, want %v", got, want)

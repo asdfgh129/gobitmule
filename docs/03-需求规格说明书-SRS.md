@@ -142,6 +142,11 @@
 | FR-SRC-02 | 长尾站点与 YouTube 经 `yt-dlp` sidecar 解析（`-J --skip-download`） | C |
 | FR-SRC-03 | YouTube 链路需 Deno 2.3+（或 Node 22+）作为 yt-dlp 子依赖，随包/按需提供 | C |
 | FR-SRC-04 | Telegram 经 `gotd/td` 纯 Go MTProto 下载，支持 2GB（Premium 4GB）、CDN 重定向、`FLOOD_WAIT`、会话持久化、流式写入自有 Transport | S |
+  > **2026-11-21 时点注（ADR-0029）**：L1 技术交付——gotd/td v0.166.1（+16 链接模块全宽松许可）、
+  > 四形态链接归一化、`Stream(io.Writer)` → 顺序提交契约、FLOOD_WAIT 按服务端时长归类
+  > `E_TRANSIENT_NETWORK`、会话经钥匙串凭据化（L1 只读）、私有链接干净拒绝、opt-in 配置。
+  > **真实 MTProto 互通（2GB 文件 / DC 迁移 / 会话失效 / MTProxy）NOT_EXECUTED**——需真实
+  > 凭据与网络，CI 禁止（`12` §1）；生产客户端已编译接线，待实验室凭据补测。
 | FR-SRC-05 | 微信能力（公众号视频 HTML 解析 / 视频号 MITM）为**单独分发的可选插件**，默认不安装；提权操作隔离在独立助手 | W |
 | FR-SRC-06 | 凭据（Cookie、Telegram session、代理密码）存系统钥匙串，按任务最小化传递 | M |
 

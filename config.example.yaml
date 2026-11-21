@@ -66,6 +66,11 @@ events:
 # 开启后 sidecar 只执行 `-J --skip-download` 吐 JSON；站点 URL 与格式 URL 均过 SSRFGuard。
 # UD_YTDLP_ENABLED / UD_YTDLP_BINARY / UD_YTDLP_TIMEOUT 可覆盖；改配置需重启 daemon。
 sources:
+  telegram:
+    enabled: false          # true = 注册 telegram Resolver/Transport（WBS 15，ADR-0029）
+    apiId: 0                # Telegram APP 凭据（my.telegram.org）；会话本体走 POST /credentials（钥匙串）
+    apiHash: ""             # APP 凭据，不含用户密钥；开启后必填
+    timeout: "10m"          # 单次 MTProto 操作上限，10s..30m
   lux:
     enabled: false          # true = 注册 lux 进程内站点解析（ADR-0026，精选 B站/抖音/爱奇艺/芒果/西瓜/快手）
     timeout: "60s"          # 单次提取上限，1s..5m；超时后放弃提取（lux API 不支持 ctx，后台协程自行结束）

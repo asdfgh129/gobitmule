@@ -141,8 +141,34 @@ func (p PostProcessConfig) Validate() error {
 // that only emits JSON (ADR-0010); it stays OFF by default so the zero-sidecar
 // baseline and the P0/P1 capability surface are unchanged.
 type SourcesConfig struct {
-	YTDLP YTDLPConfig `yaml:"ytdlp" json:"ytdlp"`
-	Lux   LuxConfig   `yaml:"lux" json:"lux"`
+	YTDLP    YTDLPConfig    `yaml:"ytdlp" json:"ytdlp"`
+	Lux      LuxConfig      `yaml:"lux" json:"lux"`
+	Telegram TelegramConfig `yaml:"telegram" json:"telegram"`
+}
+
+// TelegramConfig gates the MTProto transport (WBS 15, ADR-0029). apiId /
+// apiHash are the Telegram APP credentials (an app identifier, not a user
+// secret); the USER session blob travels through the credential store
+// (FR-SRC-06). Disabled by default: an unconfigured daemon must not accept
+// telegram links.
+type TelegramConfig struct {
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	APIID   int    `yaml:"apiId" json:"apiId"`
+	APIHash string `yaml:"apiHash" json:"-"`
+	Timeout string `yaml:"timeout" json:"timeout"`
+}
+
+// EffectiveTimeout returns the MTProto operation bound, falling back to 10m
+// (large documents need minutes, not seconds).
+func (t TelegramConfig) EffectiveTimeout() time.Duration {
+	if strings.TrimSpace(t.Timeout) == "" {
+		return 10 * time.Minute
+	}
+	d, err := time.ParseDuration(t.Timeout)
+	if err != nil || d <= 0 {
+		return 10 * time.Minute
+	}
+	return d
 }
 
 // LuxConfig gates the in-process Chinese-site parser (ADR-0010 decision 1 /
@@ -192,6 +218,23 @@ func (y YTDLPConfig) EffectiveMaxBytes() int64 {
 }
 
 func (s SourcesConfig) Validate() error {
+	if tg := s.Telegram; tg.Enabled {
+		if tg.APIID <= 0 || tg.APIID > (1<<31)-1 {
+			return fmt.Errorf("sources.telegram.apiId must be within 1..2^31-1 when enabled")
+		}
+		if strings.TrimSpace(tg.APIHash) == "" {
+			return fmt.Errorf("sources.telegram.apiHash is required when enabled")
+		}
+		if strings.ContainsAny(tg.APIHash, "\x00\r\n") {
+			return fmt.Errorf("sources.telegram.apiHash contains control characters")
+		}
+		if tg.Timeout != "" {
+			d, err := time.ParseDuration(tg.Timeout)
+			if err != nil || d < 10*time.Second || d > 30*time.Minute {
+				return fmt.Errorf("sources.telegram.timeout %q must be a duration within 10s..30m", tg.Timeout)
+			}
+		}
+	}
 	if l := s.Lux; l.Enabled {
 		if l.Timeout != "" {
 			d, err := time.ParseDuration(l.Timeout)
