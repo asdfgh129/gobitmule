@@ -35,6 +35,19 @@ type Playlist struct {
 // MasterPlaylist is an EXT-X-STREAM-INF document (adaptive set).
 type MasterPlaylist struct {
 	Variants []Variant
+	// AudioGroups holds the EXT-X-MEDIA TYPE=AUDIO renditions keyed by
+	// GROUP-ID (ADR-0028: separated audio/video multi-file emission).
+	AudioGroups map[string][]AudioRendition
+}
+
+// AudioRendition is one EXT-X-MEDIA TYPE=AUDIO entry.
+type AudioRendition struct {
+	GroupID    string
+	Name       string
+	Language   string
+	URI        string // empty = rendition muxed into the video stream
+	IsDefault  bool
+	AutoSelect bool
 }
 
 // Variant is one EXT-X-STREAM-INF entry. URI is resolved against the master
@@ -47,6 +60,7 @@ type Variant struct {
 	ProgramID     int
 	IsFallback    bool // no BANDWIDTH attribute: RFC 8216 says treat as 0-ranked
 	RenditionName string
+	AudioGroup    string // EXT-X-STREAM-INF AUDIO attribute ("" = none)
 }
 
 // MediaPlaylist is an EXTINF document (one playable rendition, VOD only).
@@ -184,9 +198,38 @@ func parseAttr(s string) map[string]string {
 func parseMaster(base *url.URL, scanner *bufio.Scanner) (*MasterPlaylist, error) {
 	pl := &MasterPlaylist{}
 	pendingAttr := ""
+	pendingMedia := (*AudioRendition)(nil)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		switch {
+		case strings.HasPrefix(line, "#EXT-X-MEDIA:"):
+			attr := parseAttr(strings.TrimPrefix(line, "#EXT-X-MEDIA:"))
+			if !strings.EqualFold(attr["TYPE"], "AUDIO") {
+				continue // video / subtitle / closed-captions groups: not consumed
+			}
+			// An URI-less rendition is muxed into the video stream; an empty
+			// attr must NOT be resolved against the base (that would make it
+			// self-URL and split a muxed stream, found by the ADR-0028 tests).
+			uri := ""
+			if attr["URI"] != "" {
+				uri = resolveURI(base, attr["URI"])
+			}
+			r := &AudioRendition{
+				GroupID:    attr["GROUP-ID"],
+				Name:       attr["NAME"],
+				Language:   attr["LANGUAGE"],
+				URI:        uri,
+				IsDefault:  strings.EqualFold(attr["DEFAULT"], "YES"),
+				AutoSelect: strings.EqualFold(attr["AUTOSELECT"], "YES"),
+			}
+			if r.GroupID == "" {
+				return nil, ErrBadMediaGroup
+			}
+			if pl.AudioGroups == nil {
+				pl.AudioGroups = map[string][]AudioRendition{}
+			}
+			pl.AudioGroups[r.GroupID] = append(pl.AudioGroups[r.GroupID], *r)
+			pendingMedia = r
 		case strings.HasPrefix(line, "#EXT-X-STREAM-INF:"):
 			pendingAttr = strings.TrimPrefix(line, "#EXT-X-STREAM-INF:")
 		case strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "#EXT"):
@@ -201,8 +244,16 @@ func parseMaster(base *url.URL, scanner *bufio.Scanner) (*MasterPlaylist, error)
 			v.Codecs = attr["CODECS"]
 			v.ProgramID, _ = strconv.Atoi(attr["PROGRAM-ID"])
 			v.RenditionName = attr["NAME"]
+			v.AudioGroup = attr["AUDIO"]
 			if _, ok := attr["BANDWIDTH"]; !ok {
 				v.IsFallback = true
+			}
+			// An EXT-X-MEDIA row may be its own URI carrier when the rendition
+			// is listed as TYPE=AUDIO with a URI and the STREAM-INF line is
+			// absent; that shape is not a variant URI.
+			if pendingMedia != nil && pendingMedia.URI != "" && line == pendingMedia.URI {
+				pendingMedia = nil
+				continue
 			}
 			pl.Variants = append(pl.Variants, v)
 			pendingAttr = ""
@@ -219,6 +270,33 @@ func parseMaster(base *url.URL, scanner *bufio.Scanner) (*MasterPlaylist, error)
 		return nil, ErrNoVariants
 	}
 	return pl, nil
+}
+
+// SelectAudioRendition picks the audio rendition for a variant's AUDIO group
+// (ADR-0028): DEFAULT=YES wins, then AUTOSELECT=YES, then document order;
+// renditions without a URI (muxed into the video) never split.
+func (m *MasterPlaylist) SelectAudioRendition(group string) *AudioRendition {
+	if m.AudioGroups == nil {
+		return nil
+	}
+	renditions := m.AudioGroups[group]
+	var best *AudioRendition
+	for i := range renditions {
+		r := &renditions[i]
+		if r.URI == "" {
+			continue
+		}
+		if best == nil {
+			best = r
+			continue
+		}
+		if r.IsDefault && !best.IsDefault {
+			best = r
+		} else if r.AutoSelect && !best.AutoSelect && !best.IsDefault {
+			best = r
+		}
+	}
+	return best
 }
 
 func parseMedia(base *url.URL, scanner *bufio.Scanner) (*MediaPlaylist, error) {

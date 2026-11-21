@@ -237,6 +237,23 @@ func TestMultiFileSeparatedStreamsRemuxToMP4(t *testing.T) {
 	if err != nil {
 		t.Fatalf("merged output missing: %v", err)
 	}
+	t.Logf("merged size=%d video=%d audio=%d", len(raw), len(mfVideoTS()), len(mfAudioTS()))
+	if vb, err := os.ReadFile(filepath.Join(dir, "movie.mp4.part")); err == nil {
+		t.Logf("video part bytes=%d first=%x", len(vb), vb[:min(4, len(vb))])
+	} else {
+		t.Logf("video part: %v", err)
+	}
+	if ab, err := os.ReadFile(filepath.Join(dir, "movie.audio.m4a.part")); err == nil {
+		nonZero := 0
+		for _, c := range ab {
+			if c != 0 {
+				nonZero++
+			}
+		}
+		t.Logf("audio part bytes=%d nonZero=%d first=%x", len(ab), nonZero, ab[:min(4, len(ab))])
+	} else {
+		t.Logf("audio part: %v", err)
+	}
 	// The merged MP4 must carry both tracks' payloads: the video sample bytes
 	// and the AAC frames from the two separated streams.
 	if !bytes.Contains(raw, []byte{0x9a, 0x20, 0x80}) {

@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **P3 次项：HLS 多 rendition 分离发射（2026-11-21，ADR-0028）**：
+  - **交付**：可选 `core.FilePlanner` 能力接口（`PlanFiles`）——流传输可声明「本资源
+    可展开为多个每流文件」，调度器采纳计划（`store.ReplaceResourceFiles` 原子替换
+    files 行）后走 ADR-0027 多文件路径；HLS 主清单的 `EXT-X-MEDIA` 音频组按
+    `GROUP-ID` 归组、`DEFAULT=YES > AUTOSELECT=YES > 文档序` 选流，**URI 为空的
+    muxed rendition 永不拆分**（空 URI 相对解析成自 URL 的实现缺陷实测修复）；
+    未声明尺寸由调度器逐文件 Probe 补齐；多文件子 Resource 携带 `res.Headers`
+    （分发标记 + 站点头）保证逐文件分派正确。
+  - **发现并修复：变量遮蔽产生零长度 chunk**——多文件初始化分支内 `sizes` map
+    遮蔽外层尺寸切片，`CreateChunks(0)` 产出零长分片、文件全零但空 digest 短路
+    校验通过（集成测试抓出）；修复并留注释。
+  - **验证**：解析/计划单测（`hls/plan_test.go`）+ 调度器级集成
+    `TestHLSSeparatedAudioRenditionRemuxToMP4`（真实 hls 传输 + 真实 Remux，
+    零 ffmpeg，双轨字节断言）；既有单文件 HLS 回归全绿。
+  - **边界**：DASH 多 AdaptationSet 维持拒绝（表示级选择不同构，后续包）；
+    字幕轨/多视频流/真实站点端到端未实现。
+  - **文档**：`docs/adr/ADR-0028`、`03` FR-TRN-08 时点注、`05`、`06` §4.4 追加、
+    `07` v0.15、`12` §3.3、`14` WBS 13。
+
 - **P3 首项：多文件下载与容器合并（2026-11-21，ADR-0027）**：
   - **交付**：调度器顺序多文件下载——每 selected 文件独立源 URL（`ResourceFile.URL` +
     **DDL v2** `files.url` 列）、chunk 计划（`chunks.file_idx` 既有列 + `NextForFile`）、

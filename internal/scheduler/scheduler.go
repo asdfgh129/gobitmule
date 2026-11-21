@@ -560,9 +560,30 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 		if f.URL == "" {
 			return core.Err(core.E_INVALID_INPUT, "file %d (%s) has no source URL", i, f.Path)
 		}
-		if f.Size <= 0 {
+	}
+	// Sizes: declared by the resolver, or probed per file (HLS streams have
+	// no declared size — the transport probes its own segment totals).
+	sizes := make([]int64, len(files))
+	for i, f := range files {
+		if f.Size > 0 {
+			sizes[i] = f.Size
+			continue
+		}
+		sub := &core.Resource{ID: res.ID, Kind: res.Kind, Engine: res.Engine,
+			Files: []core.ResourceFile{f},
+			Mirrors: []core.Mirror{{URL: f.URL, Priority: 1}},
+			Headers: res.Headers, Identity: res.Identity, Limits: res.Limits}
+		p, err := tr.Probe(ctx, sub)
+		if err != nil {
+			return err
+		}
+		if p.Size <= 0 {
 			return core.Err(core.E_INVALID_INPUT,
-				"file %d (%s) has no declared size; multi-file tasks need known sizes", i, f.Path)
+				"file %d (%s): probe returned no size; multi-file tasks need known sizes", i, f.Path)
+		}
+		sizes[i] = p.Size
+		if err := s.st.UpdateFileSizes(ctx, res.ID, map[int]int64{i: p.Size}); err != nil {
+			return err
 		}
 	}
 
@@ -576,7 +597,7 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 		// from the resolver (yt-dlp formats carry them); no Probe — the
 		// Transport probe contract describes one stream.
 		var total int64
-		sizes := make(map[int]int64, len(files))
+		sizeMap := make(map[int]int64, len(files))
 		chunkSize := res.Limits.ChunkSize
 		if chunkSize <= 0 {
 			chunkSize, _ = config.ParseSize(cfg.Global.ChunkSize)
@@ -590,13 +611,16 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 			if err := s.st.SetOption(ctx, id, tempPathOptionKey(i), tempPath); err != nil {
 				return err
 			}
-			sizes[i] = f.Size
-			total += f.Size
-			if _, err := s.st.CreateChunks(ctx, id, i, f.Size, chunkSize); err != nil {
+			// sizes[i] was declared by the resolver or probed above; the
+			// shadowed-map mistake here produced zero-length chunks (fixed
+			// 2026-11-21, caught by the multi-file integration test).
+			sizeMap[i] = sizes[i]
+			total += sizes[i]
+			if _, err := s.st.CreateChunks(ctx, id, i, sizes[i], chunkSize); err != nil {
 				return err
 			}
 		}
-		if err := s.st.UpdateFileSizes(ctx, res.ID, sizes); err != nil {
+		if err := s.st.UpdateFileSizes(ctx, res.ID, sizeMap); err != nil {
 			return err
 		}
 		if err := s.st.UpdateState(ctx, id, store.StateUpdate{
@@ -636,7 +660,7 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 		if tempPath == "" {
 			return core.Err(core.E_INTERNAL, "file %d has no temp path", i)
 		}
-		cw, err := newChunkWriterForFile(s.st, id, res.ID, tempPath, i, f.Size,
+		cw, err := newChunkWriterForFile(s.st, id, res.ID, tempPath, i, sizes[i],
 			s.bus, s.maxAttempts, counter.add)
 		if err != nil {
 			return err
@@ -647,6 +671,7 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 			Engine:   res.Engine,
 			Files:    []core.ResourceFile{f},
 			Mirrors:  []core.Mirror{{URL: f.URL, Priority: 1, Weight: 1}},
+			Headers:  res.Headers, // routing marker + site headers (ADR-0027/0028)
 			Limits:   res.Limits,
 			Identity: res.Identity,
 		}
@@ -760,8 +785,8 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 	delete(s.inputs, id)
 	s.mu.Unlock()
 	var total int64
-	for _, f := range files {
-		total += f.Size
+	for i := range files {
+		total += sizes[i]
 	}
 	s.emit(ctx, core.Event{Type: core.EventTaskCompleted, TaskID: id,
 		Payload: map[string]any{"bytesTotal": total}})
@@ -826,6 +851,19 @@ func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 	tr, err := s.transports.Select(res)
 	if err != nil {
 		return err
+	}
+	// ADR-0028: a stream transport with a per-stream file plan (HLS master
+	// carrying a separate audio rendition) expands the resource before the
+	// download phase; planner failures degrade to the single-file path.
+	if len(selectedFiles(res)) <= 1 {
+		if fp, ok := tr.(core.FilePlanner); ok {
+			if plan, perr := fp.PlanFiles(ctx, res); perr == nil && len(plan) > 1 {
+				res.Files = plan
+				if err := s.st.ReplaceResourceFiles(ctx, res.ID, plan); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	// ADR-0027: a resource with more than one selected file (separated
 	// audio/video streams) downloads its files one at a time — each with its

@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -72,6 +73,53 @@ func New(g core.URLGuard) *Transport {
 	}
 	client.Timeout = 5 * time.Minute
 	return &Transport{guard: g, client: client, keys: newKeyCache()}
+}
+
+// PlanFiles implements core.FilePlanner (ADR-0028): a master playlist whose
+// variant references a separate AUDIO rendition expands into a two-file plan
+// (video media playlist + audio media playlist), each file later downloaded
+// by the scheduler's multi-file loop and merged by the remux postprocessor.
+// A media playlist (or a master without an audio URI) plans no split — the
+// caller keeps the single-file path.
+func (t *Transport) PlanFiles(ctx context.Context, r *core.Resource) ([]core.ResourceFile, error) {
+	if !t.Supports(r) || len(r.Mirrors) == 0 {
+		return nil, nil
+	}
+	hdr := headerOf(r)
+	pl, err := t.loadPlaylist(ctx, r.Mirrors[0].URL, hdr)
+	if err != nil {
+		return nil, nil // planner failures degrade to the single-file path
+	}
+	if pl.Master == nil {
+		return nil, nil
+	}
+	variant := pl.Master.SelectVariant()
+	var audioURI string
+	if variant.AudioGroup != "" {
+		if rendition := pl.Master.SelectAudioRendition(variant.AudioGroup); rendition != nil {
+			audioURI = rendition.URI
+		}
+	}
+	if audioURI == "" {
+		return nil, nil // muxed audio: single-file path
+	}
+	if err := t.checkURL(ctx, variant.URI); err != nil {
+		return nil, nil
+	}
+	if err := t.checkURL(ctx, audioURI); err != nil {
+		return nil, nil
+	}
+	// Video/audio stream extensions come from the playlist names; the remux
+	// output name follows the video stream.
+	fmp4 := pl.Master != nil && strings.Contains(strings.ToLower(variant.Codecs), "av01")
+	name := defaultName(r.Mirrors[0].URL, fmp4)
+	base := strings.TrimSuffix(name, filepath.Ext(name))
+	// Files[0].Path doubles as the final MERGED output name (the scheduler
+	// derives `final` from it); files[1] is the audio stream label.
+	return []core.ResourceFile{
+		{Index: 0, Path: base + ".mp4", Size: 0, Selected: true, URL: variant.URI},
+		{Index: 1, Path: base + ".audio.m3u8", Size: 0, Selected: true, URL: audioURI},
+	}, nil
 }
 
 func (t *Transport) Name() string { return "hls" }

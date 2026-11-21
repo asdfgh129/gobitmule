@@ -14,6 +14,7 @@ var (
 	ErrUnsupportedCipher = errors.New("only METHOD=AES-128 / NONE are supported (SAMPLE-AES is not)")
 	ErrKeyWithoutURI     = errors.New("EXT-X-KEY with METHOD=AES-128 is missing URI")
 	ErrBadByteRange      = errors.New("malformed EXT-X-BYTERANGE")
+	ErrBadMediaGroup     = errors.New("EXT-X-MEDIA row without GROUP-ID")
 	ErrLiveNotSupported  = errors.New("live media playlist (no EXT-X-ENDLIST) is not supported")
 	ErrKeyFetchFailed    = errors.New("fetching EXT-X-KEY failed")
 	ErrDecryptFailed     = errors.New("AES-128 CBC decryption failed")

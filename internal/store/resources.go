@@ -14,6 +14,30 @@ import (
 // SaveResource persists the full P0-frozen Resource graph in one transaction.
 // The whole graph is one batched unit (docs/06 §7 / §10): concurrent resolves
 // reaching this method inside one 500ms window share a single transaction.
+// ReplaceResourceFiles replaces a resource's file rows with a new plan
+// (ADR-0028: a stream transport's FilePlanner expands a stream resource into
+// per-stream files). Mirrors and identity are untouched; the resource must
+// already exist.
+func (s *Store) ReplaceResourceFiles(ctx context.Context, resourceID string, files []core.ResourceFile) error {
+	return s.withTx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM files WHERE resource_id=?`, resourceID); err != nil {
+			return err
+		}
+		for _, f := range files {
+			selected := 0
+			if f.Selected {
+				selected = 1
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO files(resource_id,idx,rel_path,size,selected,url)
+				VALUES(?,?,?,?,?,?)`,
+				resourceID, f.Index, f.Path, f.Size, selected, f.URL); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (s *Store) SaveResource(ctx context.Context, taskID core.TaskID, r *core.Resource) error {
 	return s.meta.submit(ctx, "resource:"+r.ID, func(ctx context.Context, tx *sql.Tx) error {
 		options, err := json.Marshal(struct {

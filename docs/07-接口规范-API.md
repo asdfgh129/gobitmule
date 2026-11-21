@@ -1,6 +1,6 @@
 # 07 接口规范（API）
 
-> 文档编号：UD-DOC-07 ｜ 版本：v0.14 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH（2026-11-19/20）+ **WBS 12 lux 进程内站点解析 opt-in（2026-11-21）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
+> 文档编号：UD-DOC-07 ｜ 版本：v0.15 ｜ 状态：草案（L0 已落地；P1 WBS 10 离线插件 CLI、WBS 11 互操作 CLI 已落地；L4 门禁已实测 14/14；`POST /tasks` 已内嵌 `Resource` 预览、`/capabilities` 新增 `credentials` 字段（2026-11-17）；**WBS 19 `udctl backup / restore / migrate` 离线运维命令已落地（2026-11-19）；WBS 13 HLS/DASH（2026-11-19/20）+ **WBS 12 lux 进程内站点解析 opt-in（2026-11-21）**） ｜ 日期：2026-11-19 ｜ 相关：ADR-0003、ADR-0014、ADR-0016、ADR-0019、ADR-0020、ADR-0021、ADR-0022
 
 > **v0.14 变更 / 2026-11-20 时点口径（Web 控制台；新增两条 additive L0 端点，既有 17 条契约零改动）**：
 > 为 Vue 3 + TS 控制台补齐浏览器所需的两项能力：`GET /events/history?limit=` 读取持久化事件
@@ -19,6 +19,12 @@
 > `identity.variant_id` 为 `yt-dlp`，`kind` 仍为 `single`。当且仅当站点只提供分离 A/V
 > 格式时，创建请求 returned `503 E_CAPABILITY_UNAVAILABLE`（可重试语义为 capability），
 > 不会生成残缺文件。配置只在 daemon 启动时生效，`PATCH /config` 不支持运行时开关 sidecar。
+>
+> **v0.15 变更 / 2026-11-21 时点口径（HLS 多 rendition 分离发射；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
+> 带 `EXT-X-MEDIA` 音频组的 HLS 主清单经可选 `core.FilePlanner` 能力（ADR-0028）展开为
+> 双文件资源（`resource.files[]` 两行：视频/音频播放清单 URL，`files[0].path` 为合并后
+> 最终名 `<base>.mp4`）；未声明尺寸由调度器逐文件 Probe 补齐。DASH 多 AdaptationSet
+> 维持 `E_CAPABILITY_UNAVAILABLE`（表示级选择不同构，后续包）。
 >
 > **v0.14 变更 / 2026-11-21 时点口径（P3 多文件下载与合并；REST/WS 契约零改动；下文各版说明为更早时点值，保留不改）**：
 > 资源模型新增每文件源 URL：`Resource` 的 `files[].url`（DDl v2 `files.url` 列，ADR-0027）；

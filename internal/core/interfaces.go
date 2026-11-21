@@ -35,6 +35,16 @@ type Resolver interface {
 	Resolve(ctx ResolveContext, in Input) (*Resource, error)
 }
 
+// FilePlanner is an OPTIONAL Transport capability: a stream transport whose
+// resources can expand into several per-stream files (e.g. an HLS master
+// playlist carrying a separate audio rendition, ADR-0028) declares the
+// per-file plan. The Scheduler adopts the plan before the download phase and
+// then drives one Run per file (ADR-0027); a transport without the capability
+// stays single-file. PlanFiles returning <=1 file means "no split".
+type FilePlanner interface {
+	PlanFiles(ctx context.Context, r *Resource) ([]ResourceFile, error)
+}
+
 // Transport only moves bytes into a ChunkWriter. It never owns queueing,
 // rate limits, state transitions or file layout (ADR-0002).
 type Transport interface {
