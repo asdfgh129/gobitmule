@@ -1,6 +1,14 @@
 # 架构决策记录（ADR）索引
 
-> 文档编号：UD-ADR-00 ｜ 版本：v0.13 ｜ 日期：2026-11-20 ｜ 维护：架构组
+> 文档编号：UD-ADR-00 ｜ 版本：v0.16 ｜ 日期：2026-11-21 ｜ 维护：架构组
+
+> **v0.16 变更（2026-11-21，P3 OPEN-03/04/06 三项裁决）**：新增
+> [ADR-0030](ADR-0030-ed2k引擎fork自维护.md)（WBS 16：goed2k fork 自维护，OPEN-03 关闭）、
+> [ADR-0031](ADR-0031-aria2-RPC-facade纳入.md)（WBS 17：L1 aria2 facade 纳入，OPEN-04 关闭）、
+> [ADR-0032](ADR-0032-微信插件立项与代行签批.md)（WBS 18：立项 + 发起人代行签批全量实现，
+> OPEN-06 关闭，非实名会签）。三项均为发起人指令裁决、代行角色；已批准 ADR 计数 29 → **32**。
+> 三个 WBS 进入「进行中」，真实环境门禁（ED-01/02/05/06、AriaNg、视频号 MITM）均 NOT_EXECUTED。
+>
 
 > **v0.13 变更（2026-11-20，新增 ADR-0025）**：Web 控制台采用 Vue 3 + TypeScript
 > + Vite 单文件嵌入，前端「RPC 接口」是映射到 L0 REST/WS 的类型化方法层，
@@ -140,6 +148,9 @@ ADR 是本项目**架构决策的唯一真值源**。任何与已接受 ADR 冲�
 | [0027](ADR-0027-多文件下载与容器合并.md) | 多文件下载与容器合并（DDL v2 files.url / 记录式迁移 / 顺序多文件 / yt-dlp 分离发射 / 站点头持久化修正） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、06、07、10、12、14、ADR-0010 |
 | [0028](ADR-0028-HLS多rendition分离发射.md) | HLS 多 rendition 分离发射（可选 FilePlanner 能力 / EXT-X-MEDIA / 逐文件 Probe 补尺寸） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、06、07、12、14、ADR-0027 |
 | [0029](ADR-0029-Telegram-MTProto-L1.md) | Telegram MTProto L1（gotd/td / 会话凭据化 / FLOOD_WAIT 分类 / 公开链接 L1） | Accepted（2026-11-21 发起人全权授权按建议裁决，非实名会签） | 03、05、07、10、11、12、14、ADR-0009/0027 |
+| [0030](ADR-0030-ed2k引擎fork自维护.md) | ed2k 引擎 fork 自维护（WBS 16 OPEN-03：任务型 API 与 ChunkWriter 错配 → fork 改造） | Accepted（2026-11-21 发起人指令，代行架构，非实名会签） | 10、12、14、ADR-0005/0013 |
+| [0031](ADR-0031-aria2-RPC-facade纳入.md) | aria2 RPC facade 纳入（WBS 17 OPEN-04：L1 opt-in / compat subset / 零新依赖） | Accepted（2026-11-21 发起人指令，代行产品，非实名会签） | 07、12、14、23、ADR-0019 |
+| [0032](ADR-0032-微信插件立项与代行签批.md) | 微信插件立项与代行签批（WBS 18 OPEN-06：隔离边界不变 / R-13 高 / 实名复核待补） | Accepted（2026-11-21 发起人代行法务 + 产品，非实名会签） | 03、09、11、13、14、16、ADR-0018 |
 
 ## 决策演进时间线
 

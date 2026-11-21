@@ -467,9 +467,15 @@ func (s *Scheduler) Capabilities() core.Capabilities {
 	if r, ok := s.creds.(core.CredentialBackendReporter); ok && r != nil {
 		backend = r.CredentialBackend()
 	}
+	// ADR-0031: the L1 aria2 facade is opt-in. Default (disabled) keeps the
+	// contract byte-identical to the historical "L0" value.
+	rpcLevel := "L0"
+	if s.cfg != nil && s.cfg.Get().RPC.Enabled {
+		rpcLevel = "L1"
+	}
 	return core.Capabilities{
 		Resolvers: s.resolvers.Names(), Transports: s.transports.Names(),
-		PostProcessors: s.postprocs.Names(), Sidecars: s.postprocs.Sidecars(), RPCLevel: "L0",
+		PostProcessors: s.postprocs.Names(), Sidecars: s.postprocs.Sidecars(), RPCLevel: rpcLevel,
 		Credentials: backend,
 	}
 }

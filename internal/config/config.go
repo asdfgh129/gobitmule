@@ -59,6 +59,14 @@ type ED2KConfig struct {
 	UDPPort     int  `yaml:"udpPort" json:"udpPort"`
 }
 
+// RPCConfig gates the optional L1 aria2 JSON-RPC facade (ADR-0031). It is
+// startup-only: Enabled=false keeps the control plane byte-identical to L0
+// (/jsonrpc returns 404, capabilities.rpcLevel stays "L0"), so the zero-sidecar
+// baseline and the existing REST contract are unchanged. No aria2c is bundled.
+type RPCConfig struct {
+	Enabled bool `yaml:"enabled" json:"enabled"`
+}
+
 // PluginsConfig is the WBS 10 rule-channel configuration (ADR-0014, docs/13 §7).
 // Dir is empty by default: no plugin Resolver is registered at all until the
 // operator explicitly points ud at a rule directory.
@@ -334,6 +342,7 @@ type Config struct {
 	TempSuffix  string            `yaml:"tempSuffix" json:"tempSuffix"`
 	LogLevel    string            `yaml:"logLevel" json:"logLevel"`
 	RemoteToken string            `yaml:"remoteToken" json:"-"`
+	RPC         RPCConfig         `yaml:"rpc" json:"rpc"`
 	Global      GlobalConfig      `yaml:"global" json:"global"`
 	Security    SecurityConfig    `yaml:"security" json:"security"`
 	BT          BTConfig          `yaml:"bt" json:"bt"`
@@ -420,6 +429,12 @@ func applyEnv(c *Config) {
 	set("UD_DIR", &c.DownloadDir)
 	set("UD_LOG_LEVEL", &c.LogLevel)
 	set("UD_REMOTE_TOKEN", &c.RemoteToken)
+	// ADR-0031: opt-in L1 aria2 facade.
+	if v := os.Getenv("UD_RPC_ENABLED"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			c.RPC.Enabled = b
+		}
+	}
 	set("UD_PLUGINS_DIR", &c.Plugins.Dir)
 	set("UD_PLUGINS_RUNTIME", &c.Plugins.Runtime)
 	set("UD_PLUGINS_RELOAD_INTERVAL", &c.Plugins.ReloadInterval)

@@ -58,6 +58,11 @@ func newBuiltinResolvers(guard core.URLGuard, beforeDirect ...core.Resolver) *re
 	// (docs/05 §10 keeps protocol-native resolvers ahead of plugins).
 	r.Register(resolve.NewHLSResolver(guard))
 	r.Register(resolve.NewDASHResolver(guard))
+	// WBS 16 / ADR-0030: ed2k:// link decoding is offline (no network I/O,
+	// no new dependency) and reuses the P0-frozen Identity fields. The eD2k
+	// Transport (forked goed2k) is wired separately; without it a resolved
+	// ed2k Resource fails explicitly at dispatch, not silently.
+	r.Register(resolve.NewED2KResolver())
 	for _, x := range beforeDirect {
 		if x != nil {
 			r.Register(x)

@@ -58,6 +58,9 @@ type Server struct {
 	mu           sync.Mutex
 	idempotent   map[string]core.TaskID
 	eventHistory func(context.Context, int) ([]core.Event, error)
+	// rpc is the optional L1 aria2 facade (ADR-0031). Nil when disabled, in
+	// which case /jsonrpc is not registered and returns 404.
+	rpc *rpcFacade
 	// tickets are short-lived, single-use replacements for the bearer token
 	// on the WebSocket upgrade (a browser cannot set Authorization there).
 	ticketMu sync.Mutex
@@ -77,6 +80,11 @@ func New(opts Options) *Server {
 		mux: http.NewServeMux(), authToken: opts.AuthToken,
 		requireAuth: opts.RequireAuth, idempotent: make(map[string]core.TaskID),
 		eventHistory: opts.EventHistory, tickets: make(map[string]time.Time),
+	}
+	// ADR-0031: opt-in L1 aria2 facade. When disabled the JSON-RPC routes are
+	// not registered at all, so the wire surface stays at L0 byte-for-byte.
+	if opts.Config != nil && opts.Config.Get().RPC.Enabled {
+		s.rpc = newRPCFacade(s)
 	}
 	s.routes()
 	return s
@@ -104,6 +112,25 @@ func (s *Server) routes() {
 	mux.HandleFunc("GET /api/v1/events/history", s.eventHistoryHandler)
 	mux.HandleFunc("POST /api/v1/ws-ticket", s.issueWSTicket)
 	mux.Handle("GET /api/v1/events", http.HandlerFunc(s.hub.ServeHTTP))
+	// ADR-0031: L1 aria2 facade. Routes are always registered so a disabled
+	// facade returns a clean 404 from the handler (not a 405 from the "/" fallback).
+	mux.HandleFunc("POST /jsonrpc", s.jsonRPC)
+	mux.HandleFunc("GET /jsonrpc", func(w http.ResponseWriter, r *http.Request) {
+		if s.rpc == nil {
+			http.NotFound(w, r)
+			return
+		}
+		// AriaNg connects over WS with the token in the query string; validated
+		// here with constant-time compare so the long-lived token is the only
+		// secret and it is never echoed back.
+		if s.requireAuth {
+			if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("token")), []byte(s.authToken)) != 1 {
+				writeError(w, core.Err(core.E_INVALID_INPUT, "invalid or missing token"))
+				return
+			}
+		}
+		s.rpc.ws.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

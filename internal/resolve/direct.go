@@ -80,16 +80,19 @@ func (Unsupported) Match(core.Input) bool { return true }
 
 func (Unsupported) Resolve(_ core.ResolveContext, in core.Input) (*core.Resource, error) {
 	phase := map[core.InputKind]string{
-		core.InputSite: "P2", core.InputTelegram: "P3", core.InputED2K: "P3",
+		core.InputSite: "P2", core.InputTelegram: "P3",
+		// WBS 16: ed2k links ARE parsed now (ED2KResolver); reaching Unsupported
+		// for InputED2K means the registration chain is broken, not that it is
+		// unplanned. The missing piece is the eD2k Transport, not the resolver.
 	}
 	// BT magnet / .torrent (P1 WBS 7), Metalink and the thunder/flashget/qqdl
 	// wrappers (P1 WBS 8) are implemented as built-in resolvers. Reaching
 	// Unsupported for any of them means the registration chain is broken, not
 	// that the feature is unplanned.
 	if in.Kind == core.InputMetalink || in.Kind == core.InputThunder ||
-		in.Kind == core.InputMagnet || in.Kind == core.InputTorrent {
+		in.Kind == core.InputMagnet || in.Kind == core.InputTorrent || in.Kind == core.InputED2K {
 		return nil, core.Err(core.E_RESOLVE_FAILED,
-			"输入类别 %q 已在 P1 实现，但未匹配到内置 Resolver（请检查注册链）", in.Kind)
+			"输入类别 %q 已实现，但未匹配到内置 Resolver（请检查注册链）", in.Kind)
 	}
 	p := phase[in.Kind]
 	if p == "" {

@@ -248,25 +248,25 @@ func TestNewLoggerLevels(t *testing.T) {
 // protocol-native stream resolvers and before plugin rules / direct-http.
 func TestSiteResolverOptIn(t *testing.T) {
 	cfg := config.Defaults()
-	base := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash",
+	base := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "ed2k",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, base) {
 		t.Fatalf("default chain = %v, want %v", got, base)
 	}
 	cfg.Sources.Telegram.Enabled = true
-	tgChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "telegram",
+	tgChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "ed2k", "telegram",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, tgChain) {
 		t.Fatalf("telegram chain = %v, want %v", got, tgChain)
 	}
 	cfg.Sources.Lux.Enabled = true
-	luxChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux", "telegram",
+	luxChain := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "ed2k", "lux", "telegram",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, luxChain) {
 		t.Fatalf("lux chain = %v, want %v", got, luxChain)
 	}
 	cfg.Sources.YTDLP.Enabled = true
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "lux", "telegram", "yt-dlp",
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "ed2k", "lux", "telegram", "yt-dlp",
 		"direct-http", "direct-file", "unsupported"}
 	if got := newBuiltinResolversForConfig(allowGuard{}, cfg).Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("enabled chain = %v, want %v", got, want)
@@ -282,7 +282,7 @@ func TestBuiltinResolverChainOrderAndDispatch(t *testing.T) {
 	// WBS 13: the hls / dash resolvers sit after torrent and before the
 	// plugin hook (docs/05 §10 keeps protocol-native resolvers ahead of
 	// plugins).
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "direct-http", "direct-file", "unsupported"}
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "ed2k", "direct-http", "direct-file", "unsupported"}
 	if got := r.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolver order = %v, want %v", got, want)
 	}
@@ -422,7 +422,7 @@ func (fakePluginResolver) Resolve(core.ResolveContext, core.Input) (*core.Resour
 func TestPluginResolverPlacementInChain(t *testing.T) {
 	r := newBuiltinResolvers(allowGuard{}, fakePluginResolver{}, nil)
 	// WBS 13: hls joins the protocol-native built-ins ahead of the plugin hook.
-	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "plugin",
+	want := []string{"metalink", "link-wrapper", "magnet", "torrent", "hls", "dash", "ed2k", "plugin",
 		"direct-http", "direct-file", "unsupported"}
 	if got := r.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolver order = %v, want %v", got, want)

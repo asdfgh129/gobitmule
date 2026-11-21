@@ -8,6 +8,12 @@ logLevel: "info"             # debug|info|warn|error
 # 生产环境请通过环境变量 UD_REMOTE_TOKEN 注入，不要写进配置文件。
 remoteToken: ""
 
+# L1 aria2 JSON-RPC facade（ADR-0031，opt-in）：默认 false 时 /jsonrpc 返回 404、
+# capabilities.rpcLevel 保持 "L0"；开启后提供 compat subset（25 方法 + 6 通知）
+# 供 AriaNg / 浏览器扩展连接。不捆绑 aria2c、不引入第二下载引擎。
+rpc:
+  enabled: false              # 可用 UD_RPC_ENABLED=true 覆盖
+
 global:
   maxConcurrentTasks: 5
   maxDownloadRate: "8MiB/s"

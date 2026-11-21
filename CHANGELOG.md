@@ -16,6 +16,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **P3 WBS 16–18 三项 OPEN 裁决（2026-11-21，ADR-0030/0031/0032）**：
+  - **决策**：发起人指令启动剩余三个 P3 工作包并逐项裁决——**OPEN-03** = goed2k
+    **fork 自维护**（上游 8 stars / 7 commits / 无 tag / bus factor 1，任务型 API
+    与 `ChunkWriter` 契约错配、ED 开关缺失）、**OPEN-04** = **纳入 L1 aria2 facade**
+    （本次指令构成 ADR-0019「明确需求」，opt-in `rpc.enabled`，零新依赖映射层）、
+    **OPEN-06** = **微信插件立项 + 发起人代行法务签批全量实现**（隔离边界沿用
+    ADR-0018，R-13 维持高，实名复核待补、非实名会签）。三项 ADR 均代行角色。
+  - **文档**：`docs/14` WBS 16–18 与 OPEN-03/04/06 关闭、`docs/adr` v0.16、
+    `docs/README` v1.40。真实环境门禁（ED-01/02/05/06、AriaNg、视频号 MITM）
+    均 NOT_EXECUTED，不因裁决翻转发布结论。
+  - **落地（本批次，可离线验证）**：
+    - **WBS 17**：`internal/api/jsonrpc.go` + `jsonrpc_ws.go`——aria2 JSON-RPC 2.0
+      facade（25 方法 + 6 通知、`system.multicall`、GID↔ULID 哈希双向映射且跨重启
+      稳定、10 态→6 态状态映射、bitfield 透传 chunks、未知选项忽略、saveSession/
+      getSessionInfo no-op）；`POST`/`GET /jsonrpc` 均 fail-closed 鉴权（`token:`
+      + Bearer 常量时间比较，WS token 查询参数）；`rpc.enabled` 配置默认 false，
+      关闭时 404 且 `capabilities.rpcLevel="L0"`；`UD_RPC_ENABLED` 环境变量；
+      新增 10 个契约测试（404/方法白名单/addUri-pause-tellStatus/multicall/
+      鉴权/状态映射/通知映射等）。
+    - **WBS 16**：`internal/resolve/ed2k.go` + `_test.go`——`ed2k://|file|` 离线
+      解析（name/size/MD4 32hex/AICH 40hex，含 `h=`/`p=`/`sources/` 变体），
+      复用 P0 冻结的 `Identity.ED2KFileHash`/`AICHRoot` 与 DDL 列，零新增字段；
+      注册进内置 resolver 链（dash 后、direct 前），`Unsupported` 对 ed2k 改报
+      链损坏错误；fork goed2k 的 transport 实接与 ED 门禁待源码 spike + 隔离实验室。
+    - **WBS 18**：`internal/wechat/`（独立包，默认不进注册链）——公众号公开
+      HTML 文章 resolver 骨架（`IsPublicArticle` 仅放行 `mp.weixin.qq.com`，排除
+      视频号/深链）、detector seam（nil fail-closed）、`PrivilegeHelper` IPC 接口
+      （装/卸 CA、代理、注入、规则热更均需 `ConsentGate` 显式授权）、`RulesVerifier`
+      Ed25519 验签、`ComplianceNote` 红线固化；`docs/24-微信插件合规评审清单.md`
+      记录代行签批口径与 6 条待实名审阅的平台条款项。视频号 MITM 真实环境 NOT_EXECUTED。
+  - **验证**：`go build ./...` 通过；`go test ./...` 全绿（新增 `internal/wechat`
+    包，全 23 包零 FAIL）。
+
 - **P3 三项：Telegram MTProto L1（2026-11-21，ADR-0029）**：
   - **交付**：`internal/transport/tg`——gotd/td v0.166.1（MIT，**+16 链接模块全宽松
     许可**，门禁实测 PASS）；四形态链接解析（t.me / t.me/c 私有 / tg://resolve /

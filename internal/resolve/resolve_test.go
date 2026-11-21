@@ -224,8 +224,13 @@ func TestUnsupportedIsPhaseAware(t *testing.T) {
 	cases := map[core.InputKind]string{
 		core.InputSite:     "P2",
 		core.InputTelegram: "P3",
-		core.InputED2K:     "P3",
 		core.InputUnknown:  "后续里程碑",
+		// WBS 16 (ADR-0030): ed2k links are now parsed by ED2KResolver. Reaching
+		// Unsupported for InputED2K is a broken registration chain, not a
+		// capability gap — asserted separately below.
+	}
+	if _, err := u.Resolve(core.ResolveContext{Ctx: context.Background()}, core.Input{Kind: core.InputED2K}); core.AsError(err).Code != core.E_RESOLVE_FAILED {
+		t.Errorf("ed2k at Unsupported: want E_RESOLVE_FAILED (broken chain), got %v", err)
 	}
 	for kind, phase := range cases {
 		_, err := u.Resolve(core.ResolveContext{Ctx: context.Background()}, core.Input{Kind: kind})
