@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：ED 门禁补缺 — ED-06 PASS / 搜源收敛 / Low ID 模拟（2026-11-22 续）**：
+  - **KAD 搜源不再被持续收包饿死**：`DHTTracker.readLoop` 用同 goroutine 的
+    500ms ticker 推进 `node.tick()`；`DHTSearchTimeout` 真正驱动 RPC short/
+    expired 超时（此前固定 12s 且配置项被忽略），探针新增 `-dht-timeout`。
+    222/209 复验 `search_completed=true`、`RunningTraversals=0`，debug 日志出现
+    `find-sources` → `search-sources` 两段收敛；但真机 `responses=0`、
+    `source_count=0`，ED-02 仍 PARTIAL，不谎报找到源。
+  - **ED-06 从 BLOCKED 推进为 PASS**：fork `Settings.SecureIdent` 与
+    `Client.UserHash/SetUserHash/SecureIdent/SetSecureIdent` 公开 API；
+    `ClientState` 增 `user_hash`/`secure_ident` 并随状态文件持久化；探针新增
+    `-state`/`-user-hash`/`-secure-ident`，失败路径也落盘。222/209 双机各两次
+    独立进程启动，UserHash 分别恒为 `2222…2222` / `2092…0920`。新增
+    `TestUserHashAndSecureIdentPersistAcrossRestart` 等回归。
+  - **ED-04 PARTIAL**：`TestLowIDSimulatedServerHandshake` 本地伪造 eD2k server
+    发送低 ID `IdChange`，验证 `LOW_ID` 分类与会话保活；未覆盖真实 NAT 源比例。
+  - **ED-05 明确 BLOCKED**：fork 新增 `CryptLayerSupported() bool`（当前 false），
+    探针输出 `crypt_layer_supported=false`；对端配置不再被误读为本端能力。
+  - 证据：`docs/evidence/ed2k-ed-gates-2026-11-22/`（新增身份双重启、搜源复验
+    JSON/log 与 SHA256SUMS）；判定与后续见 `docs/25` §10。P3 发布结论不变（R-06）。
 - **WBS 16：真机 ED 门禁执行 — KAD bootstrap 两机 PASS（2026-11-22 续）**：
   - **Go 工具链恢复**：此前「go build 全部卡死」定位为 GOCACHE 路径
     `C:/Users/bemin/sdk/gocache` 异常（非网络，未用代理）；改用

@@ -4,7 +4,8 @@
 > `github.com/monkeyWie/goed2k` 真实源码的只读勘察结论，用于细化 ADR-0030
 > 的 fork 改造范围。所有结论可由 `go mod download github.com/monkeyWie/goed2k@latest`
 > 复现（pseudo-version `v0.0.0-20260602122456-f2a71d599dee`）。
-> 门禁 ED-01/02/05/06 仍为 `NOT_EXECUTED`，本文不翻转任何发布结论。
+> 门禁状态以 §10 补缺复验为准：ED-06 `PASS`，ED-01/02/03/04 `PARTIAL`，
+> ED-05 `BLOCKED`；本文不翻转 P3 发布结论。
 
 ## 1. 勘察对象
 
@@ -278,20 +279,19 @@ linux 与 windows 探针均交叉编译成功（11.5MB）。**未使用 Proxyhub
   `KnownNodes` 200→201，ud 引擎把 209 纳入 KAD 节点表。
 - **High ID**（ED-03 部分）：209 eMule TCP 31969 外部 ESTABLISHED（前轮取证）。
 
-**未闭环 / 阻塞（如实记录，不谎报）**：
-- **KAD 搜源未返回源**（ED-02 后半）：两机均 `search_started=true`、debug 日志
+**首轮未闭环 / 阻塞（如实记录，不谎报；补缺复验见 §10）**：
+- **KAD 搜源未返回源**（ED-02 后半）：首轮两机 `search_started=true`、debug 日志
   有 `dht source search started`，但两阶段 traversal（find-sources → search-sources）
   在 40–45 秒窗口内回调未触发（`search_completed=false`），`source_count=0`；
-  两机 `Firewalled=true`（实验室 NAT 后）。作为 fork 在 NAT/Firewalled 环境下的
-  已知限制，需进一步排查 fork 的 KAD traversal 收敛逻辑。
+  两机 `Firewalled=true`（实验室 NAT 后）。
 - **ED-01 双客户端连接层可见**未做到（需 aMule/自建 eD2k server 对手）。
-- **ED-05 混淆握手**：无「仅混淆对端」环境，未执行。
-- **ED-06 SecureIdent/UserHash 持久化**：fork 未暴露 UserHash 读取/持久化校验
-  API，能力缺口，无法验证。
+- **ED-05 混淆握手**：首轮无「仅混淆对端」环境，未执行。
+- **ED-06 SecureIdent/UserHash 持久化**：首轮 fork 未暴露 UserHash 读取/持久化
+  校验 API，能力缺口，无法验证。
 
-### 9.3 门禁判定
+### 9.3 首轮门禁判定（已被 §10 补缺复验更新）
 
-| 门禁 | 状态 | 依据 |
+| 门禁 | 首轮状态 | 依据 |
 |---|---|---|
 | ED-01 | PARTIAL | ud 引擎把 209 纳入 KAD 节点表；未做到连接层双向可见 |
 | ED-02 | PARTIAL | bootstrap 真机 PASS；搜源未返回具体源（traversal 未收敛） |
@@ -301,8 +301,57 @@ linux 与 windows 探针均交叉编译成功（11.5MB）。**未使用 Proxyhub
 | ED-06 | BLOCKED | fork 无 UserHash/SecureIdent 持久化校验 API |
 
 **发布结论不变**：ED-01/02/05/06 未全部通过，按 `docs/12` 规定 P3 不得发布，
-R-06 维持。本轮把「不能执行」推进为「bootstrap 真机 PASS + 其余 PARTIAL/BLOCKED」，
+R-06 维持。首轮把「不能执行」推进为「bootstrap 真机 PASS + 其余 PARTIAL/BLOCKED」，
 但不翻转发布结论。
 
-**后续**：① 排查 fork KAD traversal 在 NAT 下的收敛（ED-02 搜源）；② 补
-aMule/eNode-go 对手做 ED-01/05；③ fork 补 UserHash 持久化 API 做 ED-06。
+## 10. 补缺复验（2026-11-22 续）
+
+### 10.1 代码补缺
+
+- **KAD 搜源收敛**：`DHTTracker.readLoop` 改为在同一 goroutine 内用 500ms ticker
+  推进 `node.tick()`，避免持续收包时 RPC 超时被饿死；`DHTSearchTimeout` 不再被
+  忽略，RPC short/expired 超时由该值派生。探针新增 `-dht-timeout`。回归
+  `TestSourceSearchCallbackCompletesOnRPCTimeout`。
+- **ED-06 身份持久化**：fork `Settings` 增 `SecureIdent`；`Client` 暴露
+  `UserHash` / `SetUserHash` / `SecureIdent` / `SetSecureIdent`；`ClientState`
+  增 `user_hash` / `secure_ident` 并随 `SaveState` / `LoadState` 往返。探针新增
+  `-state` / `-user-hash` / `-secure-ident`，退出时（含失败分支）落盘。回归
+  `TestUserHashAndSecureIdentPersistAcrossRestart`、
+  `TestSetUserHashRejectsInvalidHash`。
+- **ED-04 Low ID 模拟**：`TestLowIDSimulatedServerHandshake` 用本地伪造 eD2k
+  server 发送 `IdChange(ClientID=123456)`，断言 `LOW_ID` 分类且会话保活。
+- **ED-05 能力判定**：fork 新增 `CryptLayerSupported() bool`（当前 `false`），
+  探针报告 `crypt_layer_supported`；不把对端配置误读为本端能力。
+
+### 10.2 真机复验
+
+证据均在 `docs/evidence/ed2k-ed-gates-2026-11-22/`（含 SHA256SUMS）：
+
+- **ED-06 PASS**：222 与 209 各做两次独立进程启动。首轮显式
+  `-user-hash` + `-state` 落盘，次轮只给 `-state` 恢复；两机输出 UserHash
+  分别恒为 `2222…2222` / `2092…0920`，`secure_ident=true`。状态文件含明文
+  `user_hash` 与 `secure_ident` 字段，可审计。
+- **ED-02 搜源收敛推进**：222/209 用 `-dht-timeout 3 -search-wait 60` 复跑，
+  `search_completed=true`、`RunningTraversals=0`；debug 日志出现
+  `find-sources` → `search-sources` 两段 `kad traversal done`。但真机节点
+  `responses=0`、`timeouts=41-46`，`source_count=0`：两阶段收敛已修复，
+  NAT/Firewalled 下找到可用源仍未闭环。
+- **ED-05 BLOCKED 明确化**：两机探针均输出 `crypt_layer_supported=false`，
+  证实 fork 无 CryptLayer/RC4 握手能力，不能构造「仅混淆对端」取证。
+
+### 10.3 补缺后门禁判定
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-01 | PARTIAL | 节点表可见 209；连接层双向可见仍未做到 |
+| ED-02 | PARTIAL | bootstrap PASS；搜源两阶段可收敛，但 `source_count=0` |
+| ED-03 | PARTIAL | 209 High ID 已取证；ud 探针 Firewalled |
+| ED-04 | PARTIAL | 本地 Low ID 握手模拟 PASS；真实 NAT 源比例未测 |
+| ED-05 | BLOCKED | fork `CryptLayerSupported()=false`，能力缺口 |
+| ED-06 | **PASS** | 222/209 双机重启 UserHash 不变，SecureIdent 状态持久化 |
+
+**发布结论不变**：ED-01/02/04/05 未全部通过，P3 不发布，R-06 维持。
+
+**后续**：① 为 ED-02 补可响应 KAD 节点（aMule/eNode-go 双端），把
+`responses=0` 变为可复现的源返回；② 实现 CryptLayer/RC4 握手后才能做 ED-05；
+③ 用真实 NAT 流量比例补 ED-04 的「可见源下降」指标。

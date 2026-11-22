@@ -21,6 +21,8 @@ type ClientStateStore interface {
 
 type ClientState struct {
 	Version       int                   `json:"version"`
+	UserHash      protocol.Hash         `json:"user_hash,omitempty"`
+	SecureIdent   bool                  `json:"secure_ident,omitempty"`
 	ServerAddress string                `json:"server_address,omitempty"`
 	Transfers     []ClientTransferState `json:"transfers"`
 	Credits       []ClientCreditState   `json:"credits,omitempty"`
@@ -185,6 +187,8 @@ func (c *Client) snapshotState() (*ClientState, error) {
 	})
 	state := &ClientState{
 		Version:       clientStateVersion,
+		UserHash:      c.UserHash(),
+		SecureIdent:   c.SecureIdent(),
 		ServerAddress: c.serverAddr,
 		Transfers:     make([]ClientTransferState, 0, len(handles)),
 		Credits:       c.session.Credits().Snapshot(),
@@ -222,6 +226,14 @@ func (c *Client) applyState(state *ClientState) error {
 		return errors.New("unsupported state version")
 	}
 	c.serverAddr = state.ServerAddress
+	if !state.UserHash.Equal(protocol.Invalid) {
+		if err := c.SetUserHash(state.UserHash); err != nil {
+			return err
+		}
+	}
+	if state.SecureIdent {
+		c.SetSecureIdent(true)
+	}
 	c.session.Credits().ApplySnapshot(state.Credits)
 	c.session.applyFriendSlotSnapshot(state.FriendSlots)
 	if state.DHT != nil {

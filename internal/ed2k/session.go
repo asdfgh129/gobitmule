@@ -210,7 +210,27 @@ func (s *Session) CloseConnection(connection *PeerConnection) {
 }
 
 func (s *Session) GetUserAgent() protocol.Hash {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.settings.UserAgent
+}
+
+func (s *Session) SetUserAgent(hash protocol.Hash) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.settings.UserAgent = hash
+}
+
+func (s *Session) GetSecureIdent() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings.SecureIdent
+}
+
+func (s *Session) SetSecureIdent(enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.settings.SecureIdent = enabled
 }
 
 func (s *Session) GetClientID() int32 {

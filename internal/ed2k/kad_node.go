@@ -4,6 +4,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
 	"github.com/asdfgh129/ud/internal/ed2k/protocol"
 	kadproto "github.com/asdfgh129/ud/internal/ed2k/protocol/kad"
 )
@@ -96,9 +97,11 @@ func (n *kadNodeImpl) searchSources(hash protocol.Hash, size int64, cb func([]ka
 		return false
 	}
 	t := newKadTraversal(n, kadproto.NewID(hash), kadTraversalFindSources, size, cb)
-	for _, node := range n.tracker.closestNodesLocked(kadproto.NewID(hash), 50, true) {
+	nodes := n.tracker.closestNodesLocked(kadproto.NewID(hash), 50, true)
+	for _, node := range nodes {
 		t.addNode(node.Addr, node.ID, node.TCPPort, node.Version)
 	}
+	logx.Debug("kad source search nodes", "hash", hash.String(), "nodes", len(nodes))
 	return t.start()
 }
 

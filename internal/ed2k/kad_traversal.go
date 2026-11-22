@@ -4,6 +4,7 @@ import (
 	"net"
 	"sort"
 
+	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
 	"github.com/asdfgh129/ud/internal/ed2k/protocol"
 	kadproto "github.com/asdfgh129/ud/internal/ed2k/protocol/kad"
 )
@@ -267,12 +268,12 @@ func (t *kadTraversal) invoke(o *kadObserver) bool {
 			Target:   t.target,
 			StartPos: 0,
 		}, o.endpoint, o, kadproto.SearchResOp, &t.target.Hash, true)
-		case kadTraversalFirewalled:
-			return t.node.invoke(kadproto.FirewalledReq{
-				TCPPort: uint16(t.node.listenPort()),
-				ID:      t.target,
-				Options: 0,
-			}, o.endpoint, o, kadproto.FirewalledResOp, nil, false)
+	case kadTraversalFirewalled:
+		return t.node.invoke(kadproto.FirewalledReq{
+			TCPPort: uint16(t.node.listenPort()),
+			ID:      t.target,
+			Options: 0,
+		}, o.endpoint, o, kadproto.FirewalledResOp, nil, false)
 	default:
 		return false
 	}
@@ -365,6 +366,8 @@ func (t *kadTraversal) done() {
 		return
 	}
 	t.node.removeTraversal(t)
+	logx.Debug("kad traversal done", "kind", string(t.kind), "target", t.target.Hash.String(),
+		"responses", t.responses, "timeouts", t.timeouts, "results", len(t.results), "entries", len(t.accum))
 	switch t.kind {
 	case kadTraversalBootstrap:
 		for _, o := range t.results {

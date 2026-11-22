@@ -23,6 +23,7 @@ coverage.html
 *.db-wal
 *.part
 *.log
+!docs/evidence/**/*.log
 config.yaml
 ud.state.json
 

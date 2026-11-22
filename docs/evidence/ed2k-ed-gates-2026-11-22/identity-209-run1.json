@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-11-22T14:19:44Z",
+  "nodes_dat": "nodes.dat",
+  "state_path": "C:/Temp/ud-ed2k-state.json",
+  "user_hash": "20920920920920920920920920920920",
+  "secure_ident": true,
+  "crypt_layer_supported": false,
+  "listen_port": 41969,
+  "udp_port": 42969,
+  "dht_status": {
+    "Bootstrapped": true,
+    "Firewalled": true,
+    "LiveNodes": 50,
+    "ReplacementNodes": 21,
+    "RouterNodes": 0,
+    "RunningTraversals": 0,
+    "KnownNodes": 200,
+    "InitialBootstrap": true,
+    "ListenPort": 42969,
+    "StoragePoint": ""
+  },
+  "source_count": 0,
+  "verdict": "PASS"
+}

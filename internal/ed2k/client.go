@@ -604,6 +604,52 @@ func (c *Client) saveStateIfConfigured() error {
 	return c.SaveState("")
 }
 
+// UserHash returns the eD2k user hash sent in client hello/login packets.
+// In eMule this value backs SecureIdent; it must survive process restarts.
+func (c *Client) UserHash() protocol.Hash {
+	if c == nil || c.session == nil {
+		return protocol.Invalid
+	}
+	return c.session.GetUserAgent()
+}
+
+// SetUserHash overrides the eD2k user hash. Configure it before Start, then
+// persist the client state to keep the same identity across restarts.
+func (c *Client) SetUserHash(hash protocol.Hash) error {
+	if hash.Equal(protocol.Invalid) {
+		return errors.New("user hash is invalid")
+	}
+	if c == nil || c.session == nil {
+		return errors.New("client session is not available")
+	}
+	c.session.SetUserAgent(hash)
+	return nil
+}
+
+// SecureIdent reports whether the client is configured to use a stable
+// identity. Persistence itself is handled by the client state store.
+func (c *Client) SecureIdent() bool {
+	if c == nil || c.session == nil {
+		return false
+	}
+	return c.session.GetSecureIdent()
+}
+
+// SetSecureIdent enables or disables the stable-identity mode.
+func (c *Client) SetSecureIdent(enabled bool) {
+	if c == nil || c.session == nil {
+		return
+	}
+	c.session.SetSecureIdent(enabled)
+}
+
+// CryptLayerSupported reports whether this fork implements eMule protocol
+// obfuscation (CryptLayer/RC4 handshake). It currently does not, so ED-05
+// must remain BLOCKED instead of being inferred from a peer's configuration.
+func CryptLayerSupported() bool {
+	return false
+}
+
 // SetDebugLog enables or disables internal goed2k debug logging. It is a
 // fork-local helper used by lab probes; pass a non-nil writer to enable.
 func SetDebugLog(w io.Writer) {

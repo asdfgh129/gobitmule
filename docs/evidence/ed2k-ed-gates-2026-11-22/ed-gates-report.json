@@ -1,7 +1,7 @@
 {
   "date": "2026-11-22",
-  "title": "WBS 16 / eD2k ED 门禁真机取证",
-  "engine": "internal/ed2k (goed2k fork, v0.0.0-20260602122456-f2a71d599dee)",
+  "title": "WBS 16 / eD2k ED 门禁真机取证（含补缺复验）",
+  "engine": "internal/ed2k (goed2k fork, v0.0.0-20260602122456-f2a71d599dee + ud fork patches)",
   "probe": "cmd/uded2kprobe (cross-compiled linux/amd64 + windows/amd64)",
   "lab_hosts": {
     "209": {
@@ -44,7 +44,7 @@
         }
       }
     ],
-    "note": "ud fork 引擎两次独立真机均成功用 eMule nodes.dat 接入公网 KAD：Bootstrapped=true、LiveNodes=50、KnownNodes=200。证明 fork 核心库的 KAD bootstrap 与 ud 侧的接入链路可用。"
+    "note": "ud fork 引擎两次独立真机均成功用 eMule nodes.dat 接入公网 KAD；后续身份/搜源复验再次确认 Bootstrapped=true、LiveNodes 41-50、KnownNodes=200。"
   },
   "peer_visibility_evidence": {
     "verdict": "PARTIAL",
@@ -58,13 +58,42 @@
         "KnownNodes": 201
       }
     },
-    "note": "注入 209 eMule 为 KAD bootstrap 节点后 KnownNodes 由 200 增至 201，ud 引擎将 209 纳入 KAD 节点表。这是「ud 侧可见 209」的部分证据；未做到双向连接层可见。"
+    "note": "注入 209 eMule 为 KAD bootstrap 节点后 KnownNodes 由 200 增至 201；未做到双向连接层可见。"
   },
-  "source_search_evidence": {
-    "verdict": "NOT_CLOSED",
+  "identity_evidence": {
+    "verdict": "PASS",
+    "claim": "ED-06: SecureIdent 模式下 UserHash 跨进程重启保持不变",
     "runs": [
       {
         "host": "222",
+        "evidence": ["identity-222-run1.json", "identity-222-run2.json"],
+        "user_hash": "22222222222222222222222222222222",
+        "secure_ident": true,
+        "stable_across_restart": true,
+        "note": "首次显式设置 UserHash 并写入 /root/ud-ed2k-state.json；第二次不带 -user-hash 从状态文件恢复，输出相同 UserHash。"
+      },
+      {
+        "host": "209",
+        "evidence": ["identity-209-run1.json", "identity-209-run2.json"],
+        "user_hash": "20920920920920920920920920920920",
+        "secure_ident": true,
+        "stable_across_restart": true,
+        "note": "C:\\Temp\\ud-ed2k-state.json 同样完成两次独立进程重启取证。"
+      }
+    ],
+    "code_changes": [
+      "fork Settings.SecureIdent + Client.UserHash/SetUserHash/SecureIdent/SetSecureIdent",
+      "ClientState.UserHash/SecureIdent 随 SaveState/LoadState 持久化",
+      "cmd/uded2kprobe 新增 -state/-user-hash/-secure-ident 并用 defer Close 保证退出时落盘"
+    ],
+    "tests": ["TestUserHashAndSecureIdentPersistAcrossRestart", "TestSetUserHashRejectsInvalidHash"]
+  },
+  "source_search_evidence": {
+    "verdict": "PARTIAL",
+    "runs": [
+      {
+        "host": "222",
+        "timestamp": "2026-11-22T13:16:08Z",
         "search_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
         "size": 1038612780,
         "search_started": true,
@@ -74,14 +103,45 @@
       },
       {
         "host": "209",
+        "timestamp": "2026-11-22T13:21:56Z",
         "search_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
+        "size": 1038612780,
         "search_started": true,
         "search_completed": false,
         "source_count": 0,
         "search_wait_seconds": 40
       }
     ],
-    "note": "两机均能发起 KAD 搜源（search_started=true、日志 'dht source search started'），但两阶段 traversal（find-sources -> search-sources）在 40-45 秒窗口内回调未触发（search_completed=false），source_count=0。debug 日志仅见 search started，无后续响应。两机 DHTStatus 均 Firewalled=true（实验室 NAT 后），可能是 fork 的 KAD traversal 在 NAT/Firewalled 环境下的收敛问题。作为 fork 的已知限制记录，不谎报为 PASS。"
+    "follow_up_runs": [
+      {
+        "host": "222",
+        "evidence": ["source-search-222.json", "source-search-222.log"],
+        "dht_timeout_seconds": 3,
+        "search_started": true,
+        "search_completed": true,
+        "source_count": 0,
+        "published_endpoint": "112.5.32.34:41969"
+      },
+      {
+        "host": "209",
+        "evidence": ["source-search-209.json", "source-search-209.log"],
+        "dht_timeout_seconds": 3,
+        "search_started": true,
+        "search_completed": true,
+        "source_count": 0
+      }
+    ],
+    "note": "补缺后两机 search_completed=true：DHTTracker.readLoop 在持续收包时也定期推进 tick，RPC 超时从固定 12s 改为可配置（探针 -dht-timeout），两阶段 find-sources -> search-sources 均可收敛并释放回调。但 debug 日志显示真机节点 responses=0、timeouts=41-46，未返回可用源，source_count 仍为 0；NAT/Firewalled 下「能找到源」尚未闭环，不谎报 PASS。回归 TestSourceSearchCallbackCompletesOnRPCTimeout 覆盖回调释放。"
+  },
+  "low_id_simulation": {
+    "verdict": "PARTIAL",
+    "test": "TestLowIDSimulatedServerHandshake",
+    "note": "本地伪造 eD2k server 发送 IdChange(ClientID=123456)，验证客户端进入 LOW_ID 分类且会话保持存活；未覆盖「可见源比例下降」的真实 NAT 流量指标。"
+  },
+  "cryptlayer_capability": {
+    "verdict": "BLOCKED",
+    "fork_api": "CryptLayerSupported() bool -> false",
+    "note": "fork 未实现 eMule CryptLayer/RC4 混淆握手；探针输出 crypt_layer_supported=false。即使 209 eMule 配置 CryptLayerSupported=1，也无法构造「仅混淆对端」握手取证，ED-05 仍 BLOCKED。"
   },
   "gate_verdicts": {
     "ED-01": {
@@ -90,25 +150,25 @@
     },
     "ED-02": {
       "status": "PARTIAL",
-      "reason": "KAD bootstrap 两机真机 PASS（能连 KAD）；搜源可发起但未返回具体源（traversal 未收敛），「能找到源」未完全闭环。"
+      "reason": "KAD bootstrap 两机真机 PASS；补缺后搜源两阶段 traversal 可收敛并回调（search_completed=true），但真机 responses=0/timeouts=41-46，source_count=0，「能找到源」未闭环。"
     },
     "ED-03": {
       "status": "PARTIAL",
-      "reason": "209 eMule High ID 入站已取证（TCP 31969 外部 ESTABLISHED）；但 ud fork 探针端口在 NAT 后 Firewalled=true，源数量正常性未验证。"
+      "reason": "209 eMule High ID 入站已取证（TCP 31969 外部 ESTABLISHED）；ud fork 探针仍 Firewalled=true，源数量正常性未验证。"
     },
     "ED-04": {
-      "status": "NOT_EXECUTED",
-      "reason": "Low ID 模拟未执行。"
+      "status": "PARTIAL",
+      "reason": "本地伪造 server 的 Low ID IdChange 握手模拟已通过并保活；真实 NAT 下可见源比例下降指标未测。"
     },
     "ED-05": {
-      "status": "NOT_EXECUTED",
-      "reason": "协议混淆握手对端验证未执行；ud fork 适配器已配置 CryptLayerSupported，但无「仅混淆对端」环境。"
+      "status": "BLOCKED",
+      "reason": "fork 未实现 CryptLayer/RC4 混淆握手（CryptLayerSupported()=false），且无「仅混淆对端」环境；能力与环境双重阻塞。"
     },
     "ED-06": {
-      "status": "BLOCKED",
-      "reason": "goed2k fork 未暴露 UserHash/SecureIdent 的读取与持久化校验 API，无法验证重启后 UserHash 不变。这是 fork 的能力缺口。"
+      "status": "PASS",
+      "reason": "fork 已暴露 UserHash/SecureIdent 读取与状态持久化 API；222/209 两机各两次独立进程重启后 UserHash 不变，且状态文件明文可审计。"
     }
   },
-  "release_impact": "ED-01/02/05/06 未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮不翻转发布结论。",
-  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（go list/build 全部 timeout，连 hello world 都不能编译）；改用 AppData/Local/Temp 下的干净 GOCACHE 后恢复。非网络问题，未使用 Proxyhub。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。"
+  "release_impact": "ED-01/02/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮把 ED-06 从 BLOCKED 推进为 PASS、ED-05 从 NOT_EXECUTED 明确为能力 BLOCKED、ED-04 从 NOT_EXECUTED 推进为 PARTIAL、ED-02 搜源从无回调推进为两阶段收敛但零源；不翻转发布结论。",
+  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。"
 }

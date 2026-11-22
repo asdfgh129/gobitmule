@@ -59,6 +59,11 @@ func NewDHTTracker(listenPort int, timeout time.Duration) *DHTTracker {
 		firewalled:    true,
 		externalIPs:   make([]uint32, 0, 2),
 	}
+	tracker.rpc.shortTimeout = timeout / 4
+	if tracker.rpc.shortTimeout < 500*time.Millisecond {
+		tracker.rpc.shortTimeout = 500 * time.Millisecond
+	}
+	tracker.rpc.timeout = timeout
 	tracker.node = newKadNodeImpl(tracker)
 	return tracker
 }
@@ -180,7 +185,21 @@ func (t *DHTTracker) SearchSources(hash protocol.Hash, size int64, cb func([]kad
 
 func (t *DHTTracker) readLoop() {
 	buffer := make([]byte, 8192)
+	tick := time.NewTicker(500 * time.Millisecond)
+	defer tick.Stop()
 	for {
+		// Drive RPC timeouts/traversals from the same goroutine as packet
+		// processing. A busy KAD peer can keep ReadFromUDP returning forever,
+		// which used to starve tick() and leave source searches unfinished.
+		select {
+		case <-t.stopCh:
+			return
+		case <-tick.C:
+			if t.node != nil {
+				t.node.tick()
+			}
+		default:
+		}
 		if t.conn == nil {
 			return
 		}
@@ -188,12 +207,6 @@ func (t *DHTTracker) readLoop() {
 		n, addr, err := t.conn.ReadFromUDP(buffer)
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				t.node.tick()
-				select {
-				case <-t.stopCh:
-					return
-				default:
-				}
 				continue
 			}
 			if errorsIsClosed(err) {

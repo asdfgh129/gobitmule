@@ -1,0 +1,5 @@
+time=2026-11-22T14:24:12.924Z level=DEBUG msg="nodes.dat loaded" source=nodes.dat entries=200
+time=2026-11-22T14:24:14.925Z level=DEBUG msg="dht source search started" hash=E75AD307F1EC36B45DD100AB92A2F8C0 size=1038612780
+time=2026-11-22T14:24:40.440Z level=DEBUG msg="kad traversal done" kind=refresh target=0B67BA8D98D7B944285DCA1E2056628D responses=0 timeouts=41 results=41 entries=0
+time=2026-11-22T14:24:41.940Z level=DEBUG msg="kad traversal done" kind=find-sources target=E75AD307F1EC36B45DD100AB92A2F8C0 responses=0 timeouts=41 results=41 entries=0
+time=2026-11-22T14:24:41.941Z level=DEBUG msg="kad traversal done" kind=search-sources target=E75AD307F1EC36B45DD100AB92A2F8C0 responses=0 timeouts=0 results=0 entries=0
