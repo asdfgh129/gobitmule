@@ -142,7 +142,54 @@ Windows 10（build 19044）主机**，非 Linux，纠正 §4 的推断：
 - 但 `netstat` 无 4662/4672/4711 监听，未见 `nodes.dat`/`server.met`，
   Tailscale 处于 NoState。即 eMule 在运行但 **KAD 引导与入站端口未配置**。
 
-**结论**：ED 门禁的「客户端」前置条件已部分满足（eMule 存在），但
-「KAD + TCP/UDP 入站 + 真实互通」仍缺，ED-01/02/05/06 维持 `NOT_EXECUTED`。
-下一步需在 209 上配置 eMule KAD（导入 nodes.dat / 开放 4662 TCP + 4672 UDP）
-并与 221/222 侧 ud 实例做真实互通，方可执行门禁。
+**结论（2026-11-21 时点，已被 §7 取代）**：ED 门禁的「客户端」前置条件已部分
+满足（eMule 存在），但当时「KAD + TCP/UDP 入站 + 真实互通」仍缺，ED-01/02/05/06
+维持 `NOT_EXECUTED`。
+
+## 7. 对端就绪补记（2026-11-22）
+
+用户在 209 上完成 eMule KAD 配置，§6.2 的「KAD 未配置」论断被推翻。真机取证
+（证据：`docs/evidence/ed2k-209-2026-11-22/kad-environment.json` + SHA256SUMS）：
+
+- **入网端口**：`Port=31969`（TCP）、`UDPPort=41296`；`netstat` 见
+  TCP `0.0.0.0:31969 LISTENING` + **3 个外部 ESTABLISHED**，UDP `0.0.0.0:41296 LISTENING`。
+  即 **High ID 入站成立**（用自定义端口，非 4662/4672）；属 ED-03 的对端侧证据。
+- **KAD 引导**：`NetworkKademlia=1`，`nodes.dat` 6812 B、`preferencesKad.dat`、
+  `KadUDPKey` 齐备 —— KAD bootstrap 成功，外部 TCP 对等节点已连入。
+- **身份/混淆**：`SecureIdent=1`、`LogSecureIdent=1`、`CryptLayerSupported=1`、
+  `known2_64.met` 4.5 MB（09:44 更新）—— ED-05/ED-06 的**对端配置**就绪。
+- **活跃度**：`clients.met` 279 KB（09:41）、`server.met.new` 6.8 KB（09:45）刚刷新；
+  `downloads.txt` 有一条真实 `ed2k://|file|...` 任务（仅记录 size/MD4 三元组，不渲染文件名）；
+  `D:\eMule\incoming\<hash>` 下 72 个已完成文件（156 MB）——真实完成文件可直接作为 reader 源。
+- WebServer `Enabled=0`（4711 未监听）：无 Web API 触发下载的通道，**不**把它当作
+  生产 Downloader 路径。
+
+### 7.1 门禁结论与边界（严格）
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 对端条件 | **READY** | 真实 eMule + 活跃 KAD + 入站 TCP + 完成文件 |
+| ED-01 | `NOT_EXECUTED` | 需 ud 侧 fork 与对端互可见（缺第二 aMule/eNode-go 对等体） |
+| ED-02 | `NOT_EXECUTED` | eMule 自身能找源，但 ud 引擎未跑 KAD 搜源/发布 |
+| ED-03 | `PARTIAL` | High ID 在 eMule 上成立，未在 ud 引擎验证 |
+| ED-05 | `NOT_EXECUTED` | 对端 `CryptLayerSupported=1`，未做 ud 侧「仅混淆」握手 |
+| ED-06 | `NOT_EXECUTED` | 对端 `SecureIdent=1`，未做 ud 侧重启 UserHash 稳定性 |
+
+**发布结论不变**：ED 门禁验证的是 **ud 侧 goed2k fork** 的互操作，不是 eMule 自身；
+对端就绪只消除了环境前置，fork Downloader 仍未接入，故 ED-01/02/05/06 不翻转。
+
+### 7.2 Transport 落地：`LocalFileDownloader`
+
+`internal/transport/ed2k/filedownloader.go` 落地 `Downloader` 的一个**真实**实现：
+从受控完成目录（如 209 的 `D:\eMule\incoming`）读取 eMule **已完成**文件，返回
+seekable reader + 落盘 size，交给 `Run` 的 chunk 计划 / Budget / ChunkWriter。
+
+- 这是 docs/25 §3「reader 适配模式」（BT 同构）的最后一环：eMule 负责下载落盘，
+  ud 负责逐 chunk 读回并计费；**不**下载、不替代 fork 的 `AddTransfer+Wait`。
+- 文件名来自不可信 `ed2k://` 链接，统一经 `security.PathGuard.Clean` 约束在 root 内
+  （拒绝 `..`/绝对路径/保留设备名）；落盘 size 由 `Run` 与链接冻结 size 比对。
+- `filedownloader_test.go` 用 `t.TempDir()` 真实文件做 byte-exact 端到端（814 B → 64 B
+  chunks → 聚合逐字节一致 + Budget 计费）、size 守卫、路径穿越、未配置、目录拒绝，
+  零网络。至此 transport 从「只有 fake reader 单测」推进到「真实文件 reader 可用」。
+- 仍**默认不注册**：生产启用需显式构造 `NewLocalFileDownloader(root)` 或未来 fork，
+  不改变 dispatch 行为。

@@ -1,6 +1,6 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.41 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.42 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
 
 > **v1.40 变更 / 2026-11-21 时点口径（P3 WBS 16–18 三项 OPEN 裁决）**：
 > 发起人指令启动 ed2k / RPC facade / 微信插件，新增 [ADR-0030](adr/ADR-0030-ed2k引擎fork自维护.md)
@@ -8,6 +8,15 @@
 > 关闭 OPEN-03（goed2k fork 自维护）、OPEN-04（L1 facade 纳入）、OPEN-06（微信立项 + 代行签批）。
 > 三个 WBS 进入「进行中」；真实环境门禁（ED-01/02/05/06、AriaNg、视频号 MITM）均 NOT_EXECUTED。
 > `14`（WBS / OPEN）、`docs/adr`、`CHANGELOG` 同步，门户重建。
+>
+> **v1.42 变更 / 2026-11-22 时点口径（WBS 16 对端就绪 + LocalFileDownloader）**：
+> 209 上 eMule KAD 已配置并真实入网（TCP 31969 入站 + 3 外部 ESTABLISHED、UDP 41296、
+> nodes.dat + SecureIdent/CryptLayer + 72 个完成文件），推翻 `docs/25` §6.2「KAD 未配置」
+> 旧论断；证据见 [`docs/evidence/ed2k-209-2026-11-22/`](evidence/ed2k-209-2026-11-22/kad-environment.json)。
+> 对端条件 READY，但 ED 门禁验证 ud 引擎互操作，故 ED-01/02/05/06 仍 NOT_EXECUTED、
+> ED-03 PARTIAL，发布结论不变。`transport/ed2k` 新增真实 `LocalFileDownloader`
+> （受控完成目录 → seekable reader，安全路径 + byte-exact 端到端测试），仍默认不注册。
+> `14` / `25` / `CHANGELOG` 同步。
 >
 > **v1.41 变更 / 2026-11-21 时点口径（WBS 17 AriaNg 真机验收）**：
 > 隔离双机（`192.168.1.222` / `221`）完成 AriaNg 1.3.15 真机验收——跨机真实下载

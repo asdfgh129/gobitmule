@@ -1,0 +1,65 @@
+{
+  "host": "192.168.1.209",
+  "os": "Windows 10 build 19044.3693",
+  "user": "DESKTOP-CCE53RF\\bemin",
+  "captured_at": "2026-11-22T09:50:00+08:00",
+  "access": "SSH (password via SSH_ASKPASS), host key warning: no post-quantum KEX",
+  "emule": {
+    "process": "emule.exe",
+    "pid": 12124,
+    "install": "C:\\Program Files (x86)\\eMule",
+    "config": "C:\\Program Files (x86)\\eMule\\config",
+    "incoming": "D:\\eMule\\incoming",
+    "temp": "D:\\eMule\\temp"
+  },
+  "ports": {
+    "tcp": 31969,
+    "udp": 41296,
+    "tcp_state": "LISTENING on 0.0.0.0 plus 3 ESTABLISHED to external peers",
+    "udp_state": "LISTENING on 0.0.0.0",
+    "standard_4662_4672": "not used (custom ports configured)",
+    "webserver_4711": "configured but Enabled=0, not listening"
+  },
+  "kad": {
+    "NetworkKademlia": 1,
+    "nodes_dat_bytes": 6812,
+    "nodes_dat_mtime": "2026-11-21T15:54:00",
+    "preferencesKad_dat_bytes": 23,
+    "KadUDPKey": "present",
+    "bootstrap": "successful (external TCP peers ESTABLISHED on Kad port)",
+    "spike_prior_claim": "docs/25 §6.2 claimed no nodes.dat / KAD unconfigured on 2026-11-21; SUPERSEDED by this capture"
+  },
+  "identity": {
+    "SecureIdent": 1,
+    "LogSecureIdent": 1,
+    "CryptLayerSupported": 1,
+    "cryptkey_dat": "present",
+    "known2_64_met_bytes": 4519877,
+    "known2_64_met_mtime": "2026-11-22T09:44:00"
+  },
+  "activity": {
+    "clients_met_bytes": 279417,
+    "clients_met_mtime": "2026-11-22T09:41:00",
+    "server_met_new_bytes": 6797,
+    "server_met_new_mtime": "2026-11-22T09:45:00",
+    "completed_files_dir": "D:\\eMule\\incoming\\3614937_64b31b115f",
+    "completed_file_count": 72,
+    "completed_total_bytes": 156218035,
+    "live_transfer": {
+      "part_file": "022.part",
+      "ed2k_link_shape": "ed2k://|file|<name>|<size>|<md4hex>|/",
+      "md4hex": "E75AD307F1EC36B45DD100AB92A2F8C0",
+      "size": 1038612780,
+      "note": "name intentionally omitted; only protocol tuple recorded"
+    }
+  },
+  "gate_interpretation": {
+    "peer_side_readiness": "READY — real eMule client with live Kad bootstrap, inbound TCP, nodes.dat, active source discovery",
+    "ED-01": "NOT_EXECUTED — needs ud-side goed2k fork visible to a peer (no second aMule/eNode-go peer)",
+    "ED-02": "NOT_EXECUTED — eMule itself finds sources, but ud-side engine has not run Kad search/publish",
+    "ED-03": "PARTIAL — High ID inbound demonstrated on eMule (31969), not on ud engine",
+    "ED-05": "NOT_EXECUTED — CryptLayerSupported=1 on eMule, but no ud-side obfuscation-only handshake test",
+    "ED-06": "NOT_EXECUTED — SecureIdent=1 on eMule, but restart UserHash-stability test not run on ud engine",
+    "release_verdict": "unchanged — ED gates validate the ud engine interop, not eMule alone; fork Downloader still required"
+  }
+}

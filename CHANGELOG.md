@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16 推进：209 对端就绪 + `LocalFileDownloader`（2026-11-22）**：
+  - **209 KAD 已配置并真实入网**（用户完成配置，`docs/25` §6.2「KAD 未配置」、
+    `docs/14` 旧状态被推翻）：真实 `emule.exe` + `Port=31969` TCP（`0.0.0.0`
+    LISTENING + 3 外部 ESTABLISHED）/ `UDPPort=41296`、`NetworkKademlia=1`、
+    `nodes.dat`+`KadUDPKey`、`SecureIdent=1`/`CryptLayerSupported=1`、
+    `known2_64.met` 4.5MB、`clients.met` 279KB 今日刷新、`downloads.txt`
+    有真实任务、incoming 72 个完成文件（156MB）。WebServer `Enabled=0`
+    （无 4711），不作生产下载通道。**证据**：`docs/evidence/ed2k-209-2026-11-22/`
+    （`kad-environment.json` + SHA256SUMS）。
+  - **门禁边界**：对端条件 READY，但 ED 门禁验证的是 ud 侧 fork 互操作而非
+    eMule 自身——**ED-01/02/05/06 维持 `NOT_EXECUTED`，ED-03 `PARTIAL`**，
+    发布结论不变（R-06）。
+  - **实现**：`internal/transport/ed2k/filedownloader.go` 落地真实
+    `LocalFileDownloader`——从受控完成目录读 eMule 已完成文件，返回 seekable
+    reader + 落盘 size，交 `Run` 的 chunk 计划/Budget/ChunkWriter（docs/25 §3
+    reader 适配模式最后一环，**不下载、不替代 fork**）。文件名经
+    `security.PathGuard.Clean` 防穿越。`filedownloader_test.go` 真实文件
+    byte-exact 端到端 + size 守卫 + 路径穿越/未配置/目录拒绝，零网络。
+    仍默认不注册 daemon。
 - **WBS 16 eD2k Transport 离线骨架 + 209 实验室补探（2026-11-21）**：
   - **实现**：`internal/transport/ed2k/`（`ed2k.go` + `ed2k_test.go`）。按
     `docs/25` spike 的 BT 同构 reader 模式落地：`Downloader` seam（生产实现
