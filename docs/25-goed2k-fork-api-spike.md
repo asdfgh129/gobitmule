@@ -193,3 +193,61 @@ seekable reader + 落盘 size，交给 `Run` 的 chunk 计划 / Budget / ChunkWr
   零网络。至此 transport 从「只有 fake reader 单测」推进到「真实文件 reader 可用」。
 - 仍**默认不注册**：生产启用需显式构造 `NewLocalFileDownloader(root)` 或未来 fork，
   不改变 dispatch 行为。
+
+## 8. fork 落地与引擎接入（2026-11-22）
+
+按 ADR-0030「fork 自维护」执行，把 goed2k 核心库正式引入 ud：
+
+### 8.1 fork 已落地（`internal/ed2k/`）
+
+- 来源：module cache 的 `v0.0.0-20260602122456-f2a71d599dee`，MIT（LICENSE 随附，
+  `internal/ed2k/FORK.md` 记录来源与改造）。
+- **剥离 TUI**：只复制核心库（`*.go` + `data/` `disk/` `internal/` `protocol/`），
+  `cmd/`（bubbletea/bubbles/lipgloss）与 `examples/` 不进 fork——核心库实测零第三方
+  依赖，不污染 ud 依赖树（印证 §3 判断）。import 路径改为
+  `github.com/asdfgh129/ud/internal/ed2k`。
+- **编译验证**：fork 核心库 `go build ./internal/ed2k/...` 通过（EXIT=0）。
+
+### 8.2 引擎适配器已落地（`internal/transport/ed2k/goed2k.go`）
+
+- `Goed2kDownloader` 实现 `Downloader` 接口：`Open` 从冻结 Resource 还原
+  `ed2k://|file|name|size|hash|/` → 配置 Settings（ListenPort/UDPPort/EnableDHT）
+  → 加载 `nodes.dat` / `server.met` → `Start` → `AddLink` → `Wait` → 读回完成文件。
+- **ADR-0002 隔离**：`MaxUploadRateKB=0`、`SetAutoSaveInterval(0)`，关掉库内限速与
+  持久化，ud 保持唯一速率/状态权威。
+- **ctx 取消**：`Wait()` 无 ctx 参数，用 goroutine + select 保证取消时 `Stop()` 引擎。
+- **测试 seam**：窄 `engine`/`transferHandle` 接口注入 fake，`goed2k_test.go` 零网络
+  覆盖正常路径与各错误分支。
+- **编译验证**：适配器 `go build ./internal/transport/ed2k/...` 通过（EXIT=0）。
+
+### 8.3 opt-in 注册与真机探针
+
+- `config.ED2KConfig` 增 `Enabled/OutputDir/NodesDat/ServerMet`（默认 `Enabled=false`，
+  dispatch 字节不变）；`daemon.go` 在 `Enabled=true` 时注册 `Goed2kDownloader`。
+- `cmd/uded2kprobe/`：真机 KAD 探针，`LoadDHTNodesDat` + `Start` + 观察 `DHTStatus`
+  （`Bootstrapped`/`LiveNodes`/`Firewalled`），JSON 输出，供 ED-02/03 取证。
+- 209 的 `nodes.dat`（6812 B）已取得到 `docs/evidence/ed2k-209-2026-11-22/nodes.dat`，
+  格式经核对为标准 eMule nodes.dat（goed2k `LoadNodesDat` 可解析）。
+- 222 实测有公网（`8.8.8.8:53` 通、`https://github.com` HTTP 200），纠正 §4「无外网」
+  旧论断——ud 引擎可连公网 KAD 与 209 eMule 互连。
+
+### 8.4 真机门禁状态：NOT_EXECUTED（环境阻塞）
+
+**ED-01/02/05/06 仍 `NOT_EXECUTED`，ED-03 仍 `PARTIAL`，发布结论不变。** 阻塞原因
+不是代码或环境前置，而是**本机 Go 工具链故障**：在接入后期 `go build` 出现环境级
+卡死——连最小 hello world 都超时（`go build -x` 停在 `WORK=` 目录创建后、零输出、
+退出码 124），已排除进程残留、`/tmp` 与 Windows TEMP 残留目录、GOCACHE、
+GOTOOLCHAIN、磁盘空间等因素。因此：
+
+- 无法交叉编译 `uded2kprobe` 部署到 222，无法执行 KAD bootstrap / 双客户端互连 /
+  混淆握手 / SecureID 重启等真机步骤；
+- 无法完成最终全量门禁（`go test ./...` / `check_arch` / `cover`）与单测复验
+  （`goed2k_test.go` 首次运行仅因 Windows 文件句柄未释放导致 TempDir cleanup 失败，
+  已加 `t.Cleanup` 修复，修复后因编译故障未能复验）。
+
+**恢复条件**：Go 工具链可用后，依次执行
+① `go test ./internal/transport/ed2k/...` 复验单测；
+② `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o uded2kprobe ./cmd/uded2kprobe/` 交叉编译；
+③ scp 探针 + nodes.dat 到 222，`./uded2kprobe -nodes nodes.dat -tcp <port> -udp <port> -wait 60`
+取 DHTStatus 证据；④ 与 209 eMule 做同 hash 搜源/发布验证 ED-01/02；⑤ 补混淆握手与
+SecureID 重启验证 ED-05/06；⑥ 回填证据并重新判定门禁。

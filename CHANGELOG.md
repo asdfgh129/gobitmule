@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：fork goed2k 落地 + 引擎接入（2026-11-22）**：
+  - **fork**（`internal/ed2k/`）：goed2k `v0.0.0-20260602122456-f2a71d599dee`
+    核心库自维护，剥离 TUI（零第三方依赖），MIT LICENSE + `FORK.md` 随附，
+    import 路径改 ud 内部。`go build ./internal/ed2k/...` 通过。
+  - **引擎适配器**（`internal/transport/ed2k/goed2k.go`）：`Goed2kDownloader`
+    实现 `Downloader`，从冻结 Resource 还原 ed2k 链接 → 加载 KAD nodes.dat /
+    server.met → `Start`/`AddLink`/`Wait` → 读回完成文件；关库内限速与 AutoSave
+    （ADR-0002 单一权威），ctx 取消保障；窄接口 seam 注入 fake 零网络单测。
+    `go build ./internal/transport/ed2k/...` 通过。
+  - **opt-in 注册**：`ED2KConfig` 增 `Enabled/OutputDir/NodesDat/ServerMet`（默认
+    关闭），daemon 在 `Enabled=true` 时注册；`cmd/uded2kprobe/` 真机 KAD 探针。
+    209 `nodes.dat` 归档；222 实测有公网（纠正「无外网」旧论断）。
+  - **门禁如实**：ED-01/02/05/06 仍 `NOT_EXECUTED`、ED-03 `PARTIAL`——本机 Go
+    工具链环境级故障（连 hello world 都 `go build` 卡死），无法交叉编译探针与
+    跑真机互通/最终全量门禁。恢复条件与执行步骤见 `docs/25` §8.4。
 - **WBS 16 推进：209 对端就绪 + `LocalFileDownloader`（2026-11-22）**：
   - **209 KAD 已配置并真实入网**（用户完成配置，`docs/25` §6.2「KAD 未配置」、
     `docs/14` 旧状态被推翻）：真实 `emule.exe` + `Port=31969` TCP（`0.0.0.0`

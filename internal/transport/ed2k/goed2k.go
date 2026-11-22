@@ -1,0 +1,196 @@
+package ed2ktransport
+
+// Production eD2k engine adapter (WBS 16 / ADR-0030 / docs/25 §3).
+//
+// It drives the forked goed2k engine (internal/ed2k) with the same reader
+// adapter pattern BitTorrent uses: the engine downloads into a controlled
+// output dir, then Run reads the COMPLETE file back through a seekable reader
+// and charges every byte to ud's single Budget. The engine's own rate limiter
+// and AutoSave persistence are disabled so ud stays the unique rate/state
+// authority (ADR-0002).
+//
+// Network I/O only happens when Open is called; construction, Probe and the
+// engine factory seam are offline, so CI never touches the real eD2k network.
+
+import (
+	"context"
+	"io"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/asdfgh129/ud/internal/core"
+	goed2k "github.com/asdfgh129/ud/internal/ed2k"
+)
+
+// transferHandle is the narrow view of a completed transfer the adapter needs.
+// goed2k.TransferHandle satisfies it natively; tests supply a fake with a
+// temp-file reader so CI stays offline.
+type transferHandle interface {
+	IsFinished() bool
+	GetFile() *os.File
+}
+
+// engine is the narrow surface Goed2kDownloader needs from the forked client.
+type engine interface {
+	Start() error
+	LoadDHTNodesDat(path ...string) error
+	ConnectServerMet(path string) error
+	AddLink(linkValue, outputDir string) (transferHandle, string, error)
+	Wait() error
+	Stop() error
+}
+
+// realEngine wraps *goed2k.Client to satisfy engine.
+type realEngine struct{ c *goed2k.Client }
+
+func (e *realEngine) Start() error                      { return e.c.Start() }
+func (e *realEngine) LoadDHTNodesDat(p ...string) error { return e.c.LoadDHTNodesDat(p...) }
+func (e *realEngine) ConnectServerMet(p string) error   { return e.c.ConnectServerMet(p) }
+func (e *realEngine) Wait() error                       { return e.c.Wait() }
+func (e *realEngine) Stop() error                       { return e.c.Stop() }
+func (e *realEngine) AddLink(link, out string) (transferHandle, string, error) {
+	h, path, err := e.c.AddLink(link, out)
+	return h, path, err // goed2k.TransferHandle satisfies transferHandle
+}
+
+// engineFactory builds an engine per Downloader Open. Production returns a
+// configured *realEngine; tests inject a fake factory (zero network).
+type engineFactory func() (engine, error)
+
+// Goed2kConfig carries the engine settings needed to join the eD2k network.
+// KAD nodes.dat / server.met are explicit (ADR-0030 / ED-02); ListenPort/UDPPort
+// mirror the lab peer ports (209 eMule uses 31969 / 41296).
+type Goed2kConfig struct {
+	ListenPort      int
+	UDPPort         int
+	OutputDir       string // controlled dir for completed files
+	NodesDat        string // optional KAD bootstrap file
+	ServerMet       string // optional eD2k server list
+	DisableRate     bool   // zero the engine's own upload limiter (ADR-0002)
+	DisableAutoSave bool   // zero AutoSaveInterval (ADR-0002)
+}
+
+// Goed2kDownloader implements Downloader by driving the forked goed2k engine.
+type Goed2kDownloader struct {
+	cfg     Goed2kConfig
+	factory engineFactory
+}
+
+// NewGoed2kDownloader builds the production Downloader.
+func NewGoed2kDownloader(cfg Goed2kConfig) *Goed2kDownloader {
+	return &Goed2kDownloader{cfg: cfg, factory: defaultEngineFactory(cfg)}
+}
+
+// newGoed2kDownloaderWithFactory is the offline test seam.
+func newGoed2kDownloaderWithFactory(cfg Goed2kConfig, f engineFactory) *Goed2kDownloader {
+	return &Goed2kDownloader{cfg: cfg, factory: f}
+}
+
+// defaultEngineFactory constructs a freshly configured goed2k Client.
+// DisableRate/DisableAutoSave default true in NewGoed2kConfig semantics below;
+// the zero value here also means "disable" so ud stays the single authority.
+func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
+	return func() (engine, error) {
+		st := goed2k.NewSettings()
+		if cfg.ListenPort > 0 {
+			st.ListenPort = cfg.ListenPort
+		}
+		if cfg.UDPPort > 0 {
+			st.UDPPort = cfg.UDPPort
+		}
+		st.EnableDHT = cfg.NodesDat != ""
+		st.MaxUploadRateKB = 0 // ud is the unique rate authority (ADR-0002)
+		c := goed2k.NewClient(st)
+		c.SetAutoSaveInterval(0) // no state double-write (ADR-0002)
+		return &realEngine{c: c}, nil
+	}
+}
+
+// Open drives the engine to completion and returns a seekable reader over the
+// completed file. It is the only method that touches the network.
+func (d *Goed2kDownloader) Open(ctx context.Context, r *core.Resource) (io.ReadSeekCloser, int64, error) {
+	if d == nil || d.factory == nil {
+		return nil, 0, core.Err(core.E_CAPABILITY_UNAVAILABLE, "goed2k engine factory is not configured")
+	}
+	if d.cfg.OutputDir == "" {
+		return nil, 0, core.Err(core.E_CAPABILITY_UNAVAILABLE, "goed2k output directory is not configured")
+	}
+	size, name, err := primaryFile(r)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(r.Identity.ED2KFileHash) != 32 {
+		return nil, 0, core.Err(core.E_INVALID_INPUT, "ed2k resource has no valid MD4 file hash")
+	}
+	link := buildFileLink(name, size, r.Identity.ED2KFileHash)
+
+	eng, err := d.factory()
+	if err != nil {
+		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k engine init failed: %v", err)
+	}
+	if d.cfg.NodesDat != "" {
+		if err := eng.LoadDHTNodesDat(d.cfg.NodesDat); err != nil {
+			_ = eng.Stop()
+			return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "KAD nodes.dat load failed: %v", err)
+		}
+	}
+	if d.cfg.ServerMet != "" {
+		if err := eng.ConnectServerMet(d.cfg.ServerMet); err != nil {
+			_ = eng.Stop()
+			return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "server.met connect failed: %v", err)
+		}
+	}
+	if err := eng.Start(); err != nil {
+		_ = eng.Stop()
+		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k start failed: %v", err)
+	}
+	handle, _, err := eng.AddLink(link, d.cfg.OutputDir)
+	if err != nil {
+		_ = eng.Stop()
+		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k AddLink failed: %v", err)
+	}
+
+	// Wait() has no ctx; run it in a goroutine so cancellation is honored.
+	waitErr := make(chan error, 1)
+	go func() { waitErr <- eng.Wait() }()
+	select {
+	case <-ctx.Done():
+		_ = eng.Stop()
+		return nil, 0, ctx.Err()
+	case err := <-waitErr:
+		if err != nil {
+			_ = eng.Stop()
+			return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k wait failed: %v", err)
+		}
+	}
+
+	if !handle.IsFinished() {
+		_ = eng.Stop()
+		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k transfer not finished after Wait")
+	}
+	f := handle.GetFile()
+	if f == nil {
+		_ = eng.Stop()
+		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k completed file has no reader")
+	}
+	// The completed file stays on disk after engine Stop; reopen by path so the
+	// reader is independent of the engine's own *os.File lifecycle.
+	path := f.Name()
+	_ = eng.Stop()
+	rf, err := os.Open(path)
+	if err != nil {
+		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "reopen completed eD2k file failed: %v", err)
+	}
+	return rf, size, nil
+}
+
+// buildFileLink assembles a canonical ed2k://|file|name|size|hash|/ link from
+// the frozen Resource fields. QueryEscape protects the name delimiter.
+func buildFileLink(name string, size int64, md4hex string) string {
+	return "ed2k://|file|" + url.QueryEscape(strings.TrimSpace(name)) +
+		"|" + strconv.FormatInt(size, 10) + "|" + strings.ToLower(md4hex) + "|/"
+}
+
+var _ Downloader = (*Goed2kDownloader)(nil)

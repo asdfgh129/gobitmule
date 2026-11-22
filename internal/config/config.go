@@ -57,6 +57,13 @@ type ED2KConfig struct {
 	SecureIdent bool `yaml:"secureIdent" json:"secureIdent"`
 	TCPPort     int  `yaml:"tcpPort" json:"tcpPort"`
 	UDPPort     int  `yaml:"udpPort" json:"udpPort"`
+	// WBS 16 / ADR-0030: engine opt-in. Enabled=false keeps dispatch byte-
+	// identical (no eD2k Transport registered); true wires the forked goed2k
+	// Downloader with the controlled output dir and KAD/server bootstrap.
+	Enabled   bool   `yaml:"enabled" json:"enabled"`
+	OutputDir string `yaml:"outputDir" json:"outputDir"`
+	NodesDat  string `yaml:"nodesDat" json:"nodesDat"`
+	ServerMet string `yaml:"serverMet" json:"serverMet"`
 }
 
 // RPCConfig gates the optional L1 aria2 JSON-RPC facade (ADR-0031). It is

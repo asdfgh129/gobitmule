@@ -54,6 +54,12 @@ ed2k:
   secureIdent: true
   tcpPort: 4662
   udpPort: 4672
+  # WBS 16 / ADR-0030: forked goed2k 引擎 opt-in（默认 false = 不注册 eD2k Transport，
+  # dispatch 行为不变）。true 时需给 outputDir；KAD/server 引导文件可选。
+  enabled: false
+  outputDir: ""          # eD2k 完成文件受控目录
+  nodesDat: ""           # KAD 引导文件（如 209 的 nodes.dat）
+  serverMet: ""          # eD2k server.met（可选）
 plugins:
   verifySignature: true       # 官方规则包强制 Ed25519 校验；关闭必须同时显式 insecure: true
   runtime: "goja"             # 仅实现 goja；wasm 为未来硬隔离升级路径

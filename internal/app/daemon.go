@@ -27,6 +27,7 @@ import (
 	"github.com/asdfgh129/ud/internal/transport"
 	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
 	dashtransport "github.com/asdfgh129/ud/internal/transport/dash"
+	ed2ktransport "github.com/asdfgh129/ud/internal/transport/ed2k"
 	ftptransport "github.com/asdfgh129/ud/internal/transport/ftp"
 	hlstransport "github.com/asdfgh129/ud/internal/transport/hls"
 	httptransport "github.com/asdfgh129/ud/internal/transport/http"
@@ -297,6 +298,18 @@ func Run(ctx context.Context, opts Options) error {
 		// tg://ud mirror URLs, so existing transports are unaffected.
 		transports.Register(tgtransport.New(creds, cfg.Sources.Telegram.APIID,
 			cfg.Sources.Telegram.APIHash, cfg.Sources.Telegram.EffectiveTimeout()))
+	}
+	if cfg.ED2K.Enabled {
+		// WBS 16 / ADR-0030: forked goed2k eD2k Transport (opt-in). Claims only
+		// KindED2K resources; with Enabled=false dispatch is byte-identical and
+		// the resolved ed2k Resource still fails explicitly (fail-closed).
+		transports.Register(ed2ktransport.NewGoed2kDownloader(ed2ktransport.Goed2kConfig{
+			ListenPort: cfg.ED2K.TCPPort,
+			UDPPort:    cfg.ED2K.UDPPort,
+			OutputDir:  cfg.ED2K.OutputDir,
+			NodesDat:   cfg.ED2K.NodesDat,
+			ServerMet:  cfg.ED2K.ServerMet,
+		}))
 	}
 	defer transports.Close()
 
