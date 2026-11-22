@@ -303,13 +303,16 @@ func Run(ctx context.Context, opts Options) error {
 		// WBS 16 / ADR-0030: forked goed2k eD2k Transport (opt-in). Claims only
 		// KindED2K resources; with Enabled=false dispatch is byte-identical and
 		// the resolved ed2k Resource still fails explicitly (fail-closed).
-		transports.Register(ed2ktransport.NewGoed2kDownloader(ed2ktransport.Goed2kConfig{
+		downloader := ed2ktransport.NewGoed2kDownloader(ed2ktransport.Goed2kConfig{
 			ListenPort: cfg.ED2K.TCPPort,
 			UDPPort:    cfg.ED2K.UDPPort,
 			OutputDir:  cfg.ED2K.OutputDir,
 			NodesDat:   cfg.ED2K.NodesDat,
 			ServerMet:  cfg.ED2K.ServerMet,
-		}))
+		})
+		// The Downloader is the reader seam; Transport implements core.Transport
+		// (Name/Supports/Probe/Run) and owns the scheduler chunk plan.
+		transports.Register(ed2ktransport.New(downloader))
 	}
 	defer transports.Close()
 

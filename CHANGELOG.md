@@ -16,6 +16,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：真机 ED 门禁执行 — KAD bootstrap 两机 PASS（2026-11-22 续）**：
+  - **Go 工具链恢复**：此前「go build 全部卡死」定位为 GOCACHE 路径
+    `C:/Users/bemin/sdk/gocache` 异常（非网络，未用代理）；改用
+    `AppData/Local/Temp/udcache` 后恢复，`go test ./internal/transport/ed2k/...`
+    2.4s 全绿，linux/windows 探针交叉编译成功。
+  - **真机取证**（证据 `docs/evidence/ed2k-ed-gates-2026-11-22/`，含 SHA256SUMS）：
+    `cmd/uded2kprobe` 部署 222（公网）与 209（High ID），用 209 nodes.dat 引导
+    ud fork 引擎接公网 KAD；两机均 `Bootstrapped=true`、`LiveNodes=50`、
+    `KnownNodes=200`——**ud fork 引擎首次真机入网**。注入 209 节点后
+    KnownNodes 200→201（ED-01 部分证据）。
+  - **门禁如实判定**：ED-01/02/03 PARTIAL、ED-04/05 NOT_EXECUTED、
+    ED-06 BLOCKED（fork 无 UserHash/SecureIdent 持久化 API）；KAD 搜源可发起
+    但两阶段 traversal 在 NAT/Firewalled 下未收敛（source_count=0），不谎报 PASS。
+    P3 发布结论不变（R-06）。详见 `docs/25` §9。
+  - 探针新增 `-add-node`/`-search-hash`/`-publish-self`/`-debug` 取证开关；
+    fork 加 `SetDebugLog` 公开日志钩子。
+  - **修复隐藏编译错误**（上一轮 `c81bbe2` 因 GOCACHE 故障未能全量编译而漏检）：
+    `daemon.go` 把 `Goed2kDownloader`（reader seam）直接传给 `transports.Register`，
+    但它不是 `core.Transport`（缺 Name/Supports/Probe/Run）。改为
+    `ed2ktransport.New(downloader)` 包裹后再注册，`go build ./internal/app/` 通过。
 - **WBS 16：fork goed2k 落地 + 引擎接入（2026-11-22）**：
   - **fork**（`internal/ed2k/`）：goed2k `v0.0.0-20260602122456-f2a71d599dee`
     核心库自维护，剥离 TUI（零第三方依赖），MIT LICENSE + `FORK.md` 随附，

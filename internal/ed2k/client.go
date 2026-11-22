@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -601,4 +602,14 @@ func (c *Client) saveStateIfConfigured() error {
 		return nil
 	}
 	return c.SaveState("")
+}
+
+// SetDebugLog enables or disables internal goed2k debug logging. It is a
+// fork-local helper used by lab probes; pass a non-nil writer to enable.
+func SetDebugLog(w io.Writer) {
+	if w == nil {
+		logx.SetLogger(nil)
+		return
+	}
+	logx.SetLogger(slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})))
 }

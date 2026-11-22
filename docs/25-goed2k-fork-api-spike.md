@@ -251,3 +251,58 @@ GOTOOLCHAIN、磁盘空间等因素。因此：
 ③ scp 探针 + nodes.dat 到 222，`./uded2kprobe -nodes nodes.dat -tcp <port> -udp <port> -wait 60`
 取 DHTStatus 证据；④ 与 209 eMule 做同 hash 搜源/发布验证 ED-01/02；⑤ 补混淆握手与
 SecureID 重启验证 ED-05/06；⑥ 回填证据并重新判定门禁。
+
+## 9. 真机 ED 门禁执行结果（2026-11-22 续）
+
+### 9.1 Go 工具链故障已定位并恢复
+
+上一节 §8.4 记录的「go build 全部卡死」并非网络问题（关闭代理、全新
+GOMODCACHE、GOTOOLCHAIN=local、hello world 均复现卡死；go 进程无网络连接）。
+逐层定位结果：`go version`/`go env`/`go list nonexistent` 秒回，`go list fmt`/
+`go list internal/reflectlite` 卡死 → 卡在 **GOCACHE（`C:/Users/bemin/sdk/gocache`）**
+的包元数据读，该路径的缓存目录异常。改用 `C:/Users/bemin/AppData/Local/Temp/udcache`
+作为 GOCACHE 后完全恢复：`go test ./internal/transport/ed2k/...` 2.4s 全绿、
+linux 与 windows 探针均交叉编译成功（11.5MB）。**未使用 Proxyhub**（确认非网络原因）。
+
+### 9.2 真机取证（探针部署 222 + 209）
+
+交差编译 `cmd/uded2kprobe`（linux/amd64 + windows/amd64）部署到有公网的 222
+与 High ID 的 209，用 209 的 nodes.dat 引导 ud fork 引擎接公网 KAD。证据见
+`docs/evidence/ed2k-ed-gates-2026-11-22/`（含 SHA256SUMS）。
+
+**确凿成果**：
+- **KAD bootstrap 两机真机 PASS**（ED-02 前半）：222/209 均 `Bootstrapped=true`、
+  `InitialBootstrap=true`、`LiveNodes=50`、`KnownNodes=200`。这是 ud 侧 fork 引擎
+  首次真机入网，证明 fork 核心库与 ud 接入链路可用。
+- **对端节点可见**（ED-01 部分）：222 注入 `192.168.1.209:41296` 后
+  `KnownNodes` 200→201，ud 引擎把 209 纳入 KAD 节点表。
+- **High ID**（ED-03 部分）：209 eMule TCP 31969 外部 ESTABLISHED（前轮取证）。
+
+**未闭环 / 阻塞（如实记录，不谎报）**：
+- **KAD 搜源未返回源**（ED-02 后半）：两机均 `search_started=true`、debug 日志
+  有 `dht source search started`，但两阶段 traversal（find-sources → search-sources）
+  在 40–45 秒窗口内回调未触发（`search_completed=false`），`source_count=0`；
+  两机 `Firewalled=true`（实验室 NAT 后）。作为 fork 在 NAT/Firewalled 环境下的
+  已知限制，需进一步排查 fork 的 KAD traversal 收敛逻辑。
+- **ED-01 双客户端连接层可见**未做到（需 aMule/自建 eD2k server 对手）。
+- **ED-05 混淆握手**：无「仅混淆对端」环境，未执行。
+- **ED-06 SecureIdent/UserHash 持久化**：fork 未暴露 UserHash 读取/持久化校验
+  API，能力缺口，无法验证。
+
+### 9.3 门禁判定
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-01 | PARTIAL | ud 引擎把 209 纳入 KAD 节点表；未做到连接层双向可见 |
+| ED-02 | PARTIAL | bootstrap 真机 PASS；搜源未返回具体源（traversal 未收敛） |
+| ED-03 | PARTIAL | 209 High ID 已取证；ud 探针 Firewalled，源数量未验证 |
+| ED-04 | NOT_EXECUTED | Low ID 模拟未执行 |
+| ED-05 | NOT_EXECUTED | 无仅混淆对端 |
+| ED-06 | BLOCKED | fork 无 UserHash/SecureIdent 持久化校验 API |
+
+**发布结论不变**：ED-01/02/05/06 未全部通过，按 `docs/12` 规定 P3 不得发布，
+R-06 维持。本轮把「不能执行」推进为「bootstrap 真机 PASS + 其余 PARTIAL/BLOCKED」，
+但不翻转发布结论。
+
+**后续**：① 排查 fork KAD traversal 在 NAT 下的收敛（ED-02 搜源）；② 补
+aMule/eNode-go 对手做 ED-01/05；③ fork 补 UserHash 持久化 API 做 ED-06。

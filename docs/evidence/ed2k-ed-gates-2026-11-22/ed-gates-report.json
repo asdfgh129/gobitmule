@@ -1,0 +1,114 @@
+{
+  "date": "2026-11-22",
+  "title": "WBS 16 / eD2k ED 门禁真机取证",
+  "engine": "internal/ed2k (goed2k fork, v0.0.0-20260602122456-f2a71d599dee)",
+  "probe": "cmd/uded2kprobe (cross-compiled linux/amd64 + windows/amd64)",
+  "lab_hosts": {
+    "209": {
+      "os": "Windows 10",
+      "role": "eMule Kad 对端 (TCP 31969 / UDP 41296, High ID 已取证)",
+      "public_ip": "112.5.60.4"
+    },
+    "222": {
+      "os": "Ubuntu23 Linux",
+      "role": "ud fork 引擎探针宿主 (有公网)",
+      "public_ip": "112.5.32.34"
+    }
+  },
+  "bootstrap_evidence": {
+    "verdict": "PASS",
+    "runs": [
+      {
+        "host": "222",
+        "timestamp": "2026-11-22T13:13:43Z",
+        "nodes_dat": "209 nodes.dat (6812 B, 200 entries)",
+        "dht_status": {
+          "Bootstrapped": true,
+          "InitialBootstrap": true,
+          "Firewalled": true,
+          "LiveNodes": 50,
+          "ReplacementNodes": 30,
+          "KnownNodes": 200
+        }
+      },
+      {
+        "host": "209",
+        "timestamp": "2026-11-22T13:21:56Z",
+        "dht_status": {
+          "Bootstrapped": true,
+          "InitialBootstrap": true,
+          "Firewalled": true,
+          "LiveNodes": 50,
+          "ReplacementNodes": 30,
+          "KnownNodes": 200
+        }
+      }
+    ],
+    "note": "ud fork 引擎两次独立真机均成功用 eMule nodes.dat 接入公网 KAD：Bootstrapped=true、LiveNodes=50、KnownNodes=200。证明 fork 核心库的 KAD bootstrap 与 ud 侧的接入链路可用。"
+  },
+  "peer_visibility_evidence": {
+    "verdict": "PARTIAL",
+    "run": {
+      "host": "222",
+      "timestamp": "2026-11-22T13:16:08Z",
+      "added_node": "192.168.1.209:41296",
+      "dht_status": {
+        "Bootstrapped": true,
+        "LiveNodes": 41,
+        "KnownNodes": 201
+      }
+    },
+    "note": "注入 209 eMule 为 KAD bootstrap 节点后 KnownNodes 由 200 增至 201，ud 引擎将 209 纳入 KAD 节点表。这是「ud 侧可见 209」的部分证据；未做到双向连接层可见。"
+  },
+  "source_search_evidence": {
+    "verdict": "NOT_CLOSED",
+    "runs": [
+      {
+        "host": "222",
+        "search_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
+        "size": 1038612780,
+        "search_started": true,
+        "search_completed": false,
+        "source_count": 0,
+        "search_wait_seconds": 45
+      },
+      {
+        "host": "209",
+        "search_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
+        "search_started": true,
+        "search_completed": false,
+        "source_count": 0,
+        "search_wait_seconds": 40
+      }
+    ],
+    "note": "两机均能发起 KAD 搜源（search_started=true、日志 'dht source search started'），但两阶段 traversal（find-sources -> search-sources）在 40-45 秒窗口内回调未触发（search_completed=false），source_count=0。debug 日志仅见 search started，无后续响应。两机 DHTStatus 均 Firewalled=true（实验室 NAT 后），可能是 fork 的 KAD traversal 在 NAT/Firewalled 环境下的收敛问题。作为 fork 的已知限制记录，不谎报为 PASS。"
+  },
+  "gate_verdicts": {
+    "ED-01": {
+      "status": "PARTIAL",
+      "reason": "ud fork 引擎把 209 eMule 纳入 KAD 节点表（KnownNodes 200->201），但未做到 aMule/自建 eD2k 服务器双客户端连接层的「双方可见」。"
+    },
+    "ED-02": {
+      "status": "PARTIAL",
+      "reason": "KAD bootstrap 两机真机 PASS（能连 KAD）；搜源可发起但未返回具体源（traversal 未收敛），「能找到源」未完全闭环。"
+    },
+    "ED-03": {
+      "status": "PARTIAL",
+      "reason": "209 eMule High ID 入站已取证（TCP 31969 外部 ESTABLISHED）；但 ud fork 探针端口在 NAT 后 Firewalled=true，源数量正常性未验证。"
+    },
+    "ED-04": {
+      "status": "NOT_EXECUTED",
+      "reason": "Low ID 模拟未执行。"
+    },
+    "ED-05": {
+      "status": "NOT_EXECUTED",
+      "reason": "协议混淆握手对端验证未执行；ud fork 适配器已配置 CryptLayerSupported，但无「仅混淆对端」环境。"
+    },
+    "ED-06": {
+      "status": "BLOCKED",
+      "reason": "goed2k fork 未暴露 UserHash/SecureIdent 的读取与持久化校验 API，无法验证重启后 UserHash 不变。这是 fork 的能力缺口。"
+    }
+  },
+  "release_impact": "ED-01/02/05/06 未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮不翻转发布结论。",
+  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（go list/build 全部 timeout，连 hello world 都不能编译）；改用 AppData/Local/Temp 下的干净 GOCACHE 后恢复。非网络问题，未使用 Proxyhub。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。"
+}
