@@ -34,6 +34,7 @@ type report struct {
 	UserHash            string           `json:"user_hash"`
 	SecureIdent         bool             `json:"secure_ident"`
 	CryptLayerSupported bool             `json:"crypt_layer_supported"`
+	CryptLayerWired     bool             `json:"crypt_layer_wired"`
 	AddedNode           string           `json:"added_node,omitempty"`
 	SearchHash          string           `json:"search_hash,omitempty"`
 	PublishedEndpoint   string           `json:"published_endpoint,omitempty"`
@@ -139,6 +140,7 @@ func run() int {
 	r.UserHash = c.UserHash().String()
 	r.SecureIdent = c.SecureIdent()
 	r.CryptLayerSupported = goed2k.CryptLayerSupported()
+	r.CryptLayerWired = goed2k.CryptLayerWired()
 
 	if err := c.LoadDHTNodesDat(*nodes); err != nil {
 		r.Verdict = "NOT_EXECUTED"

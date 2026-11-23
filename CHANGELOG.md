@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：ED-05 混淆协议层落地 — BLOCKED → PARTIAL（2026-11-23）**：
+  - 新增 `internal/ed2k/protocol/obfuscation/`（fork 自维护、零第三方依赖）：
+    `Cipher`（RC4 KSA+PRGA + `Discard(1024)`）、21 字节 MD5 密钥派生
+    `DeriveDirectionKeys`、A/B 握手帧 codec（`InitiatorRequest` /
+    `ParseInitiatorRequest` / `ResponderReply` / `ParseResponderReply`）。
+  - 算法常量经 aMule `EncryptedStreamSocket.cpp`、eNode `tcpcrypt.js`、
+    eMule Wiki 三源交叉验证：`MAGICVALUE_REQUESTER=34`、`SERVER=203`、
+    `SYNC=0x835E6FC4`、`ENM_OBFUSCATION=0`、MD5 输入 21 字节、RC4 丢弃
+    1024 字节；A 发送帧第 5 字节起加密。未采用 Wiki 中冲突的 SYNC 值。
+  - `CryptLayerSupported()` 由 false 改为 true（仅表示协议层已实现）；新增
+    `CryptLayerWired() bool`（当前 false，表示未接入 live TCP 连接路径），
+    二者分离避免把 ED-05 误判为 PASS。探针新增 `crypt_layer_wired` 字段。
+  - 7 项单测全绿：3 组公开 RC4 向量、Discard 等价性、密钥对称性、21 字节
+    布局、A↔B 完整握手往返（零网络）、篡改检测、marker 重试。
+  - ED-05 由 BLOCKED 推进为 PARTIAL；ED-02 零响应经协议常量核对确认为
+    环境层（节点时效 + NAT 双向 UDP），不改协议常量。P3 发布结论不变（R-06）。
+    证据与判定见 `docs/25` §11、`docs/evidence/ed2k-ed-gates-2026-11-22/`。
 - **WBS 16：ED 门禁补缺 — ED-06 PASS / 搜源收敛 / Low ID 模拟（2026-11-22 续）**：
   - **KAD 搜源不再被持续收包饿死**：`DHTTracker.readLoop` 用同 goroutine 的
     500ms ticker 推进 `node.tick()`；`DHTSearchTimeout` 真正驱动 RPC short/

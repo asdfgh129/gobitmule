@@ -4,8 +4,10 @@
 > `github.com/monkeyWie/goed2k` 真实源码的只读勘察结论，用于细化 ADR-0030
 > 的 fork 改造范围。所有结论可由 `go mod download github.com/monkeyWie/goed2k@latest`
 > 复现（pseudo-version `v0.0.0-20260602122456-f2a71d599dee`）。
-> 门禁状态以 §10 补缺复验为准：ED-06 `PASS`，ED-01/02/03/04 `PARTIAL`，
-> ED-05 `BLOCKED`；本文不翻转 P3 发布结论。
+> 门禁状态以 §11 为准：ED-06 `PASS`，ED-01/02/03/04/05 `PARTIAL`
+> （ED-05 本轮由 BLOCKED 推进为 PARTIAL：obfuscation 协议层已实现并通过
+> A/B 握手往返单测，但尚未接入 live TCP 连接、未做仅混淆对端真机取证）；
+> 本文不翻转 P3 发布结论。
 
 ## 1. 勘察对象
 
@@ -353,5 +355,83 @@ R-06 维持。首轮把「不能执行」推进为「bootstrap 真机 PASS + 其
 **发布结论不变**：ED-01/02/04/05 未全部通过，P3 不发布，R-06 维持。
 
 **后续**：① 为 ED-02 补可响应 KAD 节点（aMule/eNode-go 双端），把
-`responses=0` 变为可复现的源返回；② 实现 CryptLayer/RC4 握手后才能做 ED-05；
-③ 用真实 NAT 流量比例补 ED-04 的「可见源下降」指标。
+`responses=0` 变为可复现的源返回；② ED-05 协议层已完成（见 §11），下一步是
+接入 live TCP 连接并做仅混淆对端取证；③ 用真实 NAT 流量比例补 ED-04 的
+「可见源下降」指标。
+
+## 11. ED-05 混淆协议层落地（2026-11-23）
+
+### 11.1 为什么不是纯环境阻塞
+
+上一轮把 ED-05 判为 BLOCKED，依据是 fork 完全没有 CryptLayer/RC4 握手能力。
+本轮从代码层补齐**协议实现**这一可控缺口。ED-02 的搜源零响应则经协议核对
+确认是**环境层**：`FindNode=0x0B`、`FindValue=0x02`、`Store=0x04` 经
+Kad 协议论文核对是 eMule 正确常量，UDP 请求编码无误；两机 `responses=0`、
+`timeouts=41-46` 源于 nodes.dat 节点时效与 NAT/Firewalled 下双向 UDP 受限，
+不通过篡改协议常量"制造"响应。
+
+### 11.2 权威算法依据（三源交叉验证）
+
+eMule basic obfuscation（client↔client TCP）的字节级规则，由以下独立来源
+交叉核对一致后才实现，避免凭记忆写错常量：
+
+| 项 | 值 | 来源 |
+|---|---|---|
+| `MAGICVALUE_REQUESTER` | `34` (`0x22`) | aMule `EncryptedStreamSocket.cpp:98`、eNode `ed2k/tcpcrypt.js` |
+| `MAGICVALUE_SERVER` | `203` (`0xCB`) | 同上 |
+| `MAGICVALUE_SYNC` | `0x835E6FC4` | aMule 源码、eNode 源码（eMule Wiki 所载 `0xA4815E5F` 与其冲突，以源码为准） |
+| `ENM_OBFUSCATION` | `0` | eMule Wiki、aMule 源码 |
+| 密钥输入 | `MD5(hash[16] || magic[1] || randomPart[4])` 共 21 字节 | aMule、eMule Wiki 均标 `Md5(...) 21` |
+| RC4 初始化 | 丢弃前 `1024` 字节 | aMule 协议注释、eMule Wiki |
+| A 发送帧 | `[marker明文][randomPart明文][SYNC+method+method+padLen+padding 加密]`（第 5 字节起加密） | aMule `SetConnectionEncryption`/`SendNegotiatingData(...,5)` |
+| B 应答帧 | `[SYNC+method+padLen+padding]` 全加密 | aMule `Negotiate()` |
+| marker 约束 | 不得等于 `0xE3/0xD4/0xC5` | aMule `GetSemiRandomNotProtocolMarker` |
+
+密钥对称性：A 用目标 hash 派生（send=`0x22`、recv=`0xCB`），B 用自身 hash +
+A 的 randomPart 派生（recv=`0x22`、send=`0xCB`）；A.send↔B.recv、
+A.recv↔B.send 配对，无需交换 UserHash。
+
+### 11.3 实现范围
+
+新增 `internal/ed2k/protocol/obfuscation/`（fork 自维护，零第三方依赖）：
+
+- `rc4.go`：`Cipher`（KSA+PRGA）、`Discard(1024)`；本地实现以固化丢弃行为、
+  避开已弃用的 `crypto/rc4`。
+- `keys.go`：`DeriveDirectionKeys(hash, randomPart, initiator)` 生成 (send, recv)
+  密钥对，固定 21 字节 MD5 布局。
+- `handshake.go`：`InitiatorRequest` / `ParseInitiatorRequest` /
+  `ResponderReply` / `ParseResponderReply`，含 marker 校验、SYNC/method 校验、
+  padding 一致性校验与明确错误类型。
+
+`client.go`：
+- `CryptLayerSupported()` 由 `false` 改为 `true` —— 仅表示**协议层能力已实现**。
+- 新增 `CryptLayerWired() bool`（当前 `false`）—— 表示是否已接入 live TCP
+  连接路径。二者分离，避免把协议层完成误读为 ED-05 PASS。
+
+探针新增 `crypt_layer_wired` 字段；`crypt_layer_supported=true`、
+`crypt_layer_wired=false` 如实反映当前状态。
+
+### 11.4 回归测试
+
+`obfuscation_test.go` 7 项全绿：
+
+- `TestRC4KnownVectors`：3 组公开 RC4 标准向量（Key/Wiki/Secret）。
+- `TestRC4DiscardMatchesDrop`：Discard(1024) 与逐字节消费等价。
+- `TestDirectionKeysPairwise`、`TestKeyMaterialLayout`：密钥对称性与 21 字节布局。
+- `TestFullHandshakeRoundTrip`：A↔B 完整握手 + 握手后载荷流往返（零网络）。
+- `TestHandshakeRejectsBadFrames`、`TestPickMarkerAvoidsProtocolHeaders`：
+  篡改检测与 marker 重试。
+
+### 11.5 门禁判定（更新）
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-05 | **PARTIAL**（由 BLOCKED 推进） | obfuscation 协议层实现 + A/B 握手往返单测通过；`crypt_layer_supported=true`。但未接入 live TCP（`crypt_layer_wired=false`），未做仅混淆对端真机取证 |
+
+**发布结论不变**：ED-01/02/03/04/05 均未全部通过，P3 不发布，R-06 维持。
+把 ED-05 从"能力缺失 BLOCKED"推进为"协议层 PARTIAL"，不翻转发布结论。
+
+**ED-05 剩余步骤**：① 把 `obfuscation.Cipher` 接入 `Connection` 的
+DoRead/DoWrite 握手阶段，按 marker 判定明文/混淆；② 用 eNode-go/aMule 起
+"仅混淆"对端做真实连接取证；③ 取证通过后才可将 ED-05 提升为 PASS、
+`CryptLayerWired()` 置 true。

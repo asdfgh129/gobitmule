@@ -1,6 +1,6 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.45 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.46 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
 
 > **v1.40 变更 / 2026-11-21 时点口径（P3 WBS 16–18 三项 OPEN 裁决）**：
 > 发起人指令启动 ed2k / RPC facade / 微信插件，新增 [ADR-0030](adr/ADR-0030-ed2k引擎fork自维护.md)
@@ -8,6 +8,8 @@
 > 关闭 OPEN-03（goed2k fork 自维护）、OPEN-04（L1 facade 纳入）、OPEN-06（微信立项 + 代行签批）。
 > 三个 WBS 进入「进行中」；真实环境门禁（ED-01/02/05/06、AriaNg、视频号 MITM）均 NOT_EXECUTED。
 > `14`（WBS / OPEN）、`docs/adr`、`CHANGELOG` 同步，门户重建。
+>
+> **v1.46 变更 / 2026-11-23 时点口径（WBS 16 ED-05 混淆协议层）**：ED-05 由 BLOCKED 推进为 PARTIAL——fork 新增 `internal/ed2k/protocol/obfuscation`（RC4 + 21 字节 MD5 密钥派生 + A/B 握手帧 codec），算法常量经 aMule/eNode/eMule Wiki 三源交叉验证，7 项单测含 A↔B 完整握手往返全绿；`CryptLayerSupported()=true`（协议层），新增 `CryptLayerWired()=false`（未接入 live TCP）以避免误判 PASS。ED-02 零响应经协议常量核对确认为环境层（节点时效 + NAT），不改常量。ED-01/02/03/04 维持 PARTIAL、ED-06 PASS，P3 发布结论不变。详见 docs/25 §11 与证据 `docs/evidence/ed2k-ed-gates-2026-11-22/`。
 >
 > **v1.45 变更 / 2026-11-22 时点口径（WBS 16 ED 门禁补缺）**：ED-06 从 BLOCKED 推进为 PASS——fork 暴露 UserHash/SecureIdent 持久化 API，222/209 双机各两次独立进程启动 UserHash 不变；KAD 搜源两阶段 traversal 现可收敛并回调（`search_completed=true`），但真机仍 `source_count=0`，ED-02 维持 PARTIAL；ED-04 本地 Low ID 握手模拟通过（PARTIAL）；fork 明确无 CryptLayer/RC4 能力，ED-05 BLOCKED。发布结论不变，详见 docs/25 §10 与证据 `docs/evidence/ed2k-ed-gates-2026-11-22/`。
 >

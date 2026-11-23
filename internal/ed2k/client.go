@@ -643,10 +643,24 @@ func (c *Client) SetSecureIdent(enabled bool) {
 	c.session.SetSecureIdent(enabled)
 }
 
-// CryptLayerSupported reports whether this fork implements eMule protocol
-// obfuscation (CryptLayer/RC4 handshake). It currently does not, so ED-05
-// must remain BLOCKED instead of being inferred from a peer's configuration.
+// CryptLayerSupported reports whether this fork implements eMule basic
+// obfuscation (CryptLayer/RC4 handshake). The protocol layer is now present
+// in internal/ed2k/protocol/obfuscation (RC4, key derivation, A/B handshake
+// frame codec) with self-consistent round-trip tests, so this returns true.
+//
+// IMPORTANT: this reports protocol-layer capability only. The obfuscated
+// handshake is not yet wired into the live TCP peer connection, and no
+// obfuscation-only peer interop test has been executed. ED-05 therefore stays
+// PARTIAL — this flag must NOT be read as "obfuscated connection verified".
 func CryptLayerSupported() bool {
+	return true
+}
+
+// CryptLayerWired reports whether the obfuscation handshake is wired into the
+// live TCP peer connection path. It remains false: only the protocol layer is
+// implemented and unit-tested so far. Keeping this distinct from
+// CryptLayerSupported avoids overstating ED-05 as a PASS.
+func CryptLayerWired() bool {
 	return false
 }
 

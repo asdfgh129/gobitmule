@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-22",
+  "date": "2026-11-22 (ED-05 protocol-layer update 2026-11-23)",
   "title": "WBS 16 / eD2k ED 门禁真机取证（含补缺复验）",
   "engine": "internal/ed2k (goed2k fork, v0.0.0-20260602122456-f2a71d599dee + ud fork patches)",
   "probe": "cmd/uded2kprobe (cross-compiled linux/amd64 + windows/amd64)",
@@ -66,7 +66,10 @@
     "runs": [
       {
         "host": "222",
-        "evidence": ["identity-222-run1.json", "identity-222-run2.json"],
+        "evidence": [
+          "identity-222-run1.json",
+          "identity-222-run2.json"
+        ],
         "user_hash": "22222222222222222222222222222222",
         "secure_ident": true,
         "stable_across_restart": true,
@@ -74,7 +77,10 @@
       },
       {
         "host": "209",
-        "evidence": ["identity-209-run1.json", "identity-209-run2.json"],
+        "evidence": [
+          "identity-209-run1.json",
+          "identity-209-run2.json"
+        ],
         "user_hash": "20920920920920920920920920920920",
         "secure_ident": true,
         "stable_across_restart": true,
@@ -86,7 +92,10 @@
       "ClientState.UserHash/SecureIdent 随 SaveState/LoadState 持久化",
       "cmd/uded2kprobe 新增 -state/-user-hash/-secure-ident 并用 defer Close 保证退出时落盘"
     ],
-    "tests": ["TestUserHashAndSecureIdentPersistAcrossRestart", "TestSetUserHashRejectsInvalidHash"]
+    "tests": [
+      "TestUserHashAndSecureIdentPersistAcrossRestart",
+      "TestSetUserHashRejectsInvalidHash"
+    ]
   },
   "source_search_evidence": {
     "verdict": "PARTIAL",
@@ -115,7 +124,10 @@
     "follow_up_runs": [
       {
         "host": "222",
-        "evidence": ["source-search-222.json", "source-search-222.log"],
+        "evidence": [
+          "source-search-222.json",
+          "source-search-222.log"
+        ],
         "dht_timeout_seconds": 3,
         "search_started": true,
         "search_completed": true,
@@ -124,7 +136,10 @@
       },
       {
         "host": "209",
-        "evidence": ["source-search-209.json", "source-search-209.log"],
+        "evidence": [
+          "source-search-209.json",
+          "source-search-209.log"
+        ],
         "dht_timeout_seconds": 3,
         "search_started": true,
         "search_completed": true,
@@ -139,9 +154,34 @@
     "note": "本地伪造 eD2k server 发送 IdChange(ClientID=123456)，验证客户端进入 LOW_ID 分类且会话保持存活；未覆盖「可见源比例下降」的真实 NAT 流量指标。"
   },
   "cryptlayer_capability": {
-    "verdict": "BLOCKED",
-    "fork_api": "CryptLayerSupported() bool -> false",
-    "note": "fork 未实现 eMule CryptLayer/RC4 混淆握手；探针输出 crypt_layer_supported=false。即使 209 eMule 配置 CryptLayerSupported=1，也无法构造「仅混淆对端」握手取证，ED-05 仍 BLOCKED。"
+    "verdict": "PARTIAL",
+    "fork_api": "CryptLayerSupported() bool -> true (protocol layer); CryptLayerWired() bool -> false (live TCP path)",
+    "protocol_package": "internal/ed2k/protocol/obfuscation (RC4 + key derivation + A/B handshake codec, fork-local, zero deps)",
+    "algorithm_sources": [
+      "aMule EncryptedStreamSocket.cpp",
+      "eNode ed2k/tcpcrypt.js",
+      "eMule Wiki Protocol_obfuscation"
+    ],
+    "constants": {
+      "MAGICVALUE_REQUESTER": "34 (0x22)",
+      "MAGICVALUE_SERVER": "203 (0xCB)",
+      "MAGICVALUE_SYNC": "0x835E6FC4",
+      "ENM_OBFUSCATION": 0,
+      "md5_input_len": 21,
+      "rc4_discard_bytes": 1024
+    },
+    "tests": [
+      "TestRC4KnownVectors",
+      "TestRC4DiscardMatchesDrop",
+      "TestDirectionKeysPairwise",
+      "TestKeyMaterialLayout",
+      "TestFullHandshakeRoundTrip",
+      "TestHandshakeRejectsBadFrames",
+      "TestPickMarkerAvoidsProtocolHeaders",
+      "live probe 222 emitted supported=true / wired=false as designed"
+    ],
+    "note": "ED-05 由 BLOCKED 推进为 PARTIAL：fork 已实现 eMule basic obfuscation 协议层（RC4、21 字节 MD5 密钥派生、A/B 握手帧 codec），7 项单测通过含 A↔B 完整握手往返。crypt_layer_supported=true 仅表示协议层能力；crypt_layer_wired=false 表示尚未接入 live TCP 连接路径。未做仅混淆对端真机取证，故不判 PASS。",
+    "probe_evidence": "crypt-capability-222.json (2026-11-23): crypt_layer_supported=true, crypt_layer_wired=false, Bootstrapped=true"
   },
   "gate_verdicts": {
     "ED-01": {
@@ -161,14 +201,14 @@
       "reason": "本地伪造 server 的 Low ID IdChange 握手模拟已通过并保活；真实 NAT 下可见源比例下降指标未测。"
     },
     "ED-05": {
-      "status": "BLOCKED",
-      "reason": "fork 未实现 CryptLayer/RC4 混淆握手（CryptLayerSupported()=false），且无「仅混淆对端」环境；能力与环境双重阻塞。"
+      "status": "PARTIAL",
+      "reason": "obfuscation 协议层已实现并通过 A/B 握手往返单测（crypt_layer_supported=true）；但未接入 live TCP（crypt_layer_wired=false），且无仅混淆对端真机取证，不能判 PASS。"
     },
     "ED-06": {
       "status": "PASS",
       "reason": "fork 已暴露 UserHash/SecureIdent 读取与状态持久化 API；222/209 两机各两次独立进程重启后 UserHash 不变，且状态文件明文可审计。"
     }
   },
-  "release_impact": "ED-01/02/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮把 ED-06 从 BLOCKED 推进为 PASS、ED-05 从 NOT_EXECUTED 明确为能力 BLOCKED、ED-04 从 NOT_EXECUTED 推进为 PARTIAL、ED-02 搜源从无回调推进为两阶段收敛但零源；不翻转发布结论。",
+  "release_impact": "ED-01/02/03/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮把 ED-05 从能力缺失 BLOCKED 推进为协议层 PARTIAL（CryptLayerSupported()=true、新增 CryptLayerWired()=false，obfuscation 协议包 7 项单测通过）；不翻转发布结论。",
   "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。"
 }
