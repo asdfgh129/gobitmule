@@ -215,8 +215,19 @@ func (t *DHTTracker) readLoop() {
 			continue
 		}
 		addr = normalizeUDPAddr(addr)
+		// Packet-level observability: with -debug, distinguish "no packet"
+		// from "packet arrived but failed to decode". opcode 0 / len<2 means
+		// a malformed or non-KAD datagram.
+		recvOpcode := byte(0)
+		if n >= 2 {
+			recvOpcode = buffer[1]
+		}
+		logx.Debug("kad udp recv", "from", addr.String(), "bytes", n,
+			"header", recvOpcode)
 		opcode, message, err := t.combiner.Unpack(buffer[:n])
 		if err != nil {
+			logx.Debug("kad udp recv decode failed", "from", addr.String(),
+				"bytes", n, "err", err.Error())
 			continue
 		}
 		switch opcode {
@@ -909,7 +920,21 @@ func (t *DHTTracker) writePacketWithOpcodeLocked(addr *net.UDPAddr, packet any, 
 	if err != nil {
 		return 0, err
 	}
-	return t.conn.WriteToUDP(raw, addr)
+	opcode := byte(0)
+	if len(raw) >= 2 {
+		opcode = raw[1]
+	}
+	n, writeErr := t.conn.WriteToUDP(raw, addr)
+	logx.Debug("kad udp send", "to", addr.String(), "opcode", opcode,
+		"bytes", len(raw), "err", errorString(writeErr))
+	return n, writeErr
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 func (t *DHTTracker) confirmNodeLocked(node *KadRoutingNode) {

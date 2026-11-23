@@ -211,7 +211,7 @@
     },
     "ED-02": {
       "status": "PARTIAL",
-      "reason": "KAD bootstrap 两机真机 PASS；补缺后搜源两阶段 traversal 可收敛并回调（search_completed=true），但真机 responses=0/timeouts=41-46，source_count=0，「能找到源」未闭环。"
+      "reason": "KAD bootstrap 两机真机 PASS；补缺后搜源两阶段 traversal 可收敛并回调（search_completed=true），但真机 responses=0/timeouts=41-46，source_count=0，「能找到源」未闭环。2026-11-23 根因实验（kad-rootcause-2026-11-23.json）已坐实为环境层：本地正对照 TestKADSourceSearchLocalPositiveControl 用 fork 同一 codec 得到 responses=1/entries=1，真机 tcpdump 得 105 出站/0 入站 UDP，协议编码/RPC/遍历链路无 bug。门禁维持 PARTIAL（真机仍找不到源），但根因由推断升级为实验证明。"
     },
     "ED-03": {
       "status": "PARTIAL",
@@ -223,13 +223,13 @@
     },
     "ED-05": {
       "status": "PARTIAL",
-      "reason": "协议层+net.Conn Stream+live Connection 路径均已接入并通过 11 项单测/net.Pipe 集成（crypt_layer_supported=true, crypt_layer_wired=true）；入站混淆 opt-in 且明文自动回退，出站需显式 peer hash（fork Peer 模型暂不携带）。未做仅混淆对端真机互操作，不能判 PASS。"
+      "reason": "协议层+net.Conn Stream+live Connection 路径均已接入并通过 18 项单测/net.Pipe 集成（crypt_layer_supported=true, crypt_layer_wired=true）。2026-11-23 已补仅混淆对端跨进程真 TCP 互操作取证（obfs-cross-process-interop-2026-11-23.json）：222 上两个独立进程经内核 TCP 完成 A/B 握手+加密 nonce 往返，双方 verdict=PASS，抓包明文 nonce 泄漏 0。剩余边界：出站混淆需显式 peer hash，fork Peer 模型暂不携带、下载流程不自动武装；且互操作对端为 fork 自建工具而非第三方 aMule/eNode。综合仍不判 PASS、不翻转 P3 结论。"
     },
     "ED-06": {
       "status": "PASS",
       "reason": "fork 已暴露 UserHash/SecureIdent 读取与状态持久化 API；222/209 两机各两次独立进程重启后 UserHash 不变，且状态文件明文可审计。"
     }
   },
-  "release_impact": "ED-01/02/03/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮把 ED-05 从协议层 PARTIAL 推进为 live-TCP 已接入 PARTIAL（Stream 包装 Connection、11 项测试含 net.Pipe 双向握手、crypt_layer_wired=true 真机确认）；剩余仅混淆对端真机互操作未做，不翻转发布结论。",
+  "release_impact": "ED-01/02/03/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。2026-11-23 续轮两项推进：① ED-02 根因实验坐实——本地正对照 responses=1/entries=1 + 真机 tcpdump 105 出站/0 入站，协议链路无 bug、根因为环境层；② ED-05 补仅混淆对端跨进程真 TCP 互操作（两独立进程握手+加密 nonce 往返 PASS、抓包零明文泄漏），此前该项缺口已闭环，仅剩出站自动武装 + 第三方客户端对端。两项均不翻转发布结论。",
   "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。 ED-05 wired 轮：排查并排除 KAD UDP checksum 假设（aMule UDP checksum 由底层 ClientUDPSocket 处理、对端兼容 fork 的 [0xE4,opcode,payload] 格式，故 ED-02 零响应仍定性为过时节点+NAT 环境层，未改协议格式）。"
 }

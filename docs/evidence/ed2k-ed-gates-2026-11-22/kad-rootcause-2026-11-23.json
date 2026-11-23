@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-23",
+  "title": "ED-02 KAD responses=0 根因实验：本地正对照 + 真机抓包",
+  "question": "source-search responses=0 / timeouts=41-46 是 fork 协议编码 bug 还是环境（过时节点 + NAT）？",
+  "conclusion": "环境层，已用两组独立实验坐实；fork 的 KAD 编码/RPC/target 匹配/两阶段 traversal/回调链路正确。ED-02 维持 PARTIAL（真机仍找不到源），但根因由「推断」升级为「实验证明」，不再有协议 bug 疑点。",
+  "experiment_a_local_positive_control": {
+    "test": "TestKADSourceSearchLocalPositiveControl",
+    "file": "internal/ed2k/kad_local_positive_control_test.go",
+    "setup": "用 fork 自己的 PacketCombiner 构造 in-process UDP 对端，作为带合法 ID 的已知路由节点注入 DHTTracker，驱动真实 find-sources -> search-sources 两阶段 traversal。",
+    "result": "PASS",
+    "observed": {
+      "find_sources_responses": 1,
+      "find_sources_timeouts": 0,
+      "search_sources_responses": 1,
+      "search_sources_timeouts": 0,
+      "callback_entries": 1,
+      "entry_source_endpoint": "127.0.0.1:4662 (HighID/TCP, source tags 解码成功)"
+    },
+    "proves": [
+      "Req/Res/SearchSourcesReq/SearchRes 的 wire 编码与 fork PacketCombiner 自洽",
+      "RPC (endpoint, opcode, target) 三元组匹配正确，Target 往返一致",
+      "find-sources -> search-sources 链接与 entries 累积正确",
+      "callback 在收到真实结果后按时释放"
+    ]
+  },
+  "experiment_b_live_tcpdump": {
+    "host": "192.168.1.222 (public 112.5.32.34)",
+    "probe": "uded2kprobe.debug (本轮交叉编译, sha256 d14d7c6c97271973cc0962c683a89cba5cb410b87f93c32980ee365ef5905ad2)",
+    "command": "tcpdump -ni any udp port 42777 -w kad-capture.pcap & ./uded2kprobe.debug -nodes /root/nodes.dat -tcp 42776 -udp 42777 -wait 20 -dht-timeout 3 -search-wait 20 -search-hash E75AD307F1EC36B45DD100AB92A2F8C0 -size 1038612780 -debug",
+    "result": "根因坐实",
+    "observed": {
+      "outbound_udp_packets": 105,
+      "inbound_udp_packets": 0,
+      "send_opcodes": {"33 (0x21 Req/FindNode)": 70, "83 (0x53 FirewalledReq)": 35},
+      "packet_size_bytes": 35,
+      "sample_destinations": ["66.223.42.151:59226", "90.171.112.79:44644", "174.20.84.176:4672", "114.49.91.77:4672"],
+      "dht_status": {"Bootstrapped": true, "LiveNodes": 41},
+      "source_count": 0
+    },
+    "evidence_files": ["kad-capture.pcap", "kad-rootcause-debug.log"],
+    "proves": [
+      "fork 确实把编码后的 KAD UDP 包发到了公网节点（发包路径、长度、opcode 均正常）",
+      "抓包层 0 入站：没有任何 KAD 响应包回到本机，排除『收到但解析/匹配失败』",
+      "结合实验 A：同一套编码在本地能拿到 responses=1；真机 0 入站只能是链路/节点时效（NAT 阻断入站 + nodes.dat 节点过时），不是协议 bug"
+    ]
+  },
+  "observability_added": {
+    "files": ["internal/ed2k/dht_tracker.go"],
+    "logs": [
+      "kad udp send: to/opcode/bytes/err",
+      "kad udp recv: from/bytes/header",
+      "kad udp recv decode failed: from/bytes/err"
+    ],
+    "note": "此前 readLoop 解包失败静默 continue，无逐包日志，无法区分五种失败模式。本轮补齐后 -debug 可直接观测发包目的与入包解码情况。"
+  },
+  "gate_impact": {
+    "ED-02": "维持 PARTIAL（真机 source_count=0 未闭环），但协议 bug 疑点清零、根因实验定性完成",
+    "release": "P3 不发布、R-06 维持的结论不变"
+  }
+}

@@ -16,6 +16,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：ED-02 根因实验 + ED-05 跨进程混淆互操作（2026-11-23 续）**：
+  - **ED-02 根因由推断升级为实验证明**：新增
+    `internal/ed2k/kad_local_positive_control_test.go` 的
+    `TestKADSourceSearchLocalPositiveControl`——用 fork 自己的 PacketCombiner
+    构造本地 UDP 对端注入路由表，驱动真实两阶段搜源，**PASS**（find-sources
+    与 search-sources 均 `responses=1/timeouts=0`、callback 收到 1 条源且端点
+    解码正确）。证明 wire 编码/RPC target 匹配/遍历链接/回调均正确。
+  - `dht_tracker.go` 补逐包 debug 日志：`kad udp send`（目的/opcode/字节/err）、
+    `kad udp recv`（源/字节/header）、`kad udp recv decode failed`；此前解包失败
+    静默 continue 无法区分五种失败模式。222 真机 `tcpdump` + `-debug` 探针：
+    **105 出站 UDP（70×FindNode/35×FirewalledReq）、0 入站**，坐实 `responses=0`
+    根因为 NAT 阻断入站 + nodes.dat 节点过时，排除协议 bug。ED-02 维持 PARTIAL
+    （真机 source_count=0），但协议疑点清零。
+  - **ED-05 补仅混淆对端跨进程真 TCP 互操作**：新增 `cmd/uded2kobfspeer`
+    （fork 自维护、零依赖，`-listen`=WrapIncoming / `-dial`=WrapOutgoing）。
+    222 上两个独立 OS 进程经内核 TCP 回环完成 A/B 握手 + 加密 nonce 往返，双方
+    `verdict=PASS`、`obfuscated=true`；`tcpdump` 抓包 nonce 明文泄漏 0 次，证据强
+    于同进程 net.Pipe。闭环"未做仅混淆对端真机互操作"缺口；剩余出站自动武装 +
+    第三方客户端对端，ED-05 仍 PARTIAL。
+  - 证据：`docs/evidence/ed2k-ed-gates-2026-11-22/` 新增
+    `kad-rootcause-2026-11-23.json`（+debug.log +capture.pcap）、
+    `obfs-cross-process-interop-2026-11-23.json`（+capture.pcap）；docs/25 §12.5、
+    docs/14 WBS16 同步。P3 发布结论不变、R-06 维持。
+
 - **WBS 16：ED-05 live-TCP 接线 — 协议层 PARTIAL → 已接入 PARTIAL（2026-11-23 续）**：
   - 新增 `internal/ed2k/protocol/obfuscation/stream.go`：`Stream`（`net.Conn`
     透明 RC4 加解密）、`WrapOutgoing`/`WrapIncoming`（A/B 阻塞握手；入站探

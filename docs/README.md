@@ -1,6 +1,6 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.47 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.48 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
 
 > **v1.40 变更 / 2026-11-21 时点口径（P3 WBS 16–18 三项 OPEN 裁决）**：
 > 发起人指令启动 ed2k / RPC facade / 微信插件，新增 [ADR-0030](adr/ADR-0030-ed2k引擎fork自维护.md)
@@ -8,6 +8,8 @@
 > 关闭 OPEN-03（goed2k fork 自维护）、OPEN-04（L1 facade 纳入）、OPEN-06（微信立项 + 代行签批）。
 > 三个 WBS 进入「进行中」；真实环境门禁（ED-01/02/05/06、AriaNg、视频号 MITM）均 NOT_EXECUTED。
 > `14`（WBS / OPEN）、`docs/adr`、`CHANGELOG` 同步，门户重建。
+>
+> **v1.48 变更 / 2026-11-23 时点口径（WBS 16 ED-02 根因实验 + ED-05 跨进程互操作）**：两项推进，门禁均不翻转。① **ED-02 根因由推断升级为实验证明**：本地正对照 `TestKADSourceSearchLocalPositiveControl` 用 fork 同一 codec 得到 find-sources/search-sources 均 `responses=1/entries=1`、callback 端点解码正确；给 `dht_tracker.go` 补逐包 send/recv/decode-failed 日志后，222 真机 `tcpdump` 捕获 **105 出站 UDP / 0 入站**，坐实 `responses=0` 为 NAT 阻断入站 + 节点过时的环境层问题，协议编码/RPC/遍历无 bug，ED-02 维持 PARTIAL。② **ED-05 补齐仅混淆对端跨进程真 TCP 互操作**：新增 `cmd/uded2kobfspeer`，222 上两个独立进程经内核 TCP 完成 A/B 握手 + 加密 nonce 往返、双方 verdict=PASS、抓包明文泄漏 0，闭环此前互操作缺口；剩余出站自动武装 + 第三方客户端对端，ED-05 仍 PARTIAL。证据 `docs/evidence/ed2k-ed-gates-2026-11-22/kad-rootcause-2026-11-23.json` 与 `obfs-cross-process-interop-2026-11-23.json`，详见 docs/25 §12.5。P3 不发布、R-06 维持。
 >
 > **v1.47 变更 / 2026-11-23 时点口径（WBS 16 ED-05 live-TCP 接线）**：ED-05 由协议层 PARTIAL 推进为 **live-TCP 已接入 PARTIAL**——新增 `obfuscation.Stream`（`net.Conn` 透明 RC4 加解密）+ `WrapOutgoing`/`WrapIncoming`（A/B 阻塞握手、入站明文自动回退），接入 `Connection` 收发与 `config.ED2K.Obfuscation`（默认 true）；`crypt_layer_wired=true` 经 222 真机确认且 KAD bootstrap 不回归，18 项单测（含 net.Pipe 真实双向握手/明文回退/篡改拒绝）全绿。排查并排除 KAD UDP checksum 假设（ED-02 零响应仍为环境层，不改协议格式）。出站混淆需显式 peer hash、未做仅混淆对端真机互操作，ED-05 不判 PASS，P3 发布结论不变。详见 docs/25 §12 与证据 `docs/evidence/ed2k-ed-gates-2026-11-22/`。
 >

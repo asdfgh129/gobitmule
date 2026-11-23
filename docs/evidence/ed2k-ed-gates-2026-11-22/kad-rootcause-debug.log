@@ -1,0 +1,135 @@
+time=2026-11-23T02:06:10.514Z level=DEBUG msg="nodes.dat loaded" source=/root/nodes.dat entries=200
+time=2026-11-23T02:06:10.515Z level=DEBUG msg="dht source search started" hash=E75AD307F1EC36B45DD100AB92A2F8C0 size=1038612780
+time=2026-11-23T02:06:10.515Z level=DEBUG msg="kad source search nodes" hash=E75AD307F1EC36B45DD100AB92A2F8C0 nodes=41
+time=2026-11-23T02:06:10.515Z level=DEBUG msg="kad udp send" to=66.223.42.151:59226 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:10.515Z level=DEBUG msg="kad udp send" to=90.171.112.79:44644 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:10.515Z level=DEBUG msg="kad udp send" to=76.89.38.83:52149 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:10.515Z level=DEBUG msg="kad udp send" to=80.236.99.213:7723 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:10.516Z level=DEBUG msg="kad udp send" to=174.20.84.176:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=114.49.91.77:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=7.114.31.94:2352 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=37.75.166.218:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=3.77.116.79:8962 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=54.104.107.92:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=114.49.91.77:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=7.114.31.94:2352 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=37.75.166.218:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=3.77.116.79:8962 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:11.016Z level=DEBUG msg="kad udp send" to=54.104.107.92:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:13.517Z level=DEBUG msg="kad udp send" to=124.172.132.89:41510 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:13.517Z level=DEBUG msg="kad udp send" to=38.49.130.5:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:13.517Z level=DEBUG msg="kad udp send" to=124.38.30.78:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:13.517Z level=DEBUG msg="kad udp send" to=177.28.110.123:4662 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:13.518Z level=DEBUG msg="kad udp send" to=201.105.237.116:54660 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=103.152.57.62:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=77.199.66.82:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=94.74.190.60:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=74.74.248.220:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=118.20.120.84:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=103.152.57.62:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=77.199.66.82:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=94.74.190.60:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=74.74.248.220:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:14.018Z level=DEBUG msg="kad udp send" to=118.20.120.84:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:16.519Z level=DEBUG msg="kad udp send" to=28.122.80.112:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:16.519Z level=DEBUG msg="kad udp send" to=246.205.56.81:57354 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:16.519Z level=DEBUG msg="kad udp send" to=233.109.45.151:7010 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:16.520Z level=DEBUG msg="kad udp send" to=220.187.35.95:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:16.520Z level=DEBUG msg="kad udp send" to=60.96.29.82:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=26.136.112.79:33235 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=252.40.112.79:22378 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=68.0.25.151:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=25.157.184.81:24019 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=109.138.177.201:2800 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=26.136.112.79:33235 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=252.40.112.79:22378 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=68.0.25.151:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=25.157.184.81:24019 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:17.020Z level=DEBUG msg="kad udp send" to=109.138.177.201:2800 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:19.522Z level=DEBUG msg="kad udp send" to=88.44.219.185:34494 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:19.522Z level=DEBUG msg="kad udp send" to=61.115.57.81:16672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:19.522Z level=DEBUG msg="kad udp send" to=240.38.19.88:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:19.522Z level=DEBUG msg="kad udp send" to=149.149.17.31:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:19.522Z level=DEBUG msg="kad udp send" to=71.110.72.211:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:20.022Z level=DEBUG msg="kad udp send" to=46.56.145.184:13548 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:20.022Z level=DEBUG msg="kad udp send" to=159.27.67.151:33334 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:20.022Z level=DEBUG msg="kad udp send" to=192.73.167.118:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=191.113.71.93:6410 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=106.53.70.93:54321 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=46.56.145.184:13548 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=159.27.67.151:33334 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=192.73.167.118:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=191.113.71.93:6410 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:20.023Z level=DEBUG msg="kad udp send" to=106.53.70.93:54321 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:22.524Z level=DEBUG msg="kad udp send" to=46.56.145.184:13548 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:22.524Z level=DEBUG msg="kad udp send" to=192.73.167.118:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:22.524Z level=DEBUG msg="kad udp send" to=159.27.67.151:33334 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:22.524Z level=DEBUG msg="kad udp send" to=25.157.184.81:24019 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:22.524Z level=DEBUG msg="kad udp send" to=68.0.25.151:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=197.201.58.143:39526 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=240.38.19.88:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=61.115.57.81:16672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=71.110.72.211:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=149.149.17.31:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=197.201.58.143:39526 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=240.38.19.88:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=61.115.57.81:16672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=71.110.72.211:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:23.025Z level=DEBUG msg="kad udp send" to=149.149.17.31:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:25.526Z level=DEBUG msg="kad udp send" to=109.138.177.201:2800 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:25.526Z level=DEBUG msg="kad udp send" to=252.40.112.79:22378 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:25.526Z level=DEBUG msg="kad udp send" to=197.201.58.143:39526 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:25.526Z level=DEBUG msg="kad udp send" to=106.53.70.93:54321 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:25.526Z level=DEBUG msg="kad udp send" to=191.113.71.93:6410 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:26.026Z level=DEBUG msg="kad udp send" to=28.122.80.112:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=88.44.219.185:34494 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=220.187.35.95:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=60.96.29.82:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=246.205.56.81:57354 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=28.122.80.112:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=88.44.219.185:34494 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=220.187.35.95:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=60.96.29.82:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:26.027Z level=DEBUG msg="kad udp send" to=246.205.56.81:57354 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:28.530Z level=DEBUG msg="kad udp send" to=114.49.91.77:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:28.530Z level=DEBUG msg="kad udp send" to=118.20.120.84:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:28.530Z level=DEBUG msg="kad udp send" to=26.136.112.79:33235 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:28.530Z level=DEBUG msg="kad udp send" to=74.74.248.220:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:28.530Z level=DEBUG msg="kad udp send" to=77.199.66.82:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=233.109.45.151:7010 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=201.105.237.116:54660 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=177.28.110.123:4662 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=124.38.30.78:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=38.49.130.5:4672 opcode=33 bytes=35 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=233.109.45.151:7010 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=201.105.237.116:54660 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=177.28.110.123:4662 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=124.38.30.78:4672 opcode=83 bytes=21 err=""
+time=2026-11-23T02:06:29.031Z level=DEBUG msg="kad udp send" to=38.49.130.5:4672 opcode=83 bytes=21 err=""
+{
+  "timestamp": "2026-11-23T02:06:10Z",
+  "nodes_dat": "/root/nodes.dat",
+  "state_path": "/root/ud-ed2k-state.json",
+  "user_hash": "22222222222222222222222222222222",
+  "secure_ident": true,
+  "crypt_layer_supported": true,
+  "crypt_layer_wired": true,
+  "search_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
+  "listen_port": 42776,
+  "udp_port": 42777,
+  "dht_status": {
+    "Bootstrapped": true,
+    "Firewalled": true,
+    "LiveNodes": 41,
+    "ReplacementNodes": 11,
+    "RouterNodes": 0,
+    "RunningTraversals": 3,
+    "KnownNodes": 200,
+    "InitialBootstrap": false,
+    "ListenPort": 42777,
+    "StoragePoint": ""
+  },
+  "source_count": 0,
+  "search_started": true,
+  "verdict": "PASS"
+}

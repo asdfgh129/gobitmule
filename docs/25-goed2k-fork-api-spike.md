@@ -518,3 +518,52 @@ Connection 层接线（opt-in，不回归明文路径）：
 **ED-05 剩余步骤**：① 用 eNode-go/aMule 起"仅混淆"对端，做真实 TCP 握手 +
 加密载荷取证；② 给 `Peer` 携带目标 user hash，让出站混淆在下载流程自动武装；
 ③ 取证通过后才可将 ED-05 提升为 PASS。
+
+### 12.5 ED-02 根因实验 + ED-05 跨进程互操作（2026-11-23 续）
+
+**ED-02 根因由推断升级为实验证明**。此前 `responses=0` 被定性为环境层，但仅
+依据源码阅读，且旧 readLoop 解包失败静默丢弃、无逐包日志，无法区分五种失败
+模式。本轮补两组独立实验：
+
+- **实验 A（本地正对照）**：新增
+  `internal/ed2k/kad_local_positive_control_test.go` 的
+  `TestKADSourceSearchLocalPositiveControl`——用 fork 自己的 `PacketCombiner`
+  构造 in-process UDP 对端，作为带合法 ID 的已知路由节点注入 `DHTTracker`，
+  驱动真实 find-sources → search-sources 两阶段遍历。**PASS**：
+  `find-sources responses=1/timeouts=0`、`search-sources responses=1/timeouts=0`、
+  callback 收到 1 条源且端点解码为 `127.0.0.1:4662`（HighID/TCP，source tags
+  正确）。证明 wire 编码、RPC 三元组匹配、遍历链接与回调释放均正确。
+- **实验 B（真机抓包）**：给 `dht_tracker.go` 补逐包日志（`kad udp send/recv`、
+  `recv decode failed`，带目的/源地址、opcode、字节数、err），交叉编译带
+  `-debug` 的探针部署 222，`tcpdump -ni any udp port 42777` 抓包同时跑搜源。
+  结果：**105 出站 UDP 包（70×opcode 0x21 FindNode、35×0x53 FirewalledReq，
+  每包 35 字节）、0 入站包**，目的为公网 eMule 节点
+  （`66.223.42.151:59226`、`174.20.84.176:4672` 等），DHTStatus 仍
+  Bootstrapped/LiveNodes=41、source_count=0。包确实发出、无任何响应回到本机，
+  结合实验 A 同一套编码在本地能拿到 responses=1，**坐实根因为 NAT 阻断入站 +
+  nodes.dat 节点过时，排除协议 bug**。证据：
+  `docs/evidence/ed2k-ed-gates-2026-11-22/kad-rootcause-2026-11-23.json`、
+  `kad-rootcause-debug.log`、`kad-capture.pcap`。
+
+ED-02 门禁**维持 PARTIAL**（真机仍找不到源），但协议疑点清零、根因定性完成。
+
+**ED-05 补齐"仅混淆对端真机互操作"**。新增独立命令
+`cmd/uded2kobfspeer`（fork 自维护、零依赖）：`-listen` 端 `WrapIncoming`（client
+B），`-dial` 端 `WrapOutgoing`（client A），双方共享 user hash 作密钥锚，握手
+后经加密流互送 nonce。222 上以**两个独立 OS 进程**经内核 TCP 回环
+（`127.0.0.1:47322`）互操作，双方 `obfuscated=true`、`nonces_match=true`、
+`verdict=PASS`；`tcpdump -ni lo tcp port 47322` 抓包中 nonce 明文出现 **0 次**。
+这比 §12.3 的同进程 `net.Pipe` 内存管道证据更强，闭环了此前"未做仅混淆对端
+真机互操作"缺口。证据：
+`docs/evidence/ed2k-ed-gates-2026-11-22/obfs-cross-process-interop-2026-11-23.json`、
+`obfs-interop-capture.pcap`。
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-02 | **PARTIAL**（根因已证明） | 本地正对照 responses=1/entries=1；真机 tcpdump 105 出站/0 入站；协议链路无 bug，环境层坐实；真机 source_count=0 未闭环 |
+| ED-05 | **PARTIAL**（互操作已取证） | 跨进程真 TCP 仅混淆对端互操作 PASS、抓包零明文泄漏；剩余出站自动武装 + 第三方客户端对端 |
+
+**发布结论不变**：ED-01/02/03/04/05 仍未全部通过，P3 不发布、R-06 维持。
+**ED-05 剩余步骤**（更新）：① 给 `Peer` 携带目标 user hash，让出站混淆在下载
+流程自动武装；② 用第三方 aMule/eNode 客户端起对端完成互操作（本轮对端为
+fork 自建工具）；③ 两项完成后才可将 ED-05 提升为 PASS。
