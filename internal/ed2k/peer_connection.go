@@ -201,11 +201,40 @@ func (p *PeerConnection) Connect() error {
 	if err != nil {
 		return err
 	}
+	// ED-05: arm outgoing obfuscation from the source candidate's user hash
+	// before dialing. The hash may come from a KAD source entry or from an
+	// earlier cleartext Hello on a previous connection. Unknown hashes leave
+	// the connection in plaintext, preserving compatibility with peers that
+	// do not support CryptLayer.
+	if p.session != nil && p.session.GetEnableObfuscation() && p.peerInfo != nil &&
+		!p.peerInfo.UserHash.Equal(protocol.Invalid) {
+		p.Connection.armTentativeObfuscation(p.peerInfo.UserHash)
+		debugPeerf("peer %s outgoing obfuscation armed with source user hash %s",
+			p.endpoint.String(), p.peerInfo.UserHash.String())
+	}
 	if err := p.Connection.Connect(addr); err != nil {
 		return err
 	}
 	p.OnConnect()
 	return nil
+}
+
+// learnRemoteHash stores the user hash revealed by a cleartext Hello. The
+// first connection to a hash-less peer must be plaintext; remembering the
+// hash on the shared Peer lets subsequent reconnects negotiate obfuscation.
+func (p *PeerConnection) learnRemoteHash(hash protocol.Hash) {
+	if hash.Equal(protocol.Invalid) {
+		return
+	}
+	p.remoteHash = hash
+	if p.peerInfo == nil || p.session == nil || !p.peerInfo.UserHash.Equal(protocol.Invalid) {
+		return
+	}
+	p.session.mu.Lock()
+	defer p.session.mu.Unlock()
+	p.peerInfo.SetUserHash(hash)
+	debugPeerf("peer %s learned user hash %s for future obfuscated reconnects",
+		p.endpoint.String(), hash.String())
 }
 
 func (p *PeerConnection) OnDisconnect(ec BaseErrorCode) {
@@ -638,7 +667,7 @@ func (p *PeerConnection) HandleHelloAnswer(value *clientproto.HelloAnswer) {
 	if value == nil {
 		return
 	}
-	p.remoteHash = value.Hash
+	p.learnRemoteHash(value.Hash)
 	p.friendSlot = p.session.IsFriendSlot(value.Hash)
 	if value.Point.Defined() {
 		p.endpoint.AssignEndpoint(value.Point)
@@ -658,7 +687,7 @@ func (p *PeerConnection) HandleClientHello(value *clientproto.Hello) {
 	if value == nil {
 		return
 	}
-	p.remoteHash = value.Hash
+	p.learnRemoteHash(value.Hash)
 	p.friendSlot = p.session.IsFriendSlot(value.Hash)
 	if value.Point.Defined() {
 		p.endpoint.AssignEndpoint(value.Point)

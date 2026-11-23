@@ -29,6 +29,7 @@ type Connection struct {
 	// handshake on Connect. obfuscated/outgoingObfuscation record the live
 	// stream state for diagnostics and for CryptLayerWired reporting.
 	obfPeerHash         protocol.Hash
+	obfHashTentative    bool
 	obfuscated          bool
 	outgoingObfuscation bool
 }
@@ -87,9 +88,23 @@ func (c *Connection) DoRead() error {
 func (c *Connection) SetObfuscationPeerHash(hash protocol.Hash) {
 	if hash.Equal(protocol.Invalid) {
 		c.obfPeerHash = protocol.Invalid
+		c.obfHashTentative = false
 		return
 	}
 	c.obfPeerHash = hash
+	c.obfHashTentative = false
+}
+
+// armTentativeObfuscation arms the handshake with a hash inferred from source
+// metadata (e.g. a KAD source ID). Unlike an explicit hash, a failed handshake
+// is not fatal: Connect retries on a fresh cleartext socket. This keeps
+// interoperability with clients whose KAD ID is not their user hash.
+func (c *Connection) armTentativeObfuscation(hash protocol.Hash) {
+	if hash.Equal(protocol.Invalid) {
+		return
+	}
+	c.obfPeerHash = hash
+	c.obfHashTentative = true
 }
 
 // IsObfuscated reports whether this connection's TCP stream carries eMule
@@ -123,6 +138,21 @@ func (c *Connection) Connect(address net.Addr) error {
 			wrapped, err := obfuscation.WrapOutgoing(conn, c.obfPeerHash, nil)
 			if err != nil {
 				_ = conn.Close()
+				if c.obfHashTentative {
+					// The inferred hash may not be the peer's real user hash
+					// (KAD ID semantics differ across clients/versions). Retry
+					// once in plaintext rather than dropping a usable source.
+					logx.Debug("tentative outgoing obfuscation failed, falling back to plaintext",
+						"endpoint", tcpAddr.String(), "error", err.Error())
+					clearConn, dialErr := net.DialTCP("tcp", nil, tcpAddr)
+					if dialErr != nil {
+						c.Close(IOException)
+						return dialErr
+					}
+					c.socket = clearConn
+					c.lastReceive = CurrentTime()
+					return nil
+				}
 				c.Close(EncryptionError)
 				return err
 			}

@@ -153,11 +153,24 @@ func (t *Transfer) AddStats(s Statistics) {
 }
 
 func (t *Transfer) AddPeer(endpoint protocol.Endpoint, sourceFlag int) error {
+	return t.addPeer(endpoint, sourceFlag, protocol.Invalid)
+}
+
+// AddPeerWithHash adds a source candidate together with the target user hash
+// learned from source discovery (KAD SearchEntry.ID). The hash lets the
+// normal download path arm outgoing obfuscation automatically in
+// PeerConnection.Connect. Sources without a known hash use AddPeer and stay
+// plaintext.
+func (t *Transfer) AddPeerWithHash(endpoint protocol.Endpoint, sourceFlag int, userHash protocol.Hash) error {
+	return t.addPeer(endpoint, sourceFlag, userHash)
+}
+
+func (t *Transfer) addPeer(endpoint protocol.Endpoint, sourceFlag int, userHash protocol.Hash) error {
 	if t.session != nil {
 		t.session.mu.Lock()
 		defer t.session.mu.Unlock()
 	}
-	peer := NewPeerWithSource(endpoint, true, sourceFlag)
+	peer := NewPeerWithSourceAndHash(endpoint, true, sourceFlag, userHash)
 	_, err := t.policy.AddPeer(peer)
 	return err
 }

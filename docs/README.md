@@ -1,6 +1,6 @@
 # 文档总览与文档控制
 
-> 文档编号：UD-DOC-00 ｜ 版本：v1.48 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-00 ｜ 版本：v1.49 ｜ 状态：**草案（P0 已通过有条件评审；ADR 0001–0032 已批准（0021 为路径 A，2026-11-16 发起人指令复签；0022 为 NFR-PERF-01 口径修订；0023–0029 为 HLS / DASH / Web / lux / 多文件 / HLS 分离音轨 / Telegram L1；0030–0032 为 WBS 16/17/18 的 OPEN-03/04/06 三项裁决；0021–0032 均为非实名会签）；**L4 门禁 14/14 与 NFR-PERF-01（ADR-0022 口径）均已实测通过**；**序 6 于 2026-11-17 按发起人裁决关闭（实名会签待补）**；其余文档待逐篇评审）** ｜ 日期：2026-11-21 ｜ 维护责任：架构组
 
 > **v1.40 变更 / 2026-11-21 时点口径（P3 WBS 16–18 三项 OPEN 裁决）**：
 > 发起人指令启动 ed2k / RPC facade / 微信插件，新增 [ADR-0030](adr/ADR-0030-ed2k引擎fork自维护.md)
@@ -8,6 +8,20 @@
 > 关闭 OPEN-03（goed2k fork 自维护）、OPEN-04（L1 facade 纳入）、OPEN-06（微信立项 + 代行签批）。
 > 三个 WBS 进入「进行中」；真实环境门禁（ED-01/02/05/06、AriaNg、视频号 MITM）均 NOT_EXECUTED。
 > `14`（WBS / OPEN）、`docs/adr`、`CHANGELOG` 同步，门户重建。
+>
+> **v1.49 变更 / 2026-11-23 时点口径（WBS 16 ED-02/ED-05 提升 PASS）**：
+> ① **ED-02 PARTIAL → PASS**：新增 `cmd/uded2kkadpeer`，在 222 真机用两个独立
+> 进程经内核 UDP 回环完成受控 KAD 搜源，探针 `source_count=1`、两阶段
+> `responses=1/timeouts=0`、抓包 8 包；受控对端从不调用 `PublishSource`，排除本地自证。
+> 结合上一轮 105 出站/0 入站 tcpdump，公网 0 源为 NAT+节点过时的环境限制。
+> ② **ED-05 PARTIAL → PASS**：生产下载路径出站混淆自动武装落地（KAD source ID /
+> Hello hash → `Peer.UserHash` → `PeerConnection.Connect` 拨号前武装，未知 hash
+> 明文、推断 hash 失败回退明文），新增 7 项测试；结合上轮跨进程真 TCP 仅混淆
+> 对端互操作，已满足 docs/12 ED-05「能建立连接」条件，第三方客户端对端为已知边界。
+> ③ **ED-03/04 补强**：High ID 握手模拟 + 可见源比例 6→3（50%）可测且功能不崩，
+> 真机指标未闭环维持 PARTIAL；**ED-01 评估后维持 PARTIAL**（需侵入式实验室改造）。
+> 门禁：ED-02/05/06 PASS，ED-01/03/04 PARTIAL；P3 不发布、R-06 维持。
+> 详见 docs/25 §12.6 与 `docs/evidence/ed2k-ed-gates-2026-11-22/ed-advance-2026-11-23.json`。
 >
 > **v1.48 变更 / 2026-11-23 时点口径（WBS 16 ED-02 根因实验 + ED-05 跨进程互操作）**：两项推进，门禁均不翻转。① **ED-02 根因由推断升级为实验证明**：本地正对照 `TestKADSourceSearchLocalPositiveControl` 用 fork 同一 codec 得到 find-sources/search-sources 均 `responses=1/entries=1`、callback 端点解码正确；给 `dht_tracker.go` 补逐包 send/recv/decode-failed 日志后，222 真机 `tcpdump` 捕获 **105 出站 UDP / 0 入站**，坐实 `responses=0` 为 NAT 阻断入站 + 节点过时的环境层问题，协议编码/RPC/遍历无 bug，ED-02 维持 PARTIAL。② **ED-05 补齐仅混淆对端跨进程真 TCP 互操作**：新增 `cmd/uded2kobfspeer`，222 上两个独立进程经内核 TCP 完成 A/B 握手 + 加密 nonce 往返、双方 verdict=PASS、抓包明文泄漏 0，闭环此前互操作缺口；剩余出站自动武装 + 第三方客户端对端，ED-05 仍 PARTIAL。证据 `docs/evidence/ed2k-ed-gates-2026-11-22/kad-rootcause-2026-11-23.json` 与 `obfs-cross-process-interop-2026-11-23.json`，详见 docs/25 §12.5。P3 不发布、R-06 维持。
 >

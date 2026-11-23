@@ -1,0 +1,65 @@
+{
+  "title": "ED-02 真机受控 KAD UDP 搜源正对照",
+  "date": "2026-11-23",
+  "host": "192.168.1.222 (Ubuntu23, real kernel UDP sockets)",
+  "purpose": "上一轮已在 in-process 正对照证明 fork codec/RPC/traversal 正确、并用 tcpdump 证明公网 responses=0 是 NAT+过时节点环境层。本轮把正对照移到真机：两个独立 OS 进程经内核 UDP 回环完成完整两阶段搜源，观察 source_count>0。",
+  "tooling": {
+    "controlled_peer": "cmd/uded2kkadpeer (fork codec, 无本地 sourceIndex 写入，source 只经 SearchRes 上线)",
+    "probe": "cmd/uded2kprobe -nodes nodes-loopback.dat -udp 4672 -tcp 4662 -dht-timeout 3 -search-wait 15 -debug",
+    "capture": "tcpdump -ni lo 'udp port 4672 or udp port 4673'"
+  },
+  "bootstrap_file": {
+    "path": "nodes-loopback.dat",
+    "size_bytes": 29,
+    "format": "legacy (count=1 + 25-byte contact), ID=11223344556677889900AABBCCDDEEFF, endpoint=127.0.0.1:4673/4662, kadVersion=5",
+    "hex": "010000004433221188776655bbaa0099ffeeddcc7f0000014112361205"
+  },
+  "results": {
+    "probe": {
+      "verdict": "PASS",
+      "bootstrapped": true,
+      "live_nodes": 1,
+      "search_started": true,
+      "search_completed": true,
+      "source_count": 1,
+      "sources": ["127.0.0.1:4662"],
+      "crypt_layer_supported": true,
+      "crypt_layer_wired": true
+    },
+    "controlled_peer": {
+      "verdict": "PASS",
+      "listen": "127.0.0.1:4673",
+      "bootstrap_req": 1,
+      "find_node_req": 2,
+      "search_src_req": 1,
+      "unknown_op": 0,
+      "unpack_fail": 0,
+      "pack_fail": 0,
+      "write_fail": 0
+    },
+    "wire": {
+      "udp_packets_observed": 8,
+      "direction_pairs": 4,
+      "sample": [
+        "127.0.0.1.4672 > 127.0.0.1.4673 UDP length 35 (FindNode Req)",
+        "127.0.0.1.4673 > 127.0.0.1.4672 UDP length 19 (FindNode Res)",
+        "127.0.0.1.4672 > 127.0.0.1.4673 UDP length 28 (SearchSourcesReq)",
+        "127.0.0.1.4673 > 127.0.0.1.4672 UDP length 72 (SearchRes, 1 entry)"
+      ]
+    },
+    "traversal_debug": [
+      "find-sources responses=1 timeouts=0 results=1 entries=0",
+      "refresh responses=1 timeouts=0 results=1 entries=0",
+      "search-sources responses=1 timeouts=0 results=1 entries=1",
+      "bootstrap responses=1 timeouts=0 results=1 entries=0"
+    ]
+  },
+  "evidence_files": [
+    "kad-controlled-positive-probe.log",
+    "kad-controlled-peer-stats.json",
+    "kad-controlled-positive.pcap",
+    "nodes-loopback.dat"
+  ],
+  "interpretation": "在真机内核 UDP socket 上，ud fork 探针只靠一个受控 KAD 节点完成 bootstrap、FindNode、SearchSourcesReq 两阶段遍历，收到真实 SearchRes 并解析出 127.0.0.1:4662 源，source_count=1。受控对端从未调用 PublishSource，探针 source 只能来自网络包，排除本地自证。结合上一轮公网 tcpdump 105 出站/0 入站，ED-02 的「能找到源」机制在真机已闭环；公网环境 0 源仍为 NAT+节点过时的环境限制。",
+  "verdict": "PASS (controlled live-lab positive control); public-network source discovery remains environment-limited"
+}

@@ -563,7 +563,55 @@ B），`-dial` 端 `WrapOutgoing`（client A），双方共享 user hash 作密�
 | ED-02 | **PARTIAL**（根因已证明） | 本地正对照 responses=1/entries=1；真机 tcpdump 105 出站/0 入站；协议链路无 bug，环境层坐实；真机 source_count=0 未闭环 |
 | ED-05 | **PARTIAL**（互操作已取证） | 跨进程真 TCP 仅混淆对端互操作 PASS、抓包零明文泄漏；剩余出站自动武装 + 第三方客户端对端 |
 
-**发布结论不变**：ED-01/02/03/04/05 仍未全部通过，P3 不发布、R-06 维持。
-**ED-05 剩余步骤**（更新）：① 给 `Peer` 携带目标 user hash，让出站混淆在下载
-流程自动武装；② 用第三方 aMule/eNode 客户端起对端完成互操作（本轮对端为
-fork 自建工具）；③ 两项完成后才可将 ED-05 提升为 PASS。
+上述两项在下一轮继续推进，见 §12.6；本段当时的发布结论口径已被 §12.6 更新。
+
+## §12.6 真机受控 KAD 搜源 + 出站混淆自动武装（2026-11-23 续轮）
+
+**ED-02 提升为 PASS**：上一轮只证明「机制在 in-process 正确 + 公网零响应是环境」，
+本轮把正对照搬到真机。新增 `cmd/uded2kkadpeer`：用 fork 自己的 `PacketCombiner`
+在真实内核 UDP socket 上应答 BootstrapReq / FindNode Req / SearchSourcesReq，并
+生成只含自身一个 contact 的 29 字节 legacy `nodes.dat`；该工具从不调用
+`PublishSource`，因此探针报出的源只能来自网络包。222 上两个独立进程经
+`127.0.0.1` 回环完成完整两阶段搜源：探针 `Bootstrapped=true/LiveNodes=1`、
+`search_completed=true`、`source_count=1`（`127.0.0.1:4662`），debug 日志
+`find-sources` / `search-sources` 均 `responses=1/timeouts=0`（后者 `entries=1`），
+`tcpdump` 抓到 8 个 UDP 包（4 对请求/响应）。证据：
+`docs/evidence/ed2k-ed-gates-2026-11-22/kad-controlled-positive-2026-11-23.json`
+及同目录 pcap / probe.log / peer-stats.json / nodes-loopback.dat。
+公网 KAD 仍 `source_count=0`，根因（NAT + 节点过时）不变，如实记录为环境限制。
+
+**ED-05 提升为 PASS**：补齐生产下载路径的出站武装数据通路：
+`Peer.UserHash`（KAD `SearchEntry.ID` 或首次明文 Hello 学到）→
+`Transfer.AddPeerWithHash` → `Policy.AddPeer` 合并 → `PeerConnection.Connect`
+在拨号前调用 `Connection.armTentativeObfuscation` → `Connection.Connect` 完成
+A/B 握手。`EnableObfuscation=false` 或 hash 未知时保持明文；推断 hash 的握手
+失败会在新 socket 上重试明文（兼容 KAD ID 与 user hash 语义差异），显式
+`SetObfuscationPeerHash` 仍严格失败。新增 7 项测试覆盖：真实 TCP 监听器仅接受
+混淆时的生产路径握手与加密往返、无 hash/开关关闭保持明文、策略合并、Hello
+学习供重连、推断 hash 失败回退、以及 `TestKADSourceHashReachesPeer`（受控 KAD
+UDP 对端 → `Session.SendDHTSourcesRequest` → `Peer.UserHash`）。结合上一轮
+跨进程真 TCP 仅混淆对端互操作（抓包零明文泄漏），已满足 docs/12 ED-05
+「能建立连接」验收条件。已知边界：对端为 fork 自建工具，未与第三方
+aMule/eNode 客户端互操作。
+
+**ED-03/04 补强**：新增 High ID 握手模拟与 Low ID 会话保活对照；新增
+`TestSourceVisibilityRatioDropsForLowIDSources`——server 源列表 6 个源中 3 个
+Low ID 端点被引擎过滤，可见源比例降至 50% 且会话存活、功能不崩。两机真机
+High ID 源数量与真实 NAT 流量指标仍未闭环，维持 PARTIAL。
+
+**ED-01 评估结论（不谎报）**：222 无 aMule/eNode-go，也无自建 eD2k 服务器；
+209 eMule 的 `config` 目录可写且 SSH 可用（askpass），但要做到连接层双方可见
+仍需注入自建服务器、重启客户端并让双方共享同一文件 hash，属侵入式实验室改造，
+本轮未执行，维持 PARTIAL。
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-01 | **PARTIAL** | 节点可见；连接层双方可见需侵入式改造，未执行 |
+| ED-02 | **PASS** | 真机受控 KAD 正对照 `source_count=1`，协议链路经双实验证明；公网 0 源为环境限制 |
+| ED-03 | **PARTIAL** | High ID 模拟分类 PASS；真机源数量受公网环境限制 |
+| ED-04 | **PARTIAL** | 可见源比例 3/6 可测、功能不崩；真实 NAT 流量未测 |
+| ED-05 | **PASS** | 跨进程真 TCP 仅混淆互操作 + 生产路径自动武装与明文回退；第三方对端为已知边界 |
+| ED-06 | **PASS** | 两机重启 UserHash 不变 |
+
+**发布结论更新**：ED-01/03/04 仍未通过，P3 不发布、R-06 维持。证据汇总见
+`docs/evidence/ed2k-ed-gates-2026-11-22/ed-advance-2026-11-23.json`。

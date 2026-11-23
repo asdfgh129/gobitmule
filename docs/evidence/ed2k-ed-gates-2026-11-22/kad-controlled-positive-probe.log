@@ -1,0 +1,47 @@
+time=2026-11-23T13:47:50.564Z level=DEBUG msg="nodes.dat loaded" source=/root/nodes-loopback.dat entries=1
+time=2026-11-23T13:47:50.565Z level=DEBUG msg="dht source search started" hash=E75AD307F1EC36B45DD100AB92A2F8C0 size=1038612780
+time=2026-11-23T13:47:50.565Z level=DEBUG msg="kad source search nodes" hash=E75AD307F1EC36B45DD100AB92A2F8C0 nodes=1
+time=2026-11-23T13:47:50.565Z level=DEBUG msg="kad udp send" to=127.0.0.1:4673 opcode=33 bytes=35 err=""
+time=2026-11-23T13:47:50.565Z level=DEBUG msg="kad udp recv" from=127.0.0.1:4673 bytes=19 header=41
+time=2026-11-23T13:47:50.565Z level=DEBUG msg="kad traversal done" kind=find-sources target=E75AD307F1EC36B45DD100AB92A2F8C0 responses=1 timeouts=0 results=1 entries=0
+time=2026-11-23T13:47:50.566Z level=DEBUG msg="kad udp send" to=127.0.0.1:4673 opcode=52 bytes=28 err=""
+time=2026-11-23T13:47:50.566Z level=DEBUG msg="kad udp recv" from=127.0.0.1:4673 bytes=72 header=59
+time=2026-11-23T13:47:51.067Z level=DEBUG msg="kad udp send" to=127.0.0.1:4673 opcode=33 bytes=35 err=""
+time=2026-11-23T13:47:51.067Z level=DEBUG msg="kad udp recv" from=127.0.0.1:4673 bytes=19 header=41
+time=2026-11-23T13:47:51.067Z level=DEBUG msg="kad traversal done" kind=refresh target=C78E09193B495B5B9B27307462FA9921 responses=1 timeouts=0 results=1 entries=0
+time=2026-11-23T13:47:53.568Z level=DEBUG msg="kad traversal done" kind=search-sources target=E75AD307F1EC36B45DD100AB92A2F8C0 responses=1 timeouts=0 results=1 entries=1
+time=2026-11-23T13:47:53.568Z level=DEBUG msg="kad udp send" to=127.0.0.1:4673 opcode=1 bytes=2 err=""
+time=2026-11-23T13:47:53.568Z level=DEBUG msg="kad udp recv" from=127.0.0.1:4673 bytes=23 header=9
+time=2026-11-23T13:47:53.568Z level=DEBUG msg="kad traversal done" kind=bootstrap target=C78E09193B495B5B9B27307462FA9921 responses=1 timeouts=0 results=1 entries=0
+{
+  "timestamp": "2026-11-23T13:47:50Z",
+  "nodes_dat": "/root/nodes-loopback.dat",
+  "user_hash": "AEF92DD39B0ECD45E6119799D2826FCA",
+  "secure_ident": false,
+  "crypt_layer_supported": true,
+  "crypt_layer_wired": true,
+  "search_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
+  "listen_port": 4662,
+  "udp_port": 4672,
+  "dht_status": {
+    "Bootstrapped": true,
+    "Firewalled": true,
+    "LiveNodes": 1,
+    "ReplacementNodes": 0,
+    "RouterNodes": 0,
+    "RunningTraversals": 0,
+    "KnownNodes": 1,
+    "InitialBootstrap": false,
+    "ListenPort": 4672,
+    "StoragePoint": ""
+  },
+  "sources": [
+    {
+      "endpoint": "127.0.0.1:4662"
+    }
+  ],
+  "source_count": 1,
+  "search_started": true,
+  "search_completed": true,
+  "verdict": "PASS"
+}

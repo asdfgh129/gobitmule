@@ -1,0 +1,40 @@
+{
+  "title": "ED-02/03/04/05 续轮推进（出站混淆自动武装 + ID 分类源可见性）",
+  "date": "2026-11-23",
+  "code_changes": {
+    "outgoing_obfuscation": {
+      "peer.go": "Peer 增加 UserHash 字段；新增 NewPeerWithSourceAndHash / SetUserHash",
+      "policy.go": "AddPeer 端点重复时合并新学到的 UserHash（不覆盖已知值）",
+      "transfer.go": "AddPeer 委托给新增 AddPeerWithHash；KAD 源可携带目标 hash",
+      "session.go": "SendDHTSourcesRequest 在 EnableObfuscation 时把 SearchEntry.ID.Hash 写入 Peer",
+      "peer_connection.go": "Connect 在拨号前按 EnableObfuscation + 已知 hash 调用 armTentativeObfuscation；Hello/HelloAnswer 学到 hash 后回写共享 Peer 供重连使用",
+      "connection.go": "新增 obfHashTentative；推断 hash 的混淆握手失败时在新 socket 上重试明文，显式 hash 仍严格失败",
+      "settings.go": "更新 EnableObfuscation 语义注释"
+    },
+    "id_class_source_visibility": {
+      "tests": "TestHighIDSimulatedServerHandshake / TestLowIDKeepsSessionAliveWithSources / TestSourceVisibilityRatioDropsForLowIDSources"
+    }
+  },
+  "tests": [
+    "TestPeerConnectionAutoArmsOutgoingObfuscation (真实 TCP 监听器仅接受混淆，生产 Connect 路径完成 A/B 握手并加密往返)",
+    "TestPeerConnectionStaysPlaintextWithoutHash",
+    "TestPeerConnectionObeysObfuscationOff",
+    "TestPolicyAddPeerMergesLearnedHash",
+    "TestLearnedHelloHashArmsReconnect",
+    "TestTentativeObfuscationFallsBackToPlaintext",
+    "TestKADSourceHashReachesPeer (受控 KAD UDP 对端 -> Session.SendDHTSourcesRequest -> Peer.UserHash)",
+    "TestHighIDSimulatedServerHandshake",
+    "TestLowIDKeepsSessionAliveWithSources",
+    "TestSourceVisibilityRatioDropsForLowIDSources (6 源中 3 个 Low ID 端点被过滤，可见比例 50%，会话存活)"
+  ],
+  "verdicts_after": {
+    "ED-01": "PARTIAL（本轮仅评估，未获可自动化条件）",
+    "ED-02": "PASS（真机受控 KAD 对端搜源 source_count=1；公网环境 0 源仍为 NAT+节点过时）",
+    "ED-03": "PARTIAL（High ID 握手模拟 PASS；真机 High ID 源数量仍受公网环境限制）",
+    "ED-04": "PARTIAL（可见源比例 3/6 可测且功能不崩；真实 NAT 流量未测）",
+    "ED-05": "PASS（仅混淆对端跨进程真 TCP 互操作 + 生产下载路径自动武装与明文回退；第三方 aMule/eNode 对端未覆盖）",
+    "ED-06": "PASS"
+  },
+  "ed01_blocker": "222 无 aMule/eNode-go 与自建 eD2k 服务器；209 eMule 有可写 config 目录（server.met / preferences.ini）但需重启并注入自建服务器 + 双方共享同一文件 hash 才能做连接层双方可见。属侵入式实验室改造，未执行，不谎报 PASS。",
+  "release_impact": "ED-01/03/04 仍未通过，P3 不发布、R-06 维持。"
+}

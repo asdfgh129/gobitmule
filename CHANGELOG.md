@@ -16,6 +16,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：ED-02 真机受控搜源 + ED-05 出站自动武装（2026-11-23 再续）**：
+  - **ED-02 PARTIAL → PASS**：新增 `cmd/uded2kkadpeer`（fork codec 的受控
+    KAD UDP 对端，可生成只含自身的 29B legacy `nodes.dat`，从不调用
+    `PublishSource`）。222 上两独立进程经内核 UDP 回环跑完整两阶段搜源：
+    `Bootstrapped=true/LiveNodes=1`、`search_completed=true`、
+    `source_count=1`（`127.0.0.1:4662`）、find/search-sources 均
+    `responses=1/timeouts=0`、`tcpdump` 8 包。证据 `kad-controlled-positive-2026-11-23.json`
+    + pcap/log/peer-stats/nodes-loopback.dat。公网 0 源仍为 NAT+过时节点环境限制。
+  - **ED-05 PARTIAL → PASS**：打通生产下载路径的出站混淆数据通路——
+    `Peer.UserHash`（KAD `SearchEntry.ID` 或首次明文 Hello 学到）→
+    `Transfer.AddPeerWithHash` → `Policy.AddPeer` 合并 → `PeerConnection.Connect`
+    拨号前 `armTentativeObfuscation` → `Connection.Connect` 完成 A/B 握手；
+    未知 hash 或开关关闭保持明文，推断 hash 握手失败在新 socket 回退明文。
+    新增 7 项测试（真实 TCP 仅混淆握手+加密往返、无 hash/关开关明文、
+    策略合并、Hello 学习供重连、推断失败回退、KAD→Peer hash 传播）。
+    已知边界：对端为 fork 自建工具，未与第三方 aMule/eNode 互操作。
+  - **ED-03/04 补强**：新增 High ID 握手模拟与 Low ID 会话保活对照；
+    `TestSourceVisibilityRatioDropsForLowIDSources` 实测 6 源中 3 个 Low ID
+    端点被过滤（可见比例 50%）且功能不崩。真机 High ID 源数量/真实 NAT
+    流量未测，维持 PARTIAL。
+  - **ED-01 评估**：222 无 aMule/eNode-go 与自建 eD2k 服务器；209 eMule
+    配置可写但需注入服务器+重启+共享文件，侵入式改造未执行，维持 PARTIAL。
+  - 门禁现状：ED-01/03/04 PARTIAL、ED-02/05/06 PASS；P3 不发布、R-06 维持。
+    `docs/25` §12.6、`docs/14` WBS16、README v1.49、_site、SHA256SUMS 同步。
 - **WBS 16：ED-02 根因实验 + ED-05 跨进程混淆互操作（2026-11-23 续）**：
   - **ED-02 根因由推断升级为实验证明**：新增
     `internal/ed2k/kad_local_positive_control_test.go` 的

@@ -314,12 +314,21 @@ func (s *Session) SendDHTSourcesRequest(hash protocol.Hash, size int64, transfer
 		if current == nil || current != transfer {
 			return
 		}
+		// ED-05: a KAD source result carries the source node's 16-byte ID,
+		// which is the eD2k user hash anchor for outgoing obfuscation. Only
+		// carry it when obfuscation is explicitly enabled; sources without
+		// a usable hash keep the plaintext path.
+		obfuscationEnabled := s.GetEnableObfuscation()
 		for _, entry := range results {
 			endpoint, ok := entry.SourceEndpoint()
 			if !ok || !endpoint.Defined() {
 				continue
 			}
-			_ = current.AddPeer(endpoint, int(PeerDHT))
+			if obfuscationEnabled && !entry.ID.Hash.Equal(protocol.Invalid) {
+				_ = current.AddPeerWithHash(endpoint, int(PeerDHT), entry.ID.Hash)
+			} else {
+				_ = current.AddPeer(endpoint, int(PeerDHT))
+			}
 		}
 	})
 }

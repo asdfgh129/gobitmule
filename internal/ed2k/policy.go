@@ -57,6 +57,12 @@ func (p *Policy) AddPeer(peer Peer) (bool, error) {
 	insertPos, found := slices.BinarySearchFunc(p.peers, peer, func(a, b Peer) int { return a.Compare(b) })
 	if found {
 		p.peers[insertPos].SourceFlag |= peer.SourceFlag
+		// A source discovered later may carry a target user hash while the
+		// earlier contact (e.g. from server or resume data) did not. Keep the
+		// known hash so outgoing obfuscation can be armed on reconnect.
+		if p.peers[insertPos].UserHash.Equal(protocol.Invalid) && !peer.UserHash.Equal(protocol.Invalid) {
+			p.peers[insertPos].UserHash = peer.UserHash
+		}
 		return false, nil
 	}
 	p.peers = slices.Insert(p.peers, insertPos, peer)

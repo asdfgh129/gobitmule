@@ -18,10 +18,11 @@ type Settings struct {
 	EnableUPnP  bool
 	SecureIdent bool
 	// EnableObfuscation accepts eMule basic-obfuscation (CryptLayer) on peer
-	// connections. Incoming sockets transparently fall back to plaintext when
-	// the peer sends a normal eD2k header, so enabling it does not break
-	// cleartext peers. Outgoing obfuscation additionally needs the target
-	// user hash and is opt-in per connection (see Connection.SetObfuscationPeerHash).
+	// connections and arms outgoing obfuscation when the target user hash is
+	// known (from a KAD source entry or a learned Hello). Incoming sockets
+	// transparently fall back to plaintext when the peer sends a normal eD2k
+	// header; outgoing connections with an unknown hash stay plaintext.
+	// Connection.SetObfuscationPeerHash remains available for explicit opt-in.
 	EnableObfuscation       bool
 	Version                 int
 	ModMajor                int

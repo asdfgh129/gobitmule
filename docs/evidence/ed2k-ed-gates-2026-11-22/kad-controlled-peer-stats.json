@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-11-23T13:47:54Z",
+  "listen": "127.0.0.1:4673",
+  "self_id": "11223344556677889900AABBCCDDEEFF",
+  "nodes_out": "/root/nodes-loopback.dat",
+  "source_id": "DEADBEEFDEADBEEFDEADBEEFDEADBEEF",
+  "source_endpoint": "127.0.0.1:4662",
+  "bootstrap_req": 1,
+  "find_node_req": 2,
+  "search_src_req": 1,
+  "unknown_op": 0,
+  "unpack_fail": 0,
+  "pack_fail": 0,
+  "write_fail": 0,
+  "verdict": "PASS"
+}
