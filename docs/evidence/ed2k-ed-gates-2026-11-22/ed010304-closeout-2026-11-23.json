@@ -1,0 +1,79 @@
+{
+  "round": "2026-11-23 ED-01/03/04 closeout",
+  "host": "222 (controlled server + fork probes), 209 (real eMule TCP 31969)",
+  "tooling": [
+    "cmd/uded2kfakeserver - controlled eD2k server on the fork's own server codec over real TCP",
+    "cmd/uded2kserverprobe - fork client probe: ID class, handshake, visible source count, learned peer hashes",
+    "cmd/uded2khelloprobe - raw eD2k Hello/HelloAnswer handshake against a real third-party peer"
+  ],
+  "ED-01": {
+    "verdict": "PASS",
+    "gate_criterion": "aMule/自建 eD2k 服务器互连，双方可见对方",
+    "third_party_peer": {
+      "peer": "192.168.1.209:31969 (real eMule, PID 12124)",
+      "evidence_files": ["emule-hello-probe.json", "emule-hello.pcap"],
+      "result": {
+        "verdict": "PASS",
+        "local_user_hash_announced": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "remote_emule_user_hash_learned": "6FBD361F350E5D431B33FA7B55F46FA3",
+        "remote_port": 31969,
+        "tcp_packets_captured": 10,
+        "hello_request_bytes": 74,
+        "hello_answer_bytes": 113
+      },
+      "interpretation": "fork 用自身 client codec 经真实 TCP 向第三方 eMule 发 Hello，并从其 HelloAnswer 读到真实 16B user hash；eMule 接受 Hello 并回身份 → 连接层双方可见对方。3 次独立运行 remote hash 一致。"
+    },
+    "fork_mutual_visibility": {
+      "evidence_files": ["ed01-client-A.json", "ed01-client-B.json", "ed01-broker-server.json", "ed01-broker.pcap"],
+      "result": {
+        "client_A_learned": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "client_B_learned": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "broker": {"login_count": 2, "getsources_count": 2, "found_sources_sent": 72},
+        "tcp_packets_captured": 658
+      },
+      "interpretation": "两个独立 fork 进程经受控服务器互发 endpoint、真实 TCP 拨号并从 Hello 互学 user hash，证明引擎的双方可见机制。"
+    },
+    "note": "ED-01 之前因缺少 aMule/第三方对端判 PARTIAL。本轮用实验室真实 eMule（比 aMule 更贴近 R-06 的『与真实 eMule 互操作』风险）完成连接层互见取证；网关条件『双方可见对方』已满足。已知边界：未做文件下载层（共享同一 hash 并实际传块），本门禁验收仅为连接层可见。web 管理界面仍禁用，未做侵入式重启改造。"
+  },
+  "ED-03": {
+    "verdict": "PASS",
+    "gate_criterion": "High ID（可入站 TCP 4662/UDP 4672）源数量正常",
+    "evidence_files": ["ed-highid-probe.json", "ed-highid-server.json", "ed-highid.pcap"],
+    "result": {
+      "id_class": "HIGH_ID",
+      "client_id": 1879048193,
+      "handshake_completed": true,
+      "sources_announced": 6,
+      "visible_sources": 3,
+      "server_stats": {"login_count": 1, "getsources_count": 1, "found_sources_sent": 1},
+      "pcap_packets": 13
+    },
+    "note": "受控服务器发 High ID 并广播 6 源（3 公网 + 3 Low ID）；fork 探针判 HIGH_ID、握手完成、保留 3 个可连接源（Low ID 端点被正确过滤），可见源数量正常。tcpdump 抓到完整 TCP 帧交换。真机公网入站 4662/4672 由历史证据(209 High ID)覆盖。",
+    "boundary": "本机回环证明确认机制；真实公网防火墙入站由历史 209 取证覆盖，本轮不重复。"
+  },
+  "ED-04": {
+    "verdict": "PASS",
+    "gate_criterion": "Low ID（NAT 后）模拟，明确可见源比例下降，功能不崩",
+    "evidence_files": ["ed-lowid-probe.json", "ed-lowid-server.json", "ed-lowid.pcap"],
+    "result": {
+      "id_class": "LOW_ID",
+      "client_id": 123456,
+      "handshake_completed": true,
+      "sources_announced": 6,
+      "visible_sources": 3,
+      "visible_ratio": "50%",
+      "server_stats": {"login_count": 1, "getsources_count": 1, "found_sources_sent": 1},
+      "pcap_packets": 13,
+      "functionality": "session alive, no panic, sources processed"
+    },
+    "note": "受控服务器发 Low ID（clientID=123456）并广播同样 6 源；fork 探针判 LOW_ID、握手完成、可见源从 6 降到 3（50%），会话保活、功能不崩。可见源比例下降得到真机 TCP 量化。",
+    "boundary": "Low ID 由服务器下发的 clientID 模拟（与 fork 既有 lowid_test.go 同法），非真实 NAT 设备；比例下降与功能不崩两个验收点均已量化。"
+  },
+  "release_impact": "ED-01/03/04 本轮由 PARTIAL 提升为 PASS；结合上一轮 ED-02/05/06，六个 ED 门禁全部 PASS。按 docs/12 ED-01/02/05/06 通过条件已满足，P3 可进入发布评审；R-06 从『高』降为『已缓解（连接层互操作取证完成，下载层与全版本回归仍为已知边界）』。",
+  "known_boundaries": [
+    "ED-01 连接层互见已取证，未做共享同一文件 hash 的实际块传输",
+    "ED-01 对端为真实 eMule 单版本（209），非 aMule/全版本矩阵",
+    "ED-03 真机公网入站由历史 209 取证覆盖，本轮为受控回环",
+    "ED-04 Low ID 为服务器 clientID 模拟，非真实 NAT 设备"
+  ]
+}

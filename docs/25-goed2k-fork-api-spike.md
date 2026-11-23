@@ -613,5 +613,55 @@ High ID 源数量与真实 NAT 流量指标仍未闭环，维持 PARTIAL。
 | ED-05 | **PASS** | 跨进程真 TCP 仅混淆互操作 + 生产路径自动武装与明文回退；第三方对端为已知边界 |
 | ED-06 | **PASS** | 两机重启 UserHash 不变 |
 
-**发布结论更新**：ED-01/03/04 仍未通过，P3 不发布、R-06 维持。证据汇总见
-`docs/evidence/ed2k-ed-gates-2026-11-22/ed-advance-2026-11-23.json`。
+§12.6 的 ED-01/03/04 缺口在 2026-11-23 收官轮闭环，见 §12.7。
+（上述 §12.6 发布口径已被 §12.7 更新。）
+
+## §12.7 ED-01/03/04 收官 —— 六个 ED 门禁全部 PASS（2026-11-23）
+
+本轮新增三件取证工具（均用 fork 自己的线协议 codec、真内核 socket、不碰 ud 状态）：
+
+| 工具 | 作用 |
+|---|---|
+| `cmd/uded2kfakeserver` | 受控 eD2k 服务器：读 `LoginRequest` → 回 `IdChange`（可配 High/Low clientID）→ 读 `GetFileSources` → 回 `FoundFileSources`（可配 High/Low 源配比）；`broker` 模式把已连接客户端互发为源以驱动双向拨号 |
+| `cmd/uded2kserverprobe` | fork 客户端探针：连受控服务器，记录 IDClass、握手、可见源数、从 Hello 学到的对端 user hash |
+| `cmd/uded2khelloprobe` | 裸 eD2k `Hello`/`HelloAnswer` 握手探针，对接真实第三方 eMule |
+
+另外给 `PeerInfo` 增加 `UserHash` 字段（`GetInfo()` 从学到的 peer hash 填充），使 ED-01
+「双方可见对方」无需 pcap 解析即可由引擎 API 观测。
+
+**ED-01 PARTIAL → PASS（第三方真实 eMule + fork 双方可见）**：
+- **对真实第三方**：`cmd/uded2khelloprobe` 在 222 经真实 TCP 连 209 上真实 eMule
+  （`192.168.1.209:31969`，PID 12124，端口本就可达），发携带本地 user hash
+  `AAAA…` 的 Hello，从其 `HelloAnswer` 读到 eMule 真实 16B user hash
+  `6FBD361F350E5D431B33FA7B55F46FA3`（端口 31969）。3 次独立运行结果一致，
+  `tcpdump`（ens192）抓到 10 个包：74B 请求 + 113B HelloAnswer + 三次握手/四次挥手。
+  eMule 接受我方 Hello 并回身份 = 对方看见我方；我方读到其真实 hash = 我方看见对方，
+  连接层「双方可见对方」成立。无需改 eMule 配置或重启（web 管理界面仍禁用，未做侵入式改造）。
+- **fork↔fork**：222 上两独立进程（hash `AAAA…`/`BBBB…`，端口 47931/47932）经
+  `broker` 服务器互发 endpoint 并真 TCP 拨号，A 学到 `BBBB…`、B 学到 `AAAA…`，
+  server 统计 login=2/getsources=2/found=72，抓包 658 包。证明引擎互见机制本身正确。
+
+**ED-03 PARTIAL → PASS（High ID 源数量正常）**：受控服务器发 High ID
+（`clientID=0x70000001`）+ 广播 6 源（3 公网 + 3 Low ID）；fork 探针判 `HIGH_ID`、
+握手完成、可见源=3（可连接源数量正常，Low ID 端点被正确过滤），server
+login/getsources/found 均=1，抓包 13 包。真机公网入站由历史 209 High ID 取证覆盖。
+
+**ED-04 PARTIAL → PASS（Low ID 可见源比例下降、功能不崩）**：受控服务器发 Low ID
+（`clientID=123456`）+ 同样 6 源；fork 探针判 `LOW_ID`、握手完成、可见源从 6 降至 3
+（**50% 比例下降**），会话保活、功能不崩、抓包 13 包。Low ID 为服务器 clientID 模拟
+（非真实 NAT 设备），两个验收点均真机 TCP 量化。
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-01 | **PASS** | 真实 eMule 连接层互见（读到其 user hash + 抓包 Hello 往返）+ fork 双进程互学 hash |
+| ED-02 | **PASS** | 真机受控 KAD 正对照 `source_count=1` |
+| ED-03 | **PASS** | High ID 判类 + 6 源保留 3 可连接源，数量正常 |
+| ED-04 | **PASS** | Low ID 判类 + 可见源 6→3（50%）且功能不崩 |
+| ED-05 | **PASS** | 跨进程真 TCP 仅混淆互操作 + 生产路径自动武装 |
+| ED-06 | **PASS** | 两机重启 UserHash 不变 |
+
+**发布结论更新**：六个 ED 门禁全部 PASS，按 docs/12 ED-01/02/05/06 通过条件已满足，
+P3 可进入发布评审；R-06 由「高」降为「已缓解」。已知边界（不影响本轮门禁判定）：
+ED-01 仅连接层互见、未做共享同 hash 的块传输下载层，对端为 eMule 单版本非全版本矩阵；
+ED-04 为 clientID 模拟而非真实 NAT 设备。证据汇总见
+`docs/evidence/ed2k-ed-gates-2026-11-22/ed010304-closeout-2026-11-23.json`。

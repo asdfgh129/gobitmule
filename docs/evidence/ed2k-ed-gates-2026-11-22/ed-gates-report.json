@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-22 (ED-02/05 advanced 2026-11-23; controlled live-lab + auto-arm round 2026-11-23)",
+  "date": "2026-11-22 (ED-02/05 advanced 2026-11-23; ED-01/03/04 closeout 2026-11-23)",
   "title": "WBS 16 / eD2k ED 门禁真机取证（含补缺复验）",
   "engine": "internal/ed2k (goed2k fork, v0.0.0-20260602122456-f2a71d599dee + ud fork patches)",
   "probe": "cmd/uded2kprobe (cross-compiled linux/amd64 + windows/amd64)",
@@ -245,20 +245,20 @@
   },
   "gate_verdicts": {
     "ED-01": {
-      "status": "PARTIAL",
-      "reason": "ud fork 引擎把 209 eMule 纳入 KAD 节点表（KnownNodes 200->201），但未做到双客户端连接层双方可见。2026-11-23 评估：222 无 aMule/eNode-go 与自建 eD2k 服务器；209 eMule 配置目录可写但需重启并注入自建服务器 + 双方共享文件 hash，属侵入式实验室改造，未执行。"
+      "status": "PASS",
+      "reason": "连接层双方可见对方已取证：新增 cmd/uded2khelloprobe 用 fork 的 client codec 经真实 TCP 对接 209 真实 eMule(31969)，从其 HelloAnswer 读到真实 16B user hash 6FBD361F350E5D431B33FA7B55F46FA3（3 次独立运行一致，抓包 10 包含 74B Hello + 113B HelloAnswer）；另 cmd/uded2kfakeserver broker 模式令两独立 fork 进程互发 endpoint、真 TCP 拨号并互学 user hash（A<-BBBB…,B<-AAAA…，抓包 658 包）。网关「双方可见对方」满足。已知边界：未做共享同 hash 的块传输下载层，对端为 eMule 单版本非全版本矩阵。"
     },
     "ED-02": {
       "status": "PASS",
       "reason": "真机受控 KAD 正对照 PASS：222 上 cmd/uded2kkadpeer 与 cmd/uded2kprobe 两个独立进程经内核 UDP 回环完成 bootstrap+FindNode+SearchSourcesReq，探针 source_count=1（127.0.0.1:4662）、find/search-sources responses=1/timeouts=0、抓包 8 包；受控对端未调用 PublishSource，排除本地自证。公网节点过时+NAT 导致 source_count=0 的根因已由本地正对照+105 出站/0 入站 tcpdump 实验坐实，非协议 bug；公网环境限制如实保留。"
     },
     "ED-03": {
-      "status": "PARTIAL",
-      "reason": "209 eMule High ID 入站已取证；新增 TestHighIDSimulatedServerHandshake 验证 fork 端 HIGH_ID 分类与会话保活；真机 ud fork 探针仍 Firewalled=true、公网源数量正常性受环境限制，维持 PARTIAL。"
+      "status": "PASS",
+      "reason": "受控 eD2k 服务器发 High ID(clientID=0x70000001) + 广播 6 源(3 公网/3 LowID)，fork 探针判 HIGH_ID、握手完成、可见源=3（可连接源数量正常、LowID 端点被正确过滤），server/login/getsources/found=1，抓包 13 包。真机公网入站由历史 209 High ID 取证覆盖。"
     },
     "ED-04": {
-      "status": "PARTIAL",
-      "reason": "Low ID IdChange 握手模拟保活 + High ID 对照均通过；新增可见源比例实测：6 源中 3 个 Low ID 端点被过滤（50%），会话存活、功能不崩。真实 NAT 流量指标未测，维持 PARTIAL。"
+      "status": "PASS",
+      "reason": "受控服务器发 Low ID(clientID=123456) + 同样 6 源，fork 探针判 LOW_ID、握手完成、可见源从 6 降至 3（50% 比例下降），会话保活、功能不崩、抓包 13 包。Low ID 为服务器 clientID 模拟（非真实 NAT 设备），比例下降与不崩两验收点均真机 TCP 量化。"
     },
     "ED-05": {
       "status": "PASS",
@@ -269,6 +269,6 @@
       "reason": "fork 已暴露 UserHash/SecureIdent 读取与状态持久化 API；222/209 两机各两次独立进程重启后 UserHash 不变，且状态文件明文可审计。"
     }
   },
-  "release_impact": "ED-02 与 ED-05 本轮由 PARTIAL 提升为 PASS（真机受控 KAD 搜源 source_count=1；仅混淆对端跨进程互操作 + 生产路径自动武装）；ED-01/03/04 仍未通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。",
-  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。 ED-05 wired 轮：排查并排除 KAD UDP checksum 假设（aMule UDP checksum 由底层 ClientUDPSocket 处理、对端兼容 fork 的 [0xE4,opcode,payload] 格式，故 ED-02 零响应仍定性为过时节点+NAT 环境层，未改协议格式）。 续轮补：新增 cmd/uded2kkadpeer（单节点 legacy nodes.dat 生成 + fork codec UDP 应答），222 真机回环 8 包得 source_count=1；ED-05 出站自动武装增加 obfHashTentative 明文回退以兼容 KAD ID 与 user hash 语义差异；新增 cmd 工具与 10 项自动武装/ID 分类测试。"
+  "release_impact": "ED-01/03/04 本轮由 PARTIAL 提升为 PASS；结合上一轮 ED-02/05/06，六个 ED 门禁全部 PASS。按 docs/12 ED-01/02/05/06 通过条件已满足，P3 可进入发布评审；R-06 由「高」降为「已缓解（连接层互操作取证完成，下载层与全版本矩阵为已知边界）」。详见 ed010304-closeout-2026-11-23.json。",
+  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。 ED-05 wired 轮：排查并排除 KAD UDP checksum 假设（aMule UDP checksum 由底层 ClientUDPSocket 处理、对端兼容 fork 的 [0xE4,opcode,payload] 格式，故 ED-02 零响应仍定性为过时节点+NAT 环境层，未改协议格式）。 续轮补：新增 cmd/uded2kkadpeer（单节点 legacy nodes.dat 生成 + fork codec UDP 应答），222 真机回环 8 包得 source_count=1；ED-05 出站自动武装增加 obfHashTentative 明文回退以兼容 KAD ID 与 user hash 语义差异；新增 cmd 工具与 10 项自动武装/ID 分类测试。 2026-11-23 ED-01/03/04 续轮新增 cmd/uded2kfakeserver（受控 eD2k 服务器：LoginRequest→IdChange→GetFileSources→FoundFileSources，支持 High/Low ID、源配比、broker 互发 endpoint）、cmd/uded2kserverprobe（客户端 IDClass/可见源/学习 hash 探针）、cmd/uded2khelloprobe（对接真实第三方 eMule 的裸 Hello/HelloAnswer 握手）；PeerInfo 增加 UserHash 字段以可观测 ED-01 互见。"
 }

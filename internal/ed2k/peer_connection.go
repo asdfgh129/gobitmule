@@ -973,6 +973,7 @@ func (p *PeerConnection) GetInfo() PeerInfo {
 	if p.peerInfo != nil {
 		info.FailCount = p.peerInfo.FailCount
 		info.SourceFlag = p.peerInfo.SourceFlag
+		info.UserHash = p.peerInfo.UserHash
 	}
 	info.ModName = p.remotePeerInfo.ModName
 	info.Version = p.remotePeerInfo.Version

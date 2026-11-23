@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-11-23T14:44:37Z",
+  "peer": "192.168.1.209:31969",
+  "local_user_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "remote_user_hash": "6FBD361F350E5D431B33FA7B55F46FA3",
+  "remote_point": "31969",
+  "verdict": "PASS"
+}

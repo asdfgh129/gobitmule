@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-11-23T14:39:39Z",
+  "addr": "127.0.0.1:47211",
+  "client_id": 1879048193,
+  "id_class": "HIGH_ID",
+  "announced_sources": 6,
+  "announced_high": 3,
+  "announced_low": 3,
+  "broker": false,
+  "login_count": 1,
+  "idchange_sent": 1,
+  "getsources_count": 1,
+  "found_sources_sent": 1,
+  "clients": [
+    {
+      "user_hash": "63A3AB50530E792ED9391F9B938A6F3C",
+      "remote": "127.0.0.1:36636",
+      "listen_port": 41007,
+      "login": true,
+      "sources_requested": true
+    }
+  ],
+  "verdict": "PASS"
+}

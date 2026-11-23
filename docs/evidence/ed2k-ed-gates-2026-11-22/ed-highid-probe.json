@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-11-23T14:39:40Z",
+  "server": "127.0.0.1:47211",
+  "user_hash": "63A3AB50530E792ED9391F9B938A6F3C",
+  "file_hash": "E75AD307F1EC36B45DD100AB92A2F8C0",
+  "listen_port": 0,
+  "servers": [
+    {
+      "identifier": "127.0.0.1:47211",
+      "client_id": 1879048193,
+      "id_class": "HIGH_ID",
+      "handshake_completed": true
+    }
+  ],
+  "sources_sent_expected": 3,
+  "visible_sources": 3,
+  "active_connections": 1,
+  "peers": [
+    {
+      "endpoint": "3.0.1.117:4664",
+      "source_flag": 2
+    }
+  ],
+  "verdict": "PASS"
+}

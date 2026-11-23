@@ -26,6 +26,10 @@ type PeerInfo struct {
 	ModVersion           int
 	StrModVersion        string
 	SourceFlag           int
+	// UserHash is the remote peer's eD2k user hash learned from a cleartext
+	// Hello/HelloAnswer. Invalid means not learned yet. It is what makes
+	// ED-01 "both sides see each other" observable without pcap parsing.
+	UserHash protocol.Hash
 }
 
 func PeerSourceLabels(sourceFlag int) []string {

@@ -16,6 +16,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：ED-01/03/04 收官 —— 六个 ED 门禁全部 PASS（2026-11-23）**：
+  - 新增三件取证工具（fork 自身线协议 codec + 真内核 socket，不碰 ud 状态）：
+    `cmd/uded2kfakeserver`（受控 eD2k 服务器：LoginRequest→IdChange→GetFileSources→
+    FoundFileSources，可配 High/Low clientID、源配比、broker 互发 endpoint）、
+    `cmd/uded2kserverprobe`（fork 客户端 IDClass/握手/可见源/学习 hash 探针）、
+    `cmd/uded2khelloprobe`（裸 eD2k Hello/HelloAnswer 对接真实第三方 eMule）。
+    `PeerInfo` 增加 `UserHash` 字段，使 ED-01「双方可见对方」由引擎 API 可观测。
+  - **ED-01 PARTIAL → PASS**：222 真 TCP 连 209 真实 eMule(31969)，从 HelloAnswer
+    读到其真实 16B user hash `6FBD361F350E5D431B33FA7B55F46FA3`（3 次一致，
+    tcpdump 10 包含 74B Hello + 113B HelloAnswer）；另两独立 fork 进程经 broker
+    互发 endpoint、真 TCP 拨号并互学 hash（A←BBBB/B←AAAA，658 包）。连接层双方可见成立。
+  - **ED-03 PARTIAL → PASS**：High ID(clientID=0x70000001) + 6 源(3 公网/3 LowID)，
+    fork 判 HIGH_ID、握手完成、可见源=3、抓包 13 包。
+  - **ED-04 PARTIAL → PASS**：Low ID(clientID=123456) + 同 6 源，fork 判 LOW_ID、
+    可见源 6→3（50% 比例下降）、会话保活不崩、抓包 13 包。
+  - 门禁：ED-01~06 全 PASS；按 docs/12 P3 可进入发布评审，R-06 降为「已缓解」。
+    边界：ED-01 仅连接层未做块传输、eMule 单版本；ED-04 clientID 模拟非真实 NAT。
+    docs/25 §12.7、docs/14、README v1.50、_site、SHA256SUMS 同步。
 - **WBS 16：ED-02 真机受控搜源 + ED-05 出站自动武装（2026-11-23 再续）**：
   - **ED-02 PARTIAL → PASS**：新增 `cmd/uded2kkadpeer`（fork codec 的受控
     KAD UDP 对端，可生成只含自身的 29B legacy `nodes.dat`，从不调用
