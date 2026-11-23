@@ -16,6 +16,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **WBS 16：ED-05 live-TCP 接线 — 协议层 PARTIAL → 已接入 PARTIAL（2026-11-23 续）**：
+  - 新增 `internal/ed2k/protocol/obfuscation/stream.go`：`Stream`（`net.Conn`
+    透明 RC4 加解密）、`WrapOutgoing`/`WrapIncoming`（A/B 阻塞握手；入站探
+    协议头自动明文回退，已读字节由 `prefixedConn` 回放）、CSPRNG 随机
+    randomPart/marker。把 §11 的孤立 codec 变成真实 TCP 字节流能力。
+  - Connection 接线（opt-in）：入站 `Session.acceptIncomingConnections` 在
+    `Settings.EnableObfuscation` 时调用 `enableIncomingObfuscation`（B 侧仅需
+    本地 hash，明文 peer 自动回退）；出站 `Connection.Connect` 在
+    `SetObfuscationPeerHash` 武装后调用 `WrapOutgoing`（fork Peer 模型暂不携带
+    目标 hash，普通下载流程不自动启用）。配置链路 `config.ED2K.Obfuscation`
+    → `Goed2kConfig.Obfuscation` → `Settings.EnableObfuscation`。新增错误码
+    `EncryptionError(26)`。
+  - `CryptLayerWired()` 由 false 改为 true（表示已接入 live TCP 路径）；探针
+    222 真机确认 `crypt_layer_wired=true` 且 KAD bootstrap 不回归。
+  - 新增 11 项测试：`stream_test.go`（net.Pipe A/B 真实握手 + 双向加密载荷、
+    wire 明文不泄漏、明文回退、篡改拒绝）、`connection_obfuscation_test.go`
+    （连接层明文回退/握手升级/出站 opt-in 状态）。obfuscation 包累计 18 项。
+  - 排查并排除 KAD UDP checksum 假设：aMule 的 UDP checksum 由底层
+    `ClientUDPSocket` 处理、对端兼容 fork 的 `[0xE4,opcode,payload]` 格式；
+    ED-02 零响应仍定性为环境层（过时节点 + NAT），未改协议格式。协议常量
+    经权威源码再次核对无误。
+  - ED-05 仍为 **PARTIAL**（未做仅混淆对端真机互操作、出站未自动武装），
+    P3 发布结论不变、R-06 维持。证据 `crypt-wired-222.json`，详见 docs/25 §12。
+
 - **WBS 16：ED-05 混淆协议层落地 — BLOCKED → PARTIAL（2026-11-23）**：
   - 新增 `internal/ed2k/protocol/obfuscation/`（fork 自维护、零第三方依赖）：
     `Cipher`（RC4 KSA+PRGA + `Discard(1024)`）、21 字节 MD5 密钥派生

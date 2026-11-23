@@ -37,6 +37,7 @@ const (
 	WrongHashSet             ErrorCode = 23
 	HashMismatch             ErrorCode = 24
 	NonWriteableChannel      ErrorCode = 25
+	EncryptionError          ErrorCode = 26 // eMule obfuscation handshake failed
 
 	TagTypeUnknown         ErrorCode = 30
 	TagToStringInvalid     ErrorCode = 31
@@ -118,6 +119,7 @@ var errorDescriptions = map[ErrorCode]string{
 	WrongHashSet:                "Wrong getHash set",
 	HashMismatch:                "Hash mismatch",
 	NonWriteableChannel:         "Non writeable channel ",
+	EncryptionError:             "Obfuscation handshake failed",
 	TagTypeUnknown:              "Tag type unknown",
 	TagToStringInvalid:          "Tag to string convertion error",
 	TagToIntInvalid:             "Tag to int conversion error",

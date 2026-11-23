@@ -70,6 +70,7 @@ type Goed2kConfig struct {
 	ServerMet       string // optional eD2k server list
 	DisableRate     bool   // zero the engine's own upload limiter (ADR-0002)
 	DisableAutoSave bool   // zero AutoSaveInterval (ADR-0002)
+	Obfuscation     bool   // accept eMule basic obfuscation on incoming peers (ED-05)
 }
 
 // Goed2kDownloader implements Downloader by driving the forked goed2k engine.
@@ -101,7 +102,8 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 			st.UDPPort = cfg.UDPPort
 		}
 		st.EnableDHT = cfg.NodesDat != ""
-		st.MaxUploadRateKB = 0 // ud is the unique rate authority (ADR-0002)
+		st.EnableObfuscation = cfg.Obfuscation // ED-05: opt-in via config.ED2K.Obfuscation
+		st.MaxUploadRateKB = 0                 // ud is the unique rate authority (ADR-0002)
 		c := goed2k.NewClient(st)
 		c.SetAutoSaveInterval(0) // no state double-write (ADR-0002)
 		return &realEngine{c: c}, nil

@@ -7,6 +7,7 @@ import (
 
 	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
 	"github.com/asdfgh129/ud/internal/ed2k/protocol"
+	"github.com/asdfgh129/ud/internal/ed2k/protocol/obfuscation"
 )
 
 const connectionIODeadlineNS = int64(5 * 1000 * 1000)
@@ -24,6 +25,12 @@ type Connection struct {
 	header        protocol.PacketHeader
 	headerBuffer  []byte
 	bodyBuffer    []byte
+	// obfPeerHash, when defined, enables an outgoing eMule basic-obfuscation
+	// handshake on Connect. obfuscated/outgoingObfuscation record the live
+	// stream state for diagnostics and for CryptLayerWired reporting.
+	obfPeerHash         protocol.Hash
+	obfuscated          bool
+	outgoingObfuscation bool
 }
 
 type queuedPacket struct {
@@ -73,6 +80,38 @@ func (c *Connection) DoRead() error {
 	return nil
 }
 
+// SetObfuscationPeerHash configures an outgoing eMule basic-obfuscation
+// 握手 for this connection. It must be called before Connect. A zero hash
+// leaves the connection in plaintext mode. Passing an invalid hash disables
+// it. The peer hash is the key anchor eMule uses on the outgoing side.
+func (c *Connection) SetObfuscationPeerHash(hash protocol.Hash) {
+	if hash.Equal(protocol.Invalid) {
+		c.obfPeerHash = protocol.Invalid
+		return
+	}
+	c.obfPeerHash = hash
+}
+
+// IsObfuscated reports whether this connection's TCP stream carries eMule
+// basic obfuscation (handshake completed, RC4 active).
+func (c *Connection) IsObfuscated() bool { return c.obfuscated }
+
+// enableIncomingObfuscation performs the B-side handshake on an accepted
+// socket. A plaintext peer is passed through unchanged (WrapIncoming falls
+// back), so enabling this never breaks cleartext connections.
+func (c *Connection) enableIncomingObfuscation(localHash protocol.Hash) error {
+	if c.socket == nil || localHash.Equal(protocol.Invalid) {
+		return nil
+	}
+	wrapped, obf, err := obfuscation.WrapIncoming(c.socket, localHash, nil)
+	if err != nil {
+		return err
+	}
+	c.socket = wrapped
+	c.obfuscated = obf
+	return nil
+}
+
 func (c *Connection) Connect(address net.Addr) error {
 	if tcpAddr, ok := address.(*net.TCPAddr); ok {
 		conn, err := net.DialTCP("tcp", nil, tcpAddr)
@@ -80,7 +119,19 @@ func (c *Connection) Connect(address net.Addr) error {
 			c.Close(IOException)
 			return err
 		}
-		c.socket = conn
+		if !c.obfPeerHash.Equal(protocol.Invalid) {
+			wrapped, err := obfuscation.WrapOutgoing(conn, c.obfPeerHash, nil)
+			if err != nil {
+				_ = conn.Close()
+				c.Close(EncryptionError)
+				return err
+			}
+			c.socket = wrapped
+			c.obfuscated = true
+			c.outgoingObfuscation = true
+		} else {
+			c.socket = conn
+		}
 		c.lastReceive = CurrentTime()
 	}
 	return nil

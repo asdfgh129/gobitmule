@@ -227,6 +227,14 @@ func (s *Session) GetSecureIdent() bool {
 	return s.settings.SecureIdent
 }
 
+// GetEnableObfuscation reports whether incoming peer connections should
+// accept eMule basic obfuscation. Plaintext peers are still accepted.
+func (s *Session) GetEnableObfuscation() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings.EnableObfuscation
+}
+
 func (s *Session) SetSecureIdent(enabled bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -519,8 +527,20 @@ func (s *Session) acceptIncomingConnections() {
 			if conn == nil {
 				continue
 			}
+			pc := NewIncomingPeerConnection(s, conn)
+			// ED-05: accept eMule basic obfuscation on incoming peer sockets.
+			// WrapIncoming falls back to plaintext when the peer sends a normal
+			// eD2k header, so this is safe with cleartext peers. Do the blocking
+			// handshake before publishing the connection and outside s.mu.
+			if s.GetEnableObfuscation() {
+				if err := pc.enableIncomingObfuscation(s.GetUserAgent()); err != nil {
+					debugPeerf("incoming obfuscation handshake failed: %v", err)
+					pc.Close(EncryptionError)
+					continue
+				}
+			}
 			s.mu.Lock()
-			s.connections = append(s.connections, NewIncomingPeerConnection(s, conn))
+			s.connections = append(s.connections, pc)
 			s.mu.Unlock()
 		default:
 			return

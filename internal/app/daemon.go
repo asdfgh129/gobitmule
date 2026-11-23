@@ -304,11 +304,12 @@ func Run(ctx context.Context, opts Options) error {
 		// KindED2K resources; with Enabled=false dispatch is byte-identical and
 		// the resolved ed2k Resource still fails explicitly (fail-closed).
 		downloader := ed2ktransport.NewGoed2kDownloader(ed2ktransport.Goed2kConfig{
-			ListenPort: cfg.ED2K.TCPPort,
-			UDPPort:    cfg.ED2K.UDPPort,
-			OutputDir:  cfg.ED2K.OutputDir,
-			NodesDat:   cfg.ED2K.NodesDat,
-			ServerMet:  cfg.ED2K.ServerMet,
+			ListenPort:  cfg.ED2K.TCPPort,
+			UDPPort:     cfg.ED2K.UDPPort,
+			OutputDir:   cfg.ED2K.OutputDir,
+			NodesDat:    cfg.ED2K.NodesDat,
+			ServerMet:   cfg.ED2K.ServerMet,
+			Obfuscation: cfg.ED2K.Obfuscation,
 		})
 		// The Downloader is the reader seam; Transport implements core.Transport
 		// (Name/Supports/Probe/Run) and owns the scheduler chunk plan.

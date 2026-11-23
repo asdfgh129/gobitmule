@@ -155,10 +155,10 @@
   },
   "cryptlayer_capability": {
     "verdict": "PARTIAL",
-    "fork_api": "CryptLayerSupported() bool -> true (protocol layer); CryptLayerWired() bool -> false (live TCP path)",
-    "protocol_package": "internal/ed2k/protocol/obfuscation (RC4 + key derivation + A/B handshake codec, fork-local, zero deps)",
+    "fork_api": "CryptLayerSupported() bool -> true (protocol); CryptLayerWired() bool -> true (live TCP stream wired, incoming opt-in)",
+    "protocol_package": "internal/ed2k/protocol/obfuscation (RC4 + key derivation + A/B handshake codec + net.Conn Stream wrapper, fork-local, zero deps)",
     "algorithm_sources": [
-      "aMule EncryptedStreamSocket.cpp",
+      "aMule EncryptedStreamSocket.cpp (authoritative: MAGICVALUE_SYNC=0x835E6FC4, REQUESTER=34, SERVER=203, 21-byte MD5 layout, 1024-byte discard)",
       "eNode ed2k/tcpcrypt.js",
       "eMule Wiki Protocol_obfuscation"
     ],
@@ -178,10 +178,31 @@
       "TestFullHandshakeRoundTrip",
       "TestHandshakeRejectsBadFrames",
       "TestPickMarkerAvoidsProtocolHeaders",
-      "live probe 222 emitted supported=true / wired=false as designed"
+      "TestStreamHandshakeAndEncryptedTransport (net.Pipe A/B real handshake + bidirectional encrypted payload)",
+      "TestStreamWireDoesNotLeakPlaintext",
+      "TestWrapIncomingPlaintextFallback",
+      "TestWrapIncomingRejectsTamperedHandshake",
+      "TestConnectionIncomingObfuscationAcceptsPlaintext",
+      "TestConnectionIncomingObfuscationCompletesHandshake",
+      "TestConnectionPeerHashState"
     ],
-    "note": "ED-05 由 BLOCKED 推进为 PARTIAL：fork 已实现 eMule basic obfuscation 协议层（RC4、21 字节 MD5 密钥派生、A/B 握手帧 codec），7 项单测通过含 A↔B 完整握手往返。crypt_layer_supported=true 仅表示协议层能力；crypt_layer_wired=false 表示尚未接入 live TCP 连接路径。未做仅混淆对端真机取证，故不判 PASS。",
-    "probe_evidence": "crypt-capability-222.json (2026-11-23): crypt_layer_supported=true, crypt_layer_wired=false, Bootstrapped=true"
+    "note": "ED-05 由协议层 PARTIAL 推进为 live-TCP 已接入 PARTIAL：obfuscation.Stream 在 socket 建立时完成 A/B 握手，并把 Connection 的 Read/Write 透明 RC4 加解密；入站 opt-in 且明文自动回退，出站需显式 peer hash。新增 11 项测试（含 net.Pipe 真实双向握手+加密传输、明文回退、篡改拒绝、Connection 层集成）。crypt_layer_wired=true 表示已接入 live TCP 路径；但未做仅混淆对端真机互操作取证，故 ED-05 仍不判 PASS。",
+    "probe_evidence": "crypt-capability-222.json: supported=true/wired=false (protocol-only snapshot); crypt-wired-222.json: supported=true/wired=true, Bootstrapped=true, LiveNodes=41 (wired build, 2026-11-23)",
+    "date": "2026-11-22 (ED-05 protocol-layer 2026-11-23, live-TCP wired 2026-11-23)",
+    "stream_layer": {
+      "file": "internal/ed2k/protocol/obfuscation/stream.go",
+      "api": [
+        "WrapOutgoing(conn, peerHash, padding)",
+        "WrapIncoming(conn, localHash, padding)",
+        "Stream (net.Conn: transparent RC4 Read/Write)"
+      ],
+      "wiring": {
+        "incoming": "Session.acceptIncomingConnections -> Connection.enableIncomingObfuscation when Settings.EnableObfuscation; plaintext peers fall back automatically",
+        "outgoing": "Connection.Connect -> WrapOutgoing when SetObfuscationPeerHash armed; fork Peer model does not carry peer hash so normal download path does not auto-arm",
+        "config": "config.ED2K.Obfuscation -> Goed2kConfig.Obfuscation -> Settings.EnableObfuscation (default true in config, default false in bare Settings)",
+        "error_code": "EncryptionError (26) added for handshake failures"
+      }
+    }
   },
   "gate_verdicts": {
     "ED-01": {
@@ -202,13 +223,13 @@
     },
     "ED-05": {
       "status": "PARTIAL",
-      "reason": "obfuscation 协议层已实现并通过 A/B 握手往返单测（crypt_layer_supported=true）；但未接入 live TCP（crypt_layer_wired=false），且无仅混淆对端真机取证，不能判 PASS。"
+      "reason": "协议层+net.Conn Stream+live Connection 路径均已接入并通过 11 项单测/net.Pipe 集成（crypt_layer_supported=true, crypt_layer_wired=true）；入站混淆 opt-in 且明文自动回退，出站需显式 peer hash（fork Peer 模型暂不携带）。未做仅混淆对端真机互操作，不能判 PASS。"
     },
     "ED-06": {
       "status": "PASS",
       "reason": "fork 已暴露 UserHash/SecureIdent 读取与状态持久化 API；222/209 两机各两次独立进程重启后 UserHash 不变，且状态文件明文可审计。"
     }
   },
-  "release_impact": "ED-01/02/03/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮把 ED-05 从能力缺失 BLOCKED 推进为协议层 PARTIAL（CryptLayerSupported()=true、新增 CryptLayerWired()=false，obfuscation 协议包 7 项单测通过）；不翻转发布结论。",
-  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。"
+  "release_impact": "ED-01/02/03/04/05 仍未全部通过，按 docs/12 规定 P3 不得发布，风险 R-06 维持。本轮把 ED-05 从协议层 PARTIAL 推进为 live-TCP 已接入 PARTIAL（Stream 包装 Connection、11 项测试含 net.Pipe 双向握手、crypt_layer_wired=true 真机确认）；剩余仅混淆对端真机互操作未做，不翻转发布结论。",
+  "tooling_note": "本轮一度因 GOCACHE 路径 (C:/Users/bemin/sdk/gocache) 异常导致 go 命令包加载阶段卡死（非网络，未使用 Proxyhub）；改用 AppData/Local/Temp/udcache 后恢复。恢复后全量 build 暴露上一轮 c81bbe2 的隐藏编译错误：daemon.go 把 Goed2kDownloader（reader seam）直接当作 core.Transport 注册，缺 Name/Supports/Probe/Run；已修正为 ed2ktransport.New(downloader) 包裹。补缺轮新增 fork 单测后 gofmt 工具生成 .go.<digits> 备份文件，已清理。 ED-05 wired 轮：排查并排除 KAD UDP checksum 假设（aMule UDP checksum 由底层 ClientUDPSocket 处理、对端兼容 fork 的 [0xE4,opcode,payload] 格式，故 ED-02 零响应仍定性为过时节点+NAT 环境层，未改协议格式）。"
 }

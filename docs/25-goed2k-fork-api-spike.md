@@ -4,10 +4,12 @@
 > `github.com/monkeyWie/goed2k` 真实源码的只读勘察结论，用于细化 ADR-0030
 > 的 fork 改造范围。所有结论可由 `go mod download github.com/monkeyWie/goed2k@latest`
 > 复现（pseudo-version `v0.0.0-20260602122456-f2a71d599dee`）。
-> 门禁状态以 §11 为准：ED-06 `PASS`，ED-01/02/03/04/05 `PARTIAL`
-> （ED-05 本轮由 BLOCKED 推进为 PARTIAL：obfuscation 协议层已实现并通过
-> A/B 握手往返单测，但尚未接入 live TCP 连接、未做仅混淆对端真机取证）；
-> 本文不翻转 P3 发布结论。
+> 门禁状态以 §12 为准：ED-06 `PASS`，ED-01/02/03/04/05 `PARTIAL`
+> （ED-05 已由 BLOCKED → 协议层 PARTIAL → live-TCP 已接入 PARTIAL：
+> obfuscation.Stream 在 socket 建立时完成 A/B 握手并透明 RC4 加解密
+> Connection 读写，`crypt_layer_supported=true`、`crypt_layer_wired=true`，
+> 11 项单测含 net.Pipe 真实双向握手通过；但未做仅混淆对端真机互操作，
+> 仍不判 PASS）；本文不翻转 P3 发布结论。
 
 ## 1. 勘察对象
 
@@ -435,3 +437,84 @@ A.recv↔B.send 配对，无需交换 UserHash。
 DoRead/DoWrite 握手阶段，按 marker 判定明文/混淆；② 用 eNode-go/aMule 起
 "仅混淆"对端做真实连接取证；③ 取证通过后才可将 ED-05 提升为 PASS、
 `CryptLayerWired()` 置 true。
+
+## 12. ED-05 live-TCP 接线（2026-11-23 续）
+
+### 12.1 排查：先排除一个看似合理的"协议 bug"
+
+ED-02 真机 `responses=0/timeouts=41-46`，而 bootstrap 的 `LiveNodes=50` 只是
+从 `nodes.dat` 本地加载，说明 fork 至今没有一次成功的真实 KAD UDP RPC 往返。
+一个自然假设是：**eMule KAD over UDP 要求包首 4 字节 MD5 checksum，fork 的
+`[0xE4, opcode, payload]`（KAD-over-TCP 格式）缺少它，被对端丢弃**。
+
+核对 aMule 源码后**排除该假设**：`CKademliaUDPListener::SendPacket` 构造
+`CPacket(data, OP_KADEMLIAHEADER, opcode)` 后交给底层 `CClientUDPSocket`，
+checksum/加密由底层处理；`ProcessPacket` 直接读 `data[1]=opcode`、
+`data+2=payload`，并兼容无 checksum 的明文 KAD UDP 包。fork 继承自可互通的
+goed2k 格式，不是 bug。因此 **ED-02 零响应仍定性为环境层**（公网节点时效 +
+NAT 双向 UDP 限制），本轮不改协议格式（贸然加 checksum 风险更高）。
+
+同时再次核对 §11 协议常量：`MAGICVALUE_SYNC=0x835E6FC4`（Wiki 的
+`0xA4815E5F` 是错的，以 aMule 源码为准）、`REQUESTER=34`、`SERVER=203`、
+21 字节 MD5 布局、RC4 丢弃 1024 字节——全部正确，实现无需改动。
+
+### 12.2 实现：把混淆接入 live TCP 流
+
+§11 的 codec 只是"自洽"，从未驱动真实字节流。本轮新增
+`internal/ed2k/protocol/obfuscation/stream.go`：
+
+- `Stream`（实现 `net.Conn`）：握手完成后对 `Read` 透明解密、`Write` 透明加密，
+  调用方继续用普通 socket API，不感知 RC4。
+- `WrapOutgoing(raw, peerHash, padding)`：client-A 出站握手，发
+  marker+randomPart+加密头，收 responder reply，校验 sync/method 后返回 Stream。
+- `WrapIncoming(raw, localHash, padding)`：client-B 入站握手，探首字节——碰到
+  `0xE3/0xD4/0xC5` 协议头则**明文回退**（已读字节由 `prefixedConn` 回放），
+  否则派生密钥完成握手并回 reply。
+
+Connection 层接线（opt-in，不回归明文路径）：
+
+- 入站：`Session.acceptIncomingConnections` 在 `Settings.EnableObfuscation`
+  时调用 `Connection.enableIncomingObfuscation`（B 侧只需本地 hash）。
+- 出站：`Connection.Connect` 在 `SetObfuscationPeerHash` 已设置时调用
+  `WrapOutgoing`。fork 的 `Peer` 模型目前不携带目标 user hash，故普通下载
+  流程不会自动武装出站混淆——这是明确的剩余边界，不谎报为完整双向接入。
+- 配置链路：`config.ED2K.Obfuscation`（默认 true）→
+  `Goed2kConfig.Obfuscation` → `Settings.EnableObfuscation`；裸 `Settings`
+  默认仍 false。握手失败用新增错误码 `EncryptionError(26)`。
+
+`CryptLayerWired()` 由 `false` 改为 `true`（仅表示已接入 live TCP 路径）。
+
+### 12.3 回归测试（新增 11 项，累计 18 项）
+
+`stream_test.go`：
+
+- `TestStreamHandshakeAndEncryptedTransport`：**ED-05 "wired" 核心证据**——
+  两个真实 `net.Pipe` 端点完成 A/B 握手，随后 A→B、B→A 双向加密载荷往返。
+- `TestStreamWireDoesNotLeakPlaintext`：marker 非协议头、randomPart 明文可见、
+  `MAGICVALUE_SYNC` 不以明文出现在 wire 上。
+- `TestWrapIncomingPlaintextFallback`：明文 eD2k 连接不被破坏，探针字节回放。
+- `TestWrapIncomingRejectsTamperedHandshake`：篡改 sync 被拒绝。
+
+`connection_obfuscation_test.go`：
+
+- `TestConnectionIncomingObfuscationAcceptsPlaintext`：开启混淆后明文 peer 仍可用
+  （保护 ED-01..04 不回归）。
+- `TestConnectionIncomingObfuscationCompletesHandshake`：混淆 peer 升级为加密连接。
+- `TestConnectionPeerHashState`：出站混淆 opt-in 开关状态机。
+
+### 12.4 真机确认与门禁判定
+
+新探针在 222 真机输出 `crypt_layer_supported=true`、`crypt_layer_wired=true`，
+且 KAD bootstrap 仍 PASS（`Bootstrapped=true`、`LiveNodes=41`、
+`KnownNodes=200`）——证明接线未回归明文/KAD 路径。证据：
+`docs/evidence/ed2k-ed-gates-2026-11-22/crypt-wired-222.json`。
+
+| 门禁 | 状态 | 依据 |
+|---|---|---|
+| ED-05 | **PARTIAL**（live-TCP 已接入） | 协议层 + Stream + Connection 接线完成，`crypt_layer_wired=true`，11 项新测试含 net.Pipe 真实双向握手；但未做仅混淆对端真机互操作，且出站未自动武装，不判 PASS |
+
+**发布结论不变**：ED-01/02/03/04/05 仍未全部通过，P3 不发布，R-06 维持。
+
+**ED-05 剩余步骤**：① 用 eNode-go/aMule 起"仅混淆"对端，做真实 TCP 握手 +
+加密载荷取证；② 给 `Peer` 携带目标 user hash，让出站混淆在下载流程自动武装；
+③ 取证通过后才可将 ED-05 提升为 PASS。

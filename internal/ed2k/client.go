@@ -657,11 +657,18 @@ func CryptLayerSupported() bool {
 }
 
 // CryptLayerWired reports whether the obfuscation handshake is wired into the
-// live TCP peer connection path. It remains false: only the protocol layer is
-// implemented and unit-tested so far. Keeping this distinct from
-// CryptLayerSupported avoids overstating ED-05 as a PASS.
+// live TCP peer connection path. It is now true: protocol/obfuscation.Stream
+// performs the blocking A/B handshake at socket setup and transparently
+// encrypts Connection reads/writes. Scope and remaining limits:
+//   - Incoming peer sockets negotiate obfuscation when Settings.EnableObfuscation
+//     is set, with automatic plaintext fallback.
+//   - Outgoing negotiation is available via Connection.SetObfuscationPeerHash,
+//     but the fork's Peer model does not carry a target user hash yet, so the
+//     normal download path does not enable it automatically.
+//   - No obfuscation-only live peer interop has been executed, so ED-05 stays
+//     PARTIAL; this flag must NOT be read as "obfuscated connection verified".
 func CryptLayerWired() bool {
-	return false
+	return true
 }
 
 // SetDebugLog enables or disables internal goed2k debug logging. It is a
