@@ -125,6 +125,9 @@ func (a *ed2kSearchAdapter) Start(ctx context.Context, params api.ED2KSearchPara
 		MinCompleteSources: params.MinCompleteSources,
 		FileType:           params.FileType,
 		Extension:          params.Extension,
+		FileTypes:          params.FileTypes,
+		Sources:            params.Sources,
+		Extensions:         params.Extensions,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "already in progress") {
@@ -264,6 +267,9 @@ func snapshotStatus(s goed2k.SearchSnapshot) api.ED2KSearchStatus {
 			MinCompleteSources: s.Params.MinCompleteSources,
 			FileType:           s.Params.FileType,
 			Extension:          s.Params.Extension,
+			FileTypes:          s.Params.FileTypes,
+			Sources:            s.Params.Sources,
+			Extensions:         s.Params.Extensions,
 		},
 		State:      api.ED2KSearchState(s.State),
 		Results:    results,

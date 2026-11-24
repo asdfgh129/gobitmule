@@ -16,6 +16,8 @@ const (
 	searchOpEqual    byte = 0x00
 	searchOpGreater  byte = 0x01
 	searchOpLess     byte = 0x02
+	searchBoolAnd    byte = 0x00
+	searchBoolOr     byte = 0x01
 )
 
 type SearchRequest struct {
@@ -34,33 +36,39 @@ func (s *SearchRequest) Get(src *bytes.Reader) error {
 
 func (s *SearchRequest) Put(dst *bytes.Buffer) error {
 	terms := make([]searchTerm, 0, 8)
+	ops := make([]byte, 0, 8)
+	add := func(term searchTerm) {
+		terms = append(terms, term)
+		ops = append(ops, searchBoolAnd)
+	}
 	if s.FileType != "" {
-		terms = append(terms, searchStringTag(protocol.FTFileType, s.FileType))
+		add(searchStringTag(protocol.FTFileType, s.FileType))
 	}
 	if s.Extension != "" {
-		terms = append(terms, searchStringTag(protocol.FTFileFormat, s.Extension))
+		add(searchStringTag(protocol.FTFileFormat, s.Extension))
 	}
 	if s.MinSize > 0 {
-		terms = append(terms, searchNumericTag(protocol.FTFileSize, searchOpGreater, uint64(s.MinSize)))
+		add(searchNumericTag(protocol.FTFileSize, searchOpGreater, uint64(s.MinSize)))
 	}
 	if s.MaxSize > 0 {
-		terms = append(terms, searchNumericTag(protocol.FTFileSize, searchOpLess, uint64(s.MaxSize)))
+		add(searchNumericTag(protocol.FTFileSize, searchOpLess, uint64(s.MaxSize)))
 	}
 	if s.MinSources > 0 {
-		terms = append(terms, searchNumericTag(protocol.FTSources, searchOpGreater, uint64(s.MinSources)))
+		add(searchNumericTag(protocol.FTSources, searchOpGreater, uint64(s.MinSources)))
 	}
 	if s.MinCompleteSources > 0 {
-		terms = append(terms, searchNumericTag(protocol.FTCompleteSources, searchOpGreater, uint64(s.MinCompleteSources)))
+		add(searchNumericTag(protocol.FTCompleteSources, searchOpGreater, uint64(s.MinCompleteSources)))
 	}
 	for _, token := range tokenizeSearchQuery(s.Query) {
-		terms = append(terms, searchString(token))
+		terms = append(terms, searchString(token.text))
+		ops = append(ops, token.op)
 	}
 	for i, term := range terms {
 		if i > 0 {
 			if err := dst.WriteByte(searchTypeBool); err != nil {
 				return err
 			}
-			if err := dst.WriteByte(0x00); err != nil { // AND
+			if err := dst.WriteByte(ops[i]); err != nil {
 				return err
 			}
 		}
@@ -99,7 +107,7 @@ func (s *SearchRequest) BytesCount() int {
 		terms++
 	}
 	for _, token := range tokenizeSearchQuery(s.Query) {
-		size += searchString(token).bytesCount()
+		size += searchString(token.text).bytesCount()
 		terms++
 	}
 	if terms > 1 {
@@ -327,17 +335,40 @@ func (s searchNumericTerm) bytesCount() int {
 	return size + 8
 }
 
-func tokenizeSearchQuery(query string) []string {
+type searchQueryToken struct {
+	text string
+	op   byte
+}
+
+// tokenizeSearchQuery keeps explicit OR operators so the request can encode
+// alternatives. Multiple plain terms are joined with AND by default.
+func tokenizeSearchQuery(query string) []searchQueryToken {
 	fields := strings.FieldsFunc(strings.TrimSpace(query), func(r rune) bool {
-		return strings.ContainsRune(" ()[]{}<>,._-!?:;\\/\"\t\r\n", r)
+		return strings.ContainsRune(" \t\r\n|;,", r)
 	})
-	out := make([]string, 0, len(fields))
+	out := make([]searchQueryToken, 0, len(fields))
+	pendingOr := false
 	for _, field := range fields {
-		field = strings.TrimSpace(field)
+		field = strings.Trim(field, ` ()[]{}<>,._-!?:;\|/"'`)
 		if field == "" {
 			continue
 		}
-		out = append(out, field)
+		switch strings.ToUpper(field) {
+		case "OR":
+			pendingOr = true
+		case "AND":
+			pendingOr = false
+		default:
+			// An explicit OR only joins the immediately following term, so
+			// "a b OR c d" becomes "a AND b OR c AND d" on the wire, matching
+			// the local (a AND b) OR (c AND d) filter semantics.
+			tokenOp := searchBoolAnd
+			if pendingOr && len(out) > 0 {
+				tokenOp = searchBoolOr
+			}
+			out = append(out, searchQueryToken{text: field, op: tokenOp})
+			pendingOr = false
+		}
 	}
 	return out
 }

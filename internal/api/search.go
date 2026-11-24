@@ -41,6 +41,9 @@ type ED2KSearchParams struct {
 	MinCompleteSources int             `json:"minCompleteSources"`
 	FileType           string          `json:"fileType"`
 	Extension          string          `json:"extension"`
+	FileTypes          []string        `json:"fileTypes"`
+	Sources            []string        `json:"sources"`
+	Extensions         []string        `json:"extensions"`
 }
 
 // ED2KSearchResultSource is a bitmask-like label: a hash found through both

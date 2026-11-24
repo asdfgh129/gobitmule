@@ -250,6 +250,9 @@ export interface ED2KSearchParams {
   minCompleteSources: number
   fileType: string
   extension: string
+  fileTypes: string[]
+  sources: string[]
+  extensions: string[]
 }
 
 export interface ED2KSearchResult {
@@ -292,6 +295,7 @@ export const EMPTY_ED2K_SEARCH_STATUS: ED2KSearchStatus = {
     params: {
       query: '', scope: 'all', minSize: 0, maxSize: 0,
       minSources: 0, minCompleteSources: 0, fileType: '', extension: '',
+      fileTypes: [], sources: [], extensions: [],
     },
     state: 'IDLE',
     results: [],

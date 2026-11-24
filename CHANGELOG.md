@@ -48,6 +48,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **搜索表达式与可组合筛选（2026-11-24）**：
+  - 多个关键词默认按 `AND` 处理，只有显式输入 `OR` 才切换为或关系。
+    eD2k 服务器搜索按 token 写入 bool operator（`AND=0x00` / `OR=0x01`），
+    且 `OR` 只作用于紧随其后的词；KAD 对每个 OR 组挑一个代表词分别发起
+    lookup，再用完整表达式在本地二次过滤。
+  - 搜索页新增关键字 chips（可逐个移除、按指定关系追加），以及结果来源、
+    文件类型、扩展名、大小区间、来源数/完整源数的可组合筛选面板；
+    文件类型会自动展开为常用扩展名，筛选状态持久化到 `localStorage`。
+  - 关键字只匹配文件名、扩展名与文件类型，不再匹配文件哈希，避免 `11`
+    这类短词在 32 位哈希里偶然命中造成假阳性。
+  - 实测 `windows 11` 返回 523 条且 0 条违背 AND；`windows OR ubuntu` +
+    `fileTypes=video` 返回 156 条，全部为 Video 类型。
+
+
 - **Web 控制台：eMule 设置、服务器列表与 KAD 节点页（2026-11-24）**：
   - 修正侧边栏品牌文字：由 `Universal Downloader` 改为 **GoBitMule**。
   - 设置页新增独立「eMule 设置」Tab，支持 `enabled` / `tcpPort` / `udpPort` /

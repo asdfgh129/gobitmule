@@ -12,7 +12,21 @@ import type { ED2KSearchResult, ED2KSearchState } from '@/types/api'
 const search = useSearchStore()
 const ui = useUiStore()
 const router = useRouter()
-const advanced = ref(false)
+const newExtension = ref('')
+
+const fileTypeOptions = [
+  { value: 'video', label: '视频' },
+  { value: 'audio', label: '音频' },
+  { value: 'image', label: '图片' },
+  { value: 'doc', label: '文档' },
+  { value: 'archive', label: '压缩包' },
+  { value: 'software', label: '软件' },
+]
+const sourceOptions = [
+  { value: 'server', label: '服务器' },
+  { value: 'kad', label: 'KAD' },
+  { value: 'both', label: '双通道' },
+]
 
 const stateLabels: Record<ED2KSearchState, string> = {
   IDLE: '未搜索', RUNNING: '搜索中', FINISHED: '已完成', STOPPED: '已停止', FAILED: '失败',
@@ -103,6 +117,26 @@ async function download(row: ED2KSearchResult): Promise<void> {
   }
 }
 
+function toggleType(value: string): void {
+  void search.toggle(search.fileTypes, value)
+}
+
+function toggleSource(value: 'server' | 'kad' | 'both'): void {
+  void search.toggle(search.sources, value)
+}
+
+function addExtension(): void {
+  const value = newExtension.value.trim().replace(/^\./, '').toLocaleLowerCase()
+  if (!value) return
+  if (!search.extensions.includes(value)) search.extensions.push(value)
+  newExtension.value = ''
+}
+
+function removeExtension(value: string): void {
+  const index = search.extensions.indexOf(value)
+  if (index >= 0) search.extensions.splice(index, 1)
+}
+
 async function submit(): Promise<void> {
   try {
     await search.start()
@@ -131,7 +165,7 @@ onUnmounted(() => search.dispose())
 
 <template>
   <div class="view ed-search-view">
-    <!-- 搜索区：保留 eMule 搜索页的关键词 + 过滤条件布局 -->
+    <!-- 搜索区：关键字表达式 + 可组合筛选列表 -->
     <section class="panel ed-query-panel">
       <form class="ed-query" @submit.prevent="submit">
         <div class="ed-query__row">
@@ -140,7 +174,7 @@ onUnmounted(() => search.dispose())
             <input
               v-model="search.query"
               type="search"
-              placeholder="输入文件名或关键词，例如 ubuntu 24.04"
+              placeholder="多个关键词默认 AND；输入 OR 表示或者，例如 windows 11 OR windows 10"
               autocomplete="off"
               :disabled="!search.available"
             />
@@ -153,58 +187,90 @@ onUnmounted(() => search.dispose())
           </button>
         </div>
 
-        <div class="ed-query__filters">
-          <label class="ed-field">
-            <span>搜索范围</span>
-            <select v-model="search.scope" class="select">
-              <option value="all">服务器 + KAD</option>
-              <option value="server">仅 eD2k 服务器</option>
-              <option value="kad">仅 KAD 网络</option>
+        <div class="ed-query__keyword-bar">
+          <span class="ed-query__hint">关键字关系</span>
+          <div class="ed-chips">
+            <template v-for="(chip, i) in search.queryChips" :key="`${chip.text}-${i}`">
+              <span v-if="chip.relation === 'or' && i > 0" class="ed-chip-op">OR</span>
+              <button class="ed-chip ed-chip--keyword" type="button" :title="`移除 ${chip.text}`" @click="search.removeKeyword(chip)">
+                {{ chip.text }} <span class="ed-chip__x">×</span>
+              </button>
+            </template>
+            <span v-if="!search.queryChips.length" class="muted">尚未添加关键字</span>
+          </div>
+          <div class="ed-keyword-add">
+            <select v-model="search.keywordRelation" class="select select--compact" title="与前一个关键字的关系">
+              <option value="and">AND</option>
+              <option value="or">OR</option>
             </select>
-          </label>
-          <label class="ed-field">
-            <span>文件类型</span>
-            <select v-model="search.fileType" class="select">
-              <option value="">任意类型</option>
-              <option value="video">视频</option>
-              <option value="audio">音频</option>
-              <option value="image">图片</option>
-              <option value="doc">文档</option>
-              <option value="archive">压缩包</option>
-              <option value="software">软件</option>
-            </select>
-          </label>
-          <label class="ed-field">
-            <span>最小大小 (MiB)</span>
-            <input v-model="search.minSizeMB" type="number" min="0" step="0.1" placeholder="不限" />
-          </label>
-          <label class="ed-field">
-            <span>最大大小 (MiB)</span>
-            <input v-model="search.maxSizeMB" type="number" min="0" step="0.1" placeholder="不限" />
-          </label>
-          <label class="ed-field">
-            <span>最少来源</span>
-            <input v-model="search.minSources" type="number" min="0" step="1" placeholder="不限" />
-          </label>
+            <input v-model="search.newKeyword" type="text" placeholder="添加关键字" @keyup.enter.prevent="search.addKeyword" />
+            <button class="btn btn--ghost btn--sm" type="button" @click="search.addKeyword">加入</button>
+          </div>
         </div>
 
-        <div v-if="advanced" class="ed-query__filters ed-query__filters--advanced">
-          <label class="ed-field">
-            <span>完整来源数</span>
-            <input v-model="search.minCompleteSources" type="number" min="0" step="1" placeholder="不限" />
-          </label>
-          <label class="ed-field">
-            <span>扩展名</span>
-            <input v-model="search.extension" type="text" placeholder="例如 mkv" />
-          </label>
+        <div class="ed-filter-grid">
+          <div class="ed-filter-group">
+            <span class="ed-filter-group__title">搜索范围</span>
+            <div class="ed-segment">
+              <button v-for="opt in [{ value: 'all', label: '服务器 + KAD' }, { value: 'server', label: '服务器' }, { value: 'kad', label: 'KAD' }]"
+                :key="opt.value" type="button" class="ed-segment__btn"
+                :class="{ active: search.scope === opt.value }" @click="search.scope = opt.value as typeof search.scope">
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="ed-filter-group">
+            <span class="ed-filter-group__title">结果来源</span>
+            <div class="ed-chip-row">
+              <button v-for="opt in sourceOptions" :key="opt.value" type="button" class="ed-chip"
+                :class="{ active: search.sources.includes(opt.value as typeof search.sources[number]) }"
+                @click="toggleSource(opt.value as typeof search.sources[number])">
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="ed-filter-group">
+            <span class="ed-filter-group__title">文件类型</span>
+            <div class="ed-chip-row">
+              <button v-for="opt in fileTypeOptions" :key="opt.value" type="button" class="ed-chip"
+                :class="{ active: search.fileTypes.includes(opt.value) }" @click="toggleType(opt.value)">
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="ed-filter-group">
+            <span class="ed-filter-group__title">大小 / 来源数</span>
+            <div class="ed-filter-inputs">
+              <label class="ed-field"><span>最小 MiB</span><input v-model="search.minSizeMB" type="number" min="0" step="0.1" placeholder="不限" /></label>
+              <label class="ed-field"><span>最大 MiB</span><input v-model="search.maxSizeMB" type="number" min="0" step="0.1" placeholder="不限" /></label>
+              <label class="ed-field"><span>最少来源</span><input v-model="search.minSources" type="number" min="0" step="1" placeholder="不限" /></label>
+              <label class="ed-field"><span>完整源</span><input v-model="search.minCompleteSources" type="number" min="0" step="1" placeholder="不限" /></label>
+            </div>
+          </div>
+
+          <div class="ed-filter-group ed-filter-group--wide">
+            <span class="ed-filter-group__title">扩展名（文件类型会自动展开为扩展名）</span>
+            <div class="ed-chip-row">
+              <button v-for="ext in search.selectedExtensions" :key="ext" type="button" class="ed-chip"
+                :class="{ active: search.extensions.includes(ext) }"
+                @click="search.extensions.includes(ext) ? removeExtension(ext) : search.extensions.push(ext)">
+                .{{ ext }}
+              </button>
+              <span class="ed-chip-add">
+                <input v-model="newExtension" type="text" placeholder="自定义扩展名" @keyup.enter.prevent="addExtension" />
+                <button class="icon-btn" type="button" title="添加扩展名" @click="addExtension">+</button>
+              </span>
+            </div>
+          </div>
         </div>
 
         <div class="ed-query__foot">
-          <button class="link-btn" type="button" @click="advanced = !advanced">
-            <Icon name="chevron" :size="14" :class="{ rotated: advanced }" />
-            {{ advanced ? '收起高级筛选' : '展开高级筛选' }}
-          </button>
-          <span class="muted">关键词通过 eD2k 服务器搜索与 KAD 关键字查找并行下发</span>
+          <button v-if="search.filtersActive" class="link-btn" type="button" @click="search.clearFilters">清空组合筛选</button>
+          <span v-else class="muted">未启用组合筛选</span>
+          <span class="muted">关键词通过 eD2k 服务器与 KAD 并行下发；结果在两端各自按表达式过滤</span>
         </div>
       </form>
     </section>

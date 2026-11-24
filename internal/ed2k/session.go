@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/disk"
@@ -738,37 +739,49 @@ func (s *Session) startDHTSearch(task *searchTask, params SearchParams) bool {
 	if s.dhtTracker == nil {
 		return false
 	}
-	keyword := pickKadKeyword(params.Query)
-	if keyword == "" {
+	keywords := parseSearchQuery(params.Query).Keywords(4)
+	if len(keywords) == 0 {
 		return false
 	}
-	task.mu.Lock()
-	task.kadKeyword = keyword
-	task.dhtBusy = true
-	task.updatedAt = CurrentTime()
-	task.mu.Unlock()
-	keywordHash, err := protocol.HashFromData([]byte(keyword))
-	if err != nil {
-		task.finishDHT()
-		return false
-	}
-
-	return s.dhtTracker.SearchKeywords(keywordHash, func(entries []kadproto.SearchEntry) {
-		s.searchMu.Lock()
-		current := s.activeSearch
-		s.searchMu.Unlock()
-		if current == nil || current != task {
-			return
+	task.beginDHT(keywords)
+	started := false
+	for _, keyword := range keywords {
+		keywordHash, err := protocol.HashFromData([]byte(strings.ToLower(keyword)))
+		if err != nil {
+			task.finishDHTKeyword()
+			continue
 		}
-		for _, entry := range entries {
-			result := makeSearchResultFromKAD(entry)
-			if !matchesSearchFilters(result, params) {
-				continue
+		// A traversal listener can fire more than once (e.g. when done() is
+		// reached from both a reply and a timeout). Count each keyword exactly
+		// once so dhtBusy never clears while another lookup is still running.
+		var finishOnce sync.Once
+		finish := func() { finishOnce.Do(task.finishDHTKeyword) }
+		ok := s.dhtTracker.SearchKeywords(keywordHash, func(entries []kadproto.SearchEntry) {
+			s.searchMu.Lock()
+			current := s.activeSearch
+			s.searchMu.Unlock()
+			if current == nil || current != task {
+				return
 			}
-			task.mergeResult(result)
+			for _, entry := range entries {
+				result := makeSearchResultFromKAD(entry)
+				if !matchesSearchFilters(result, params) {
+					continue
+				}
+				task.mergeResult(result)
+			}
+			finish()
+		})
+		if ok {
+			started = true
+		} else {
+			finish()
 		}
+	}
+	if !started {
 		task.finishDHT()
-	})
+	}
+	return started
 }
 
 func (s *Session) OnServerSearchResult(sc *ServerConnection, result *serverproto.SearchResult) {
@@ -808,6 +821,9 @@ func (s *Session) tickSearches(now int64) {
 }
 
 func matchesSearchFilters(result SearchResult, params SearchParams) bool {
+	if !parseSearchQuery(params.Query).Matches(result) {
+		return false
+	}
 	if params.MinSize > 0 && result.FileSize > 0 && result.FileSize < params.MinSize {
 		return false
 	}
@@ -820,7 +836,47 @@ func matchesSearchFilters(result SearchResult, params SearchParams) bool {
 	if params.MinCompleteSources > 0 && result.CompleteSources < params.MinCompleteSources {
 		return false
 	}
+	if len(params.FileTypes) > 0 || len(params.Extensions) > 0 {
+		typeHit := len(params.FileTypes) > 0 && containsFold(params.FileTypes, result.FileType)
+		extensionHit := len(params.Extensions) > 0 &&
+			containsFold(params.Extensions, strings.TrimPrefix(result.Extension, "."))
+		if !typeHit && !extensionHit {
+			return false
+		}
+	}
+	if len(params.Sources) > 0 && !matchesSourceFilter(result.Source, params.Sources) {
+		return false
+	}
 	return true
+}
+
+func containsFold(values []string, needle string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimPrefix(strings.TrimSpace(value), "."), strings.TrimSpace(needle)) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesSourceFilter(source SearchResultSource, filters []string) bool {
+	for _, filter := range filters {
+		switch strings.ToLower(strings.TrimSpace(filter)) {
+		case "server", "all":
+			if source&SearchResultServer != 0 {
+				return true
+			}
+		case "kad":
+			if source&SearchResultKAD != 0 {
+				return true
+			}
+		case "both":
+			if source == (SearchResultServer | SearchResultKAD) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Session) RemoveDiskTask(transfer *Transfer) {
