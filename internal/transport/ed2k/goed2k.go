@@ -15,6 +15,7 @@ package ed2ktransport
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net/url"
 	"os"
 	"strconv"
@@ -71,6 +72,7 @@ type Goed2kConfig struct {
 	DisableRate     bool   // zero the engine's own upload limiter (ADR-0002)
 	DisableAutoSave bool   // zero AutoSaveInterval (ADR-0002)
 	Obfuscation     bool   // accept eMule basic obfuscation on incoming peers (ED-05)
+	Logger          *slog.Logger // optional: route engine logx into the daemon log
 }
 
 // Goed2kDownloader implements Downloader by driving the forked goed2k engine.
@@ -103,6 +105,7 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 		}
 		st.EnableDHT = cfg.NodesDat != ""
 		st.EnableObfuscation = cfg.Obfuscation // ED-05: opt-in via config.ED2K.Obfuscation
+		st.Logger = cfg.Logger                 // surface source discovery / KAD failures
 		st.MaxUploadRateKB = 0                 // ud is the unique rate authority (ADR-0002)
 		c := goed2k.NewClient(st)
 		c.SetAutoSaveInterval(0) // no state double-write (ADR-0002)

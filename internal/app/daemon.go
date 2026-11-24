@@ -321,6 +321,7 @@ func Run(ctx context.Context, opts Options) error {
 			NodesDat:    cfg.ED2K.NodesDat,
 			ServerMet:   cfg.ED2K.ServerMet,
 			Obfuscation: cfg.ED2K.Obfuscation,
+			Logger:      log,
 		})
 		// The Downloader is the reader seam; Transport implements core.Transport
 		// (Name/Supports/Probe/Run) and owns the scheduler chunk plan.

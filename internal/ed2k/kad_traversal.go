@@ -387,7 +387,10 @@ func (t *kadTraversal) done() {
 			}
 			direct.addNode(o.endpoint, o.id, o.portTCP, o.version)
 		}
-		_ = direct.start()
+		if !direct.start() {
+			logx.Debug("kad direct source search not started", "target", t.target.Hash.String(),
+				"candidates", len(direct.results))
+		}
 	case kadTraversalFindKeywords:
 		direct := newKadTraversal(t.node, t.target, kadTraversalSearchKeyword, 0, t.listener)
 		if sp := t.node.storagePoint(); sp != nil {

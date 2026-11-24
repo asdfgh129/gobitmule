@@ -399,6 +399,14 @@ func (s *Session) Listen() error {
 		return nil
 	}
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: port})
+	if err != nil && port > 0 {
+		// A dedicated search engine and one or more download engines can run
+		// in the same daemon on the configured port. Falling back to an
+		// ephemeral port keeps every engine usable; eD2k peers are reached by
+		// outbound connections, so a fixed inbound port is not required.
+		logx.Debug("listen port busy, falling back to ephemeral", "port", port, "err", err)
+		listener, err = net.ListenTCP("tcp", &net.TCPAddr{Port: 0})
+	}
 	if err != nil {
 		return err
 	}

@@ -46,7 +46,8 @@ func (n *kadNodeImpl) addTraversal(t *kadTraversal) bool {
 		return false
 	}
 	key := t.key()
-	if _, exists := n.running[key]; exists {
+	if existing, ok := n.running[key]; ok {
+		logx.Debug("kad traversal deduplicated", "key", key, "existing_kind", string(existing.kind))
 		return false
 	}
 	n.running[key] = t

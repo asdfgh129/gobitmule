@@ -84,6 +84,12 @@ func (t *DHTTracker) Start() error {
 	t.startOnce.Do(func() {
 		port := t.ListenPort()
 		conn, listenErr := net.ListenUDP("udp", &net.UDPAddr{Port: port})
+		if listenErr != nil && port > 0 {
+			// Multiple engines in one daemon can claim the same configured UDP
+			// port; fall back to ephemeral so KAD still works for this engine.
+			logx.Debug("kad udp port busy, falling back to ephemeral", "port", port, "err", listenErr)
+			conn, listenErr = net.ListenUDP("udp", &net.UDPAddr{Port: 0})
+		}
 		if listenErr != nil {
 			err = listenErr
 			return

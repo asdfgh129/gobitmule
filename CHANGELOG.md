@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **eD2k 下载任务失败与启动缓慢（2026-11-24）**：
+  - 修复 `ConnectServers` 遇到 server.met 中任意一台不可达服务器就整体返回错误的问题：
+    第 37 台 `45.82.80.155:5687` 超时会让前 36 台的成功连接全部作废，下载适配器把该错误
+    当成致命错误直接判任务 Failed（搜索适配器则降级为警告）。现改为按序尝试、首台连上即返回，
+    全部失败才报错。
+  - 首台成功即返回同时避免串行等待全部 40 台服务器的 TCP 超时——下载从 50+ 秒才能进入
+    源发现缩短到数秒。
+  - TCP/UDP 固定端口被同一 daemon 内的搜索与多个下载引擎争用时回退到系统分配端口，
+    避免 `listen :4662: bind: Only one usage...` 导致后续任务失败。
+  - 下载引擎日志接入 daemon logger（`Goed2kConfig.Logger`），源发现/KAD 失败可见于日志。
+  - 新增 `TestServerConnectFailure` 覆盖全部失败与空候选两条分支。
+  - 已知遗留：KAD `search-sources` 遍历未完成回调（`dht source search result` 未触发），
+    服务器 `FoundFileSources` 多为 0；这两项决定具体文件能否找到源，仍需后续排查。
+
+
 - **KAD2 公网搜索链路打通（2026-11-24）**：
   - 补齐 eMule/aMule tag 的 named-tag 编码（`0x80` 清零时为 uint16 长度 + 名字；
     单字符名字归一为数字 ID），修复真实节点 HELLO_RES 报

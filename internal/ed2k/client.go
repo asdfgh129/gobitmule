@@ -314,16 +314,34 @@ func (c *Client) ConnectServers(serverAddrs ...string) error {
 		return errors.New("no server address provided")
 	}
 	c.serverAddr = strings.Join(normalized, ",")
+	// A server.met is a list of candidates, not a single endpoint. One reachable
+	// server is enough for source discovery. Try them in order and return as
+	// soon as one connects: waiting for all 40 entries means waiting for every
+	// dead server's TCP timeout, which stalls search and download startup for
+	// minutes. Surface the last error only when every candidate failed.
+	var lastErr error
 	for _, serverAddr := range normalized {
 		addr, err := net.ResolveTCPAddr("tcp", serverAddr)
 		if err != nil {
-			return err
+			lastErr = err
+			continue
 		}
 		if err := c.session.ConnectTo(serverAddr, addr); err != nil {
-			return err
+			lastErr = err
+			continue
 		}
+		return nil
 	}
-	return nil
+	return serverConnectFailure(lastErr)
+}
+
+// serverConnectFailure keeps the "no candidate reachable" branch testable
+// without touching the network.
+func serverConnectFailure(lastErr error) error {
+	if lastErr != nil {
+		return lastErr
+	}
+	return errors.New("no server address provided")
 }
 
 func (c *Client) LoadServerMet(path string) ([]serverproto.ServerMetEntry, error) {
