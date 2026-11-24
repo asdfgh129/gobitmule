@@ -11,25 +11,29 @@ import {
 } from '@/types/api'
 
 const FORM_KEY = 'ud.ed2k.search.form'
+const FILTER_KEY = 'ud.ed2k.result.filters'
 type SortKey = 'fileName' | 'fileSize' | 'sources' | 'completeSources'
 
 interface SavedForm {
   query?: string
   scope?: ED2KSearchScope
   fileType?: string
-  fileTypes?: string[]
   extension?: string
-  extensions?: string[]
-  sources?: ED2KSearchResultSource[]
   minSizeMB?: string
   maxSizeMB?: string
   minSources?: string
   minCompleteSources?: string
 }
 
-interface QueryChip {
-  text: string
-  relation: 'and' | 'or'
+interface SavedFilters {
+  keywords?: string[]
+  fileTypes?: string[]
+  extensions?: string[]
+  sources?: ED2KSearchResultSource[]
+  minSizeMB?: string
+  maxSizeMB?: string
+  minSources?: string
+  minCompleteSources?: string
 }
 
 const typeExtensions: Record<string, string[]> = {
@@ -41,44 +45,21 @@ const typeExtensions: Record<string, string[]> = {
   software: ['exe', 'msi', 'apk', 'dmg', 'deb', 'rpm'],
 }
 
-const sourceLabels: Record<string, string> = {
-  server: '服务器',
-  kad: 'KAD',
-  both: '双通道',
-}
-
 function cloneEmpty(): ED2KSearchStatus {
   return JSON.parse(JSON.stringify(EMPTY_ED2K_SEARCH_STATUS)) as ED2KSearchStatus
 }
 
-function loadForm(): SavedForm {
+function load<T extends object>(key: string): T {
   try {
-    const raw = localStorage.getItem(FORM_KEY)
-    return raw ? (JSON.parse(raw) as SavedForm) : {}
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : ({} as T)
   } catch {
-    return {}
+    return {} as T
   }
-}
-
-function parseQueryChips(query: string): QueryChip[] {
-  const fields = query.trim().split(/[\s,;|]+/).filter(Boolean)
-  const chips: QueryChip[] = []
-  let relation: 'and' | 'or' = 'and'
-  for (const field of fields) {
-    const upper = field.toLocaleUpperCase()
-    if (upper === 'OR') {
-      relation = 'or'
-      continue
-    }
-    if (upper === 'AND') continue
-    chips.push({ text: field, relation })
-    relation = 'and'
-  }
-  return chips
 }
 
 function unique(values: string[]): string[] {
-  return Array.from(new Set(values.map((v) => v.trim().replace(/^\./, '')).filter(Boolean)))
+  return Array.from(new Set(values.map((v) => v.trim().replace(/^\./, '').toLocaleLowerCase()).filter(Boolean)))
 }
 
 function extensionOf(row: ED2KSearchResult): string {
@@ -89,20 +70,29 @@ function extensionOf(row: ED2KSearchResult): string {
 }
 
 export const useSearchStore = defineStore('ed2k-search', () => {
-  const saved = loadForm()
+  // 搜索发起选项：保持原有的简洁表单，原样下发到引擎。
+  const saved = load<SavedForm>(FORM_KEY)
   const query = ref(saved.query ?? '')
   const scope = ref<ED2KSearchScope>(saved.scope ?? 'all')
   const fileType = ref(saved.fileType ?? '')
-  const fileTypes = ref<string[]>(saved.fileTypes ?? [])
   const extension = ref(saved.extension ?? '')
-  const extensions = ref<string[]>(saved.extensions ?? [])
-  const sources = ref<ED2KSearchResultSource[]>(saved.sources ?? [])
   const minSizeMB = ref(saved.minSizeMB ?? '')
   const maxSizeMB = ref(saved.maxSizeMB ?? '')
   const minSources = ref(saved.minSources ?? '')
   const minCompleteSources = ref(saved.minCompleteSources ?? '')
-  const newKeyword = ref('')
-  const keywordRelation = ref<'and' | 'or'>('and')
+
+  // 结果筛选：只作用于本次搜索已返回的结果，不重新发起搜索。
+  const savedFilters = load<SavedFilters>(FILTER_KEY)
+  const filterKeywords = ref<string[]>(savedFilters.keywords ?? [])
+  const filterFileTypes = ref<string[]>(savedFilters.fileTypes ?? [])
+  const filterExtensions = ref<string[]>(savedFilters.extensions ?? [])
+  const filterSources = ref<ED2KSearchResultSource[]>(savedFilters.sources ?? [])
+  const filterMinSizeMB = ref(savedFilters.minSizeMB ?? '')
+  const filterMaxSizeMB = ref(savedFilters.maxSizeMB ?? '')
+  const filterMinSources = ref(savedFilters.minSources ?? '')
+  const filterMinCompleteSources = ref(savedFilters.minCompleteSources ?? '')
+  const newFilterKeyword = ref('')
+  const newFilterExtension = ref('')
 
   const status = ref<ED2KSearchStatus>(cloneEmpty())
   const loading = ref(false)
@@ -116,60 +106,18 @@ export const useSearchStore = defineStore('ed2k-search', () => {
   const snapshot = computed(() => status.value.snapshot)
   const available = computed(() => status.value.available)
   const running = computed(() => snapshot.value.state === 'RUNNING')
-  const queryChips = computed(() => parseQueryChips(query.value))
-  const selectedExtensions = computed(() => unique([
-    ...fileTypes.value.flatMap((type) => typeExtensions[type] ?? []),
-    ...extensions.value,
+  const filterSelectedExtensions = computed(() => unique([
+    ...filterFileTypes.value.flatMap((type) => typeExtensions[type] ?? []),
+    ...filterExtensions.value,
   ]))
-
-  const filtersActive = computed(() => fileTypes.value.length > 0
-    || sources.value.length > 0
-    || selectedExtensions.value.length > 0
-    || !!minSizeMB.value
-    || !!maxSizeMB.value
-    || !!minSources.value
-    || !!minCompleteSources.value)
-
-  function matchesLocalFilters(row: ED2KSearchResult): boolean {
-    if (sources.value.length > 0) {
-      const hit = sources.value.some((source) => {
-        if (source === 'both') return row.source === 'both'
-        if (source === 'server') return row.source === 'server' || row.source === 'both'
-        if (source === 'kad') return row.source === 'kad' || row.source === 'both'
-        return false
-      })
-      if (!hit) return false
-    }
-    if (fileTypes.value.length > 0 || selectedExtensions.value.length > 0) {
-      const ext = extensionOf(row)
-      const typeHit = fileTypes.value.includes((row.fileType || '').toLocaleLowerCase())
-      const extHit = selectedExtensions.value.includes(ext)
-      if (!typeHit && !extHit) return false
-    }
-    const min = toBytes(minSizeMB.value)
-    const max = toBytes(maxSizeMB.value)
-    if (min > 0 && row.fileSize > 0 && row.fileSize < min) return false
-    if (max > 0 && row.fileSize > max) return false
-    if (toCount(minSources.value) > 0 && row.sources < toCount(minSources.value)) return false
-    if (toCount(minCompleteSources.value) > 0
-      && row.completeSources < toCount(minCompleteSources.value)) return false
-    return true
-  }
-
-  const results = computed(() => {
-    const term = keyword.value.trim().toLocaleLowerCase()
-    const rows = snapshot.value.results.filter((row) => {
-      if (!matchesLocalFilters(row)) return false
-      if (!term) return true
-      return row.fileName.toLocaleLowerCase().includes(term) || row.hash.toLocaleLowerCase().includes(term)
-    })
-    const key = sortKey.value
-    const sign = sortDir.value === 'asc' ? 1 : -1
-    return rows.sort((a, b) => {
-      if (key === 'fileName') return sign * a.fileName.localeCompare(b.fileName)
-      return sign * ((a[key] ?? 0) - (b[key] ?? 0))
-    })
-  })
+  const filtersActive = computed(() => filterKeywords.value.length > 0
+    || filterFileTypes.value.length > 0
+    || filterExtensions.value.length > 0
+    || filterSources.value.length > 0
+    || !!filterMinSizeMB.value
+    || !!filterMaxSizeMB.value
+    || !!filterMinSources.value
+    || !!filterMinCompleteSources.value)
 
   function toBytes(value: string): number {
     const n = Number(value)
@@ -181,6 +129,54 @@ export const useSearchStore = defineStore('ed2k-search', () => {
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
   }
 
+  function matchesFilters(row: ED2KSearchResult): boolean {
+    if (filterKeywords.value.length > 0) {
+      const haystack = `${row.fileName} ${row.hash}`.toLocaleLowerCase()
+      for (const term of filterKeywords.value) {
+        if (!haystack.includes(term.trim().toLocaleLowerCase())) return false
+      }
+    }
+    if (filterSources.value.length > 0) {
+      const hit = filterSources.value.some((source) => {
+        if (source === 'both') return row.source === 'both'
+        if (source === 'server') return row.source === 'server' || row.source === 'both'
+        if (source === 'kad') return row.source === 'kad' || row.source === 'both'
+        return false
+      })
+      if (!hit) return false
+    }
+    if (filterFileTypes.value.length > 0 || filterSelectedExtensions.value.length > 0) {
+      const ext = extensionOf(row)
+      const typeHit = filterFileTypes.value.includes((row.fileType || '').toLocaleLowerCase())
+      const extHit = filterSelectedExtensions.value.includes(ext)
+      if (!typeHit && !extHit) return false
+    }
+    const min = toBytes(filterMinSizeMB.value)
+    const max = toBytes(filterMaxSizeMB.value)
+    if (min > 0 && row.fileSize > 0 && row.fileSize < min) return false
+    if (max > 0 && row.fileSize > max) return false
+    const minSrc = toCount(filterMinSources.value)
+    const minComplete = toCount(filterMinCompleteSources.value)
+    if (minSrc > 0 && row.sources < minSrc) return false
+    if (minComplete > 0 && row.completeSources < minComplete) return false
+    return true
+  }
+
+  const results = computed(() => {
+    const term = keyword.value.trim().toLocaleLowerCase()
+    const rows = snapshot.value.results.filter((row) => {
+      if (!matchesFilters(row)) return false
+      if (!term) return true
+      return row.fileName.toLocaleLowerCase().includes(term) || row.hash.toLocaleLowerCase().includes(term)
+    })
+    const key = sortKey.value
+    const sign = sortDir.value === 'asc' ? 1 : -1
+    return rows.sort((a, b) => {
+      if (key === 'fileName') return sign * a.fileName.localeCompare(b.fileName)
+      return sign * ((a[key] ?? 0) - (b[key] ?? 0))
+    })
+  })
+
   function params(): ED2KSearchParams {
     return {
       query: query.value.trim(),
@@ -189,11 +185,10 @@ export const useSearchStore = defineStore('ed2k-search', () => {
       maxSize: toBytes(maxSizeMB.value),
       minSources: toCount(minSources.value),
       minCompleteSources: toCount(minCompleteSources.value),
-      fileType: fileTypes.value[0] ?? '',
-      extension: selectedExtensions.value[0] ?? '',
-      fileTypes: [...fileTypes.value],
-      sources: [...sources.value],
-      extensions: selectedExtensions.value,
+      fileType: fileType.value.trim(),
+      extension: extension.value.trim().replace(/^\./, ''),
+      // 组合筛选只在结果区本地生效，不作为搜索参数下发。
+      fileTypes: [], sources: [], extensions: [],
     }
   }
 
@@ -202,48 +197,70 @@ export const useSearchStore = defineStore('ed2k-search', () => {
     const index = list.indexOf(value)
     if (index >= 0) list.splice(index, 1)
     else list.push(value)
+    rememberFilters()
   }
 
-  function addKeyword(): void {
-    const term = newKeyword.value.trim()
-    if (!term) return
-    const current = query.value.trim()
-    query.value = current
-      ? `${current} ${keywordRelation.value === 'or' ? 'OR ' : ''}${term}`
-      : term
-    newKeyword.value = ''
+  function addFilterKeyword(): void {
+    const term = newFilterKeyword.value.trim()
+    if (!term || filterKeywords.value.includes(term)) return
+    filterKeywords.value.push(term)
+    newFilterKeyword.value = ''
+    rememberFilters()
   }
 
-  function removeKeyword(chip: QueryChip): void {
-    const chips = queryChips.value.filter((item) => item.text !== chip.text)
-    query.value = chips.map((item, index) =>
-      `${index > 0 && item.relation === 'or' ? 'OR ' : ''}${item.text}`).join(' ')
+  function removeFilterKeyword(value: string): void {
+    filterKeywords.value = filterKeywords.value.filter((item) => item !== value)
+    rememberFilters()
+  }
+
+  function addFilterExtension(): void {
+    const value = newFilterExtension.value.trim().replace(/^\./, '').toLocaleLowerCase()
+    if (!value) return
+    if (!filterExtensions.value.includes(value)) filterExtensions.value.push(value)
+    newFilterExtension.value = ''
+    rememberFilters()
+  }
+
+  function removeFilterExtension(value: string): void {
+    filterExtensions.value = filterExtensions.value.filter((item) => item !== value)
+    rememberFilters()
   }
 
   function clearFilters(): void {
-    fileTypes.value = []
-    extensions.value = []
-    sources.value = []
-    minSizeMB.value = ''
-    maxSizeMB.value = ''
-    minSources.value = ''
-    minCompleteSources.value = ''
+    filterKeywords.value = []
+    filterFileTypes.value = []
+    filterExtensions.value = []
+    filterSources.value = []
+    filterMinSizeMB.value = ''
+    filterMaxSizeMB.value = ''
+    filterMinSources.value = ''
+    filterMinCompleteSources.value = ''
+    rememberFilters()
   }
 
   function rememberForm(): void {
     try {
       localStorage.setItem(FORM_KEY, JSON.stringify({
-        query: query.value, scope: scope.value,
-        fileType: fileType.value, fileTypes: fileTypes.value,
-        extension: extension.value, extensions: extensions.value,
-        sources: sources.value,
-        minSizeMB: minSizeMB.value,
-        maxSizeMB: maxSizeMB.value,
-        minSources: minSources.value,
+        query: query.value, scope: scope.value, fileType: fileType.value,
+        extension: extension.value, minSizeMB: minSizeMB.value,
+        maxSizeMB: maxSizeMB.value, minSources: minSources.value,
         minCompleteSources: minCompleteSources.value,
       }))
     } catch {
       // Private browsing can disable storage; searching must still work.
+    }
+  }
+
+  function rememberFilters(): void {
+    try {
+      localStorage.setItem(FILTER_KEY, JSON.stringify({
+        keywords: filterKeywords.value, fileTypes: filterFileTypes.value,
+        extensions: filterExtensions.value, sources: filterSources.value,
+        minSizeMB: filterMinSizeMB.value, maxSizeMB: filterMaxSizeMB.value,
+        minSources: filterMinSources.value, minCompleteSources: filterMinCompleteSources.value,
+      }))
+    } catch {
+      // Storage is optional; filters still work for the current session.
     }
   }
 
@@ -323,13 +340,16 @@ export const useSearchStore = defineStore('ed2k-search', () => {
   }
 
   return {
-    query, scope, fileType, fileTypes, extension, extensions, sources,
-    minSizeMB, maxSizeMB, minSources, minCompleteSources,
-    newKeyword, keywordRelation, queryChips, selectedExtensions, filtersActive,
-    keyword, sortKey, sortDir,
+    query, scope, fileType, extension, minSizeMB, maxSizeMB,
+    minSources, minCompleteSources, keyword, sortKey, sortDir,
+    filterKeywords, filterFileTypes, filterExtensions, filterSources,
+    filterMinSizeMB, filterMaxSizeMB, filterMinSources, filterMinCompleteSources,
+    newFilterKeyword, newFilterExtension,
+    filterSelectedExtensions, filtersActive,
     status, snapshot, loading, stopping, error, available, running, results,
-    sourceLabels, typeExtensions,
-    toggle, addKeyword, removeKeyword, clearFilters,
+    typeExtensions,
+    toggle, addFilterKeyword, removeFilterKeyword,
+    addFilterExtension, removeFilterExtension, clearFilters,
     refresh, start, stop, toggleSort, dispose,
   }
 })

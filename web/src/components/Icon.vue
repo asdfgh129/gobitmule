@@ -35,6 +35,7 @@ const paths: Record<string, string[]> = {
   info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 11v5', 'M12 8h.01'],
   external: ['M14 4h6v6', 'M20 4 10 14', 'M18 14v6H4V6h6'],
   chevron: ['M9 6l6 6-6 6'],
+  filter: ['M3 5h18l-7 8v6l-4 2v-8L3 5Z'],
   folder: ['M3 6h6l2 2h10v12H3V6Z'],
 }
 
