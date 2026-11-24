@@ -47,6 +47,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 遗留：源已进入 transfer 且开始发起连接尝试，但当前文件的 peer 握手仍未成功，
     `bytesDone` 仍为 0；这属于 eD2k peer 连接层问题，与 KAD 源发现无关。
 
+- **aMule 真机对照：下载 0 字节为文件/源质量问题（2026-11-24）**：
+  - 在实验室 `192.168.1.221`（Ubuntu，aMule 2.3.3 `amuled`，端口 4662/4672，
+    KAD 已连接且 firewalled）用同一 ed2k link 下载 hash
+    `7221BFD00304905F4C282A1FBB5E9586` 的文件做对照。
+  - 结果：aMule 同样只找到 3–5 个源，长期停在 `Waiting / 0 bytes`，
+    `Temp/001.part` 始终为 0 字节——与我们修复后的 GoBitMule 表现一致。
+    结论：该文件在当前网络下双方客户端都下不动，0 字节不是本项目的协议实现缺陷。
+  - 用 `cmd/uded2khelloprobe` 直连 `192.168.1.209:31969` 的真实 eMule：
+    Hello/HelloAnswer 握手 PASS；收到 HelloAnswer 后立即发 FileRequest 后连接
+    保持打开（读到 3 秒超时，无 RST），证明「握手顺序错误导致对端断开」的假设不成立，
+    不改动 `HandleHelloAnswer` 的发送时机。
+  - `uded2khelloprobe` 新增可选 `-file-hash`：在 HelloAnswer 后发 FileRequest 并观察
+    后续包/断开原因，作为握手时序诊断工具。
+
 
 - **KAD2 公网搜索链路打通（2026-11-24）**：
   - 补齐 eMule/aMule tag 的 named-tag 编码（`0x80` 清零时为 uint16 长度 + 名字；

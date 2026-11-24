@@ -23,14 +23,17 @@ import (
 )
 
 type report struct {
-	Timestamp     string `json:"timestamp"`
-	Peer          string `json:"peer"`
-	LocalUserHash string `json:"local_user_hash"`
-	RemoteHash    string `json:"remote_user_hash,omitempty"`
-	RemotePoint   string `json:"remote_point,omitempty"`
-	ModName       string `json:"remote_mod,omitempty"`
-	Verdict       string `json:"verdict"`
-	BlockReason   string `json:"block_reason,omitempty"`
+	Timestamp       string   `json:"timestamp"`
+	Peer            string   `json:"peer"`
+	LocalUserHash   string   `json:"local_user_hash"`
+	RemoteHash      string   `json:"remote_user_hash,omitempty"`
+	RemotePoint     string   `json:"remote_point,omitempty"`
+	ModName         string   `json:"remote_mod,omitempty"`
+	Verdict         string   `json:"verdict"`
+	BlockReason     string   `json:"block_reason,omitempty"`
+	FileRequestSent bool     `json:"file_request_sent,omitempty"`
+	PostReqPackets  []string `json:"post_req_packets,omitempty"`
+	PostReqError    string   `json:"post_req_error,omitempty"`
 }
 
 func readFrame(conn net.Conn) ([]byte, error) {
@@ -63,6 +66,7 @@ func run() int {
 	userHash := flag.String("user-hash", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "local user hash to announce (32 hex)")
 	listenPort := flag.Int("listen-port", 47941, "TCP port we advertise in our Hello")
 	timeout := flag.Int("timeout", 10, "seconds to wait for HelloAnswer")
+	fileHash := flag.String("file-hash", "", "if set, send FileRequest right after HelloAnswer (handshake-order probe)")
 	flag.Parse()
 
 	r := report{Timestamp: time.Now().UTC().Format(time.RFC3339), Peer: *peer, LocalUserHash: *userHash, Verdict: "NOT_EXECUTED"}
@@ -134,6 +138,45 @@ func run() int {
 				}
 			}
 			r.Verdict = "PASS"
+			if *fileHash == "" {
+				emit(r)
+				return 0
+			}
+			// Handshake-order probe: immediately request a file after the
+			// HelloAnswer (mirrors PeerConnection.HandleHelloAnswer). Observe
+			// whether the peer keeps the connection open or drops it.
+			fh, ferr := protocol.HashFromString(*fileHash)
+			if ferr != nil {
+				r.BlockReason = "invalid -file-hash: " + ferr.Error()
+				emit(r)
+				return 2
+			}
+			reqRaw, perr := combiner.Pack("client.FileRequest", &clientproto.FileRequest{Hash: fh})
+			if perr != nil {
+				r.BlockReason = "pack FileRequest: " + perr.Error()
+				emit(r)
+				return 2
+			}
+			if _, werr := conn.Write(reqRaw); werr != nil {
+				r.PostReqError = "write FileRequest: " + werr.Error()
+				emit(r)
+				return 0
+			}
+			r.FileRequestSent = true
+			postDeadline := time.Now().Add(3 * time.Second)
+			for time.Now().Before(postDeadline) {
+				postFrame, rerr := readFrame(conn)
+				if rerr != nil {
+					r.PostReqError = "read after FileRequest: " + rerr.Error()
+					break
+				}
+				_, pp, uerr := combiner.UnpackFrame(postFrame)
+				if uerr != nil {
+					r.PostReqPackets = append(r.PostReqPackets, "unpack-error:"+uerr.Error())
+					continue
+				}
+				r.PostReqPackets = append(r.PostReqPackets, fmt.Sprintf("%T", pp))
+			}
 			emit(r)
 			return 0
 		case *clientproto.ExtHello:
