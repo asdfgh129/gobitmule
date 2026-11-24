@@ -14,7 +14,7 @@ import (
 
 	_ "modernc.org/sqlite" // pure Go SQLite driver: CGO_ENABLED=0 friendly
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 //go:embed migrations/*.sql

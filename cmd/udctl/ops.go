@@ -12,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/app"
+	"github.com/asdfgh129/gobitmule/internal/app"
 )
 
 // opsDBPath resolves the database the offline commands operate on:

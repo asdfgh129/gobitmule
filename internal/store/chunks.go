@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // CreateChunks builds the authoritative chunk plan from the probed file size.

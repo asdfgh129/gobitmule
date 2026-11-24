@@ -4,7 +4,7 @@ package resolve
 import (
 	"sync"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Registry resolves inputs by priority: the first matching Resolver wins.

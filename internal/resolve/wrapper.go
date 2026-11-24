@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // WrapperResolver implements FR-RSV-03 / ADR-0007: decode the three

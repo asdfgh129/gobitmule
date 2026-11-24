@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/app"
-	"github.com/asdfgh129/ud/internal/version"
+	"github.com/asdfgh129/gobitmule/internal/app"
+	"github.com/asdfgh129/gobitmule/internal/version"
 )
 
 var (
@@ -364,7 +364,7 @@ func reorderFlags(args []string) []string {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `udctl — Universal Downloader CLI (P0 / L0)
+	fmt.Fprintln(os.Stderr, `udctl — GoBitMule CLI (P0 / L0)
 
 用法:
   udctl [--addr host:port] [--token T] <command>

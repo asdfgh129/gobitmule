@@ -22,8 +22,8 @@ import (
 
 	"github.com/jlaffaye/ftp"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/transport/tputil"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/transport/tputil"
 )
 
 const maxChunkBytes = 64 << 20

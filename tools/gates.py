@@ -38,7 +38,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
-MODULE = "github.com/asdfgh129/ud"
+MODULE = "github.com/asdfgh129/gobitmule"
 
 # docs/12 §1/§8 (v0.3 统一口径): core / security >= 90%, 其余关键路径包
 # >= 80%. P1 WBS 9 added the FTP / SFTP movers and their shared tputil helper
@@ -319,7 +319,7 @@ def build_sbom() -> dict:
         "serialNumber": f"urn:uuid:{uuid.uuid4()}", "version": 1,
         "metadata": {
             "timestamp": now(),
-            "tools": [{"vendor": "Universal Downloader", "name": "tools/gates.py", "version": "0.1.0"}],
+            "tools": [{"vendor": "GoBitMule", "name": "tools/gates.py", "version": "0.1.0"}],
             "component": {"type": "application", "bom-ref": purl(MODULE, "v0.1.0"),
                           "name": MODULE, "version": "v0.1.0"},
             "properties": [{"name": "ud:binary", "value": binary}],

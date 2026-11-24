@@ -25,8 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/postproc"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/postproc"
 )
 
 type metric struct {

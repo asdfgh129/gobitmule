@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/store"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/store"
 )
 
 // eventJanitor enforces the audit-log retention policy from docs/06 §7

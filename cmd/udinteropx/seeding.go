@@ -33,9 +33,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/interop"
-	bt "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/interop"
+	bt "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 const seedingLeecherScriptDefault = "tools/interop_libtorrent_leecher.py"

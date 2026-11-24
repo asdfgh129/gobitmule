@@ -41,8 +41,8 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
-	"github.com/asdfgh129/ud/internal/core"
-	bt "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	bt "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 // l4Verdict is the exact shape consumed by internal/interop.parseVerdict.

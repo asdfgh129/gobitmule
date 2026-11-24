@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // MagnetResolver parses `magnet:?` URIs into a torrent-kind Resource. It performs

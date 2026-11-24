@@ -1,6 +1,6 @@
 package goed2k
 
-import "github.com/asdfgh129/ud/internal/ed2k/protocol"
+import "github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 
 type Peer struct {
 	LastConnected  int64

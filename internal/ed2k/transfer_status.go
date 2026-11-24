@@ -3,7 +3,7 @@ package goed2k
 import (
 	"fmt"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 type TransferState string

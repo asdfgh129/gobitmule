@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
-	goed2k "github.com/asdfgh129/ud/internal/ed2k"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	goed2k "github.com/asdfgh129/gobitmule/internal/ed2k"
 )
 
 // transferHandle is the narrow view of a completed transfer the adapter needs.

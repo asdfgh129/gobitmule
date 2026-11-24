@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

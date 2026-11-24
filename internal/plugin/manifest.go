@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 const (

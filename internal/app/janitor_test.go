@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/store"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/store"
 )
 
 func janitorTestStore(t *testing.T) *store.Store {

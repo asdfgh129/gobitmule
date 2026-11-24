@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
-	internalupnp "github.com/asdfgh129/ud/internal/ed2k/internal/upnp"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
+	internalupnp "github.com/asdfgh129/gobitmule/internal/ed2k/internal/upnp"
 )
 
 const defaultUPnPDiscoverTimeout = 3 * time.Second

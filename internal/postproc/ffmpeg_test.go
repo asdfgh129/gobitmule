@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // fakeHelperOptions drives the Go test binary as an ffmpeg stand-in. No real

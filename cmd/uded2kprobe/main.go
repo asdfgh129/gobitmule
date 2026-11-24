@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	goed2k "github.com/asdfgh129/ud/internal/ed2k"
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	kadproto "github.com/asdfgh129/ud/internal/ed2k/protocol/kad"
+	goed2k "github.com/asdfgh129/gobitmule/internal/ed2k"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	kadproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/kad"
 )
 
 type sourceEvidence struct {

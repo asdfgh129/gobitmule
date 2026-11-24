@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Recover implements docs/06 §5 / ADR-0015 step 5: it trusts only the chunks

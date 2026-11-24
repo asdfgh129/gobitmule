@@ -18,8 +18,8 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
-	"github.com/asdfgh129/ud/internal/core"
-	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	bttransport "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 // LocalCases returns the fully automated loopback evidence cases. They are

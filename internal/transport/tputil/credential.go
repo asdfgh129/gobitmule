@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Credential is the JSON shape of a secret stored behind core.CredentialRef.

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Universal Downloader Web Console - Vue 3 + TypeScript control plane UI",
+  "description": "GoBitMule Web Console - Vue 3 + TypeScript control plane UI",
   "scripts": {
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",

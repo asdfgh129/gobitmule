@@ -14,9 +14,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/store"
-	"github.com/asdfgh129/ud/internal/version"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/store"
+	"github.com/asdfgh129/gobitmule/internal/version"
 )
 
 // discoveryProbePath overrides the discovery file the offline guard probes.

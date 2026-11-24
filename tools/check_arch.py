@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 INTERNAL = ROOT / "internal"
-MODULE = "github.com/asdfgh129/ud"
+MODULE = "github.com/asdfgh129/gobitmule"
 
 errors: list[str] = []
 checks = 0

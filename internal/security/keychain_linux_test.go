@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // The Secret Service backend is exercised through a fake secret-tool on PATH:

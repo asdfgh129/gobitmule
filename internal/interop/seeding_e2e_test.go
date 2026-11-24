@@ -22,8 +22,8 @@ import (
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/asdfgh129/ud/internal/core"
-	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	bttransport "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 func makeSeedingPayload(n int) []byte {

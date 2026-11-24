@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
-	tgtransport "github.com/asdfgh129/ud/internal/transport/tg"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	tgtransport "github.com/asdfgh129/gobitmule/internal/transport/tg"
 )
 
 // TGResolver classifies Telegram message links.

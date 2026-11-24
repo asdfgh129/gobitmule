@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // tokenBucket is a single refillable bucket. rate 0 means unlimited.

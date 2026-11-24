@@ -1,4 +1,4 @@
-// Package core defines the protocol-agnostic model of Universal Downloader.
+// Package core defines the protocol-agnostic model of GoBitMule.
 //
 // It is the ONLY package allowed to define Task / Resource / state machine /
 // events, and it must never import a concrete transport or resolve package

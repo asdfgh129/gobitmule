@@ -16,7 +16,7 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // noopCreds is a credential store that never holds secrets; the BT Transport only
@@ -222,7 +222,7 @@ func TestTransportLoopbackDownload(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping loopback integration test in -short mode")
 	}
-	content := []byte("Universal Downloader loopback seed payload -- deterministic BT transport integration content 1234567890")
+	content := []byte("GoBitMule loopback seed payload -- deterministic BT transport integration content 1234567890")
 	info := metainfo.Info{Name: "loopback.bin", PieceLength: 16384, Length: int64(len(content))}
 	pieces, err := metainfo.GeneratePieces(bytes.NewReader(content), 16384, nil)
 	mustNoErr(t, err)

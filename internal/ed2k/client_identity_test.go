@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 func TestUserHashAndSecureIdentPersistAcrossRestart(t *testing.T) {

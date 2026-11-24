@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Tests for LocalFileDownloader (docs/25 §3 reader-adapter pattern).

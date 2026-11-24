@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // mustResolveMagnet parses a well-formed magnet and asserts a KindTorrent Resource.

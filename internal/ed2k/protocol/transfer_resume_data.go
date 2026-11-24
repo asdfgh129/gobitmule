@@ -3,7 +3,7 @@ package protocol
 import (
 	"encoding/json"
 
-	"github.com/asdfgh129/ud/internal/ed2k/data"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/data"
 )
 
 type TransferResumeData struct {

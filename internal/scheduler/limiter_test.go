@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // T-FR-TRN-09-01: one global token bucket; a per-task limit can only ever

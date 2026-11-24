@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/store"
-	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/store"
+	bttransport "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 func TestSeedingObserverPersistsCountersAndDrivesState(t *testing.T) {

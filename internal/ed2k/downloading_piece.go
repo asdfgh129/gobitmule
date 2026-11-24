@@ -1,6 +1,6 @@
 package goed2k
 
-import "github.com/asdfgh129/ud/internal/ed2k/data"
+import "github.com/asdfgh129/gobitmule/internal/ed2k/data"
 
 type BlockState byte
 

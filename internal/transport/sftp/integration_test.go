@@ -18,9 +18,9 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
 )
 
 // A minimal loopback SSH + SFTP server. This proves the WBS 9 wiring end to

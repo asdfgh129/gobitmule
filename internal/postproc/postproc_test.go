@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // T-FR-PST-03-01 / ADR-0012: the interface must never accept URL / io.Reader /

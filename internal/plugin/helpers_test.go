@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // blockGuard is a strict, offline URLGuard. It blocks loopback/private hosts

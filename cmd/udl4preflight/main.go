@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/asdfgh129/ud/internal/interop"
+	"github.com/asdfgh129/gobitmule/internal/interop"
 )
 
 func main() {

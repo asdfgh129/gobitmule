@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // TorrentResolver parses .torrent files (inline base64, raw bencode, or a local

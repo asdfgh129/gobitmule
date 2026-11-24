@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/plugin"
+	"github.com/asdfgh129/gobitmule/internal/plugin"
 )
 
 // pluginCommand implements the offline rule-pack workflow of docs/08 §8.

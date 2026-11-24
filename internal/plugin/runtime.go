@@ -16,7 +16,7 @@ import (
 
 	"github.com/dop251/goja"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Doer is the single egress seam. Production uses an SSRF-Guard-backed

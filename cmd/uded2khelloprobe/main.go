@@ -18,8 +18,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	clientproto "github.com/asdfgh129/ud/internal/ed2k/protocol/client"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	clientproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/client"
 )
 
 type report struct {

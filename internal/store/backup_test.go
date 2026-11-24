@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // BackupFile must work while the daemon-equivalent store stays open: WAL

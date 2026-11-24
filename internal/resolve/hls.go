@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // OptHLSForce forces HLS classification regardless of the URL extension.

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // goja is ES5.1-only by project policy (ADR-0014 §2). A rule pack may use the

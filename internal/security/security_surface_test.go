@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/config"
 )
 
 // Coverage of the P0 helper surface that the release gate (docs/12 §8) names

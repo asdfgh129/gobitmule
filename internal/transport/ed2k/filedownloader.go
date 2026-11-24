@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
 )
 
 // LocalFileDownloader is a concrete Downloader that reads an eD2k file which a

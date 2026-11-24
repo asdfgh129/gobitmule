@@ -15,7 +15,7 @@ import (
 
 	"github.com/dop251/goja"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Options configures the rule-pack manager. Dir is the independent update

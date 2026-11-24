@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	serverproto "github.com/asdfgh129/ud/internal/ed2k/protocol/server"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
 
 // TestHighIDSimulatedServerHandshake is the ED-03 counterpart to the Low ID

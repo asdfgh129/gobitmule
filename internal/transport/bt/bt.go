@@ -21,7 +21,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Transport is the BitTorrent / magnet Transport.
@@ -479,7 +479,8 @@ func selectedResourcePath(r *core.Resource) string {
 }
 
 // honestPeerID returns a 20-byte peer ID that honestly identifies this client
-// (BT-14). The "-UD0000-" prefix marks Universal Downloader; the trailing 12
+// (BT-14). The "-UD0000-" prefix is the legacy Universal Downloader identifier
+// retained for wire compatibility and now marks GoBitMule; the trailing 12
 // chars are hex of 6 random bytes, keeping the id 20 bytes long.
 func honestPeerID() string {
 	b := make([]byte, 20)

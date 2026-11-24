@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 // eMule client-to-client obfuscation constants. Values verified against

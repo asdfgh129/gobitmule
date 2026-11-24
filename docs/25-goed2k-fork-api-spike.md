@@ -210,7 +210,7 @@ seekable reader + 落盘 size，交给 `Run` 的 chunk 计划 / Budget / ChunkWr
 - **剥离 TUI**：只复制核心库（`*.go` + `data/` `disk/` `internal/` `protocol/`），
   `cmd/`（bubbletea/bubbles/lipgloss）与 `examples/` 不进 fork——核心库实测零第三方
   依赖，不污染 ud 依赖树（印证 §3 判断）。import 路径改为
-  `github.com/asdfgh129/ud/internal/ed2k`。
+  `github.com/asdfgh129/gobitmule/internal/ed2k`。
 - **编译验证**：fork 核心库 `go build ./internal/ed2k/...` 通过（EXIT=0）。
 
 ### 8.2 引擎适配器已落地（`internal/transport/ed2k/goed2k.go`）

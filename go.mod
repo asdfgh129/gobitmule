@@ -1,4 +1,4 @@
-module github.com/asdfgh129/ud
+module github.com/asdfgh129/gobitmule
 
 go 1.27.4
 

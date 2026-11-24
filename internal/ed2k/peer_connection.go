@@ -8,10 +8,10 @@ import (
 	"net"
 	"path/filepath"
 
-	"github.com/asdfgh129/ud/internal/ed2k/data"
-	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	clientproto "github.com/asdfgh129/ud/internal/ed2k/protocol/client"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/data"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	clientproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/client"
 )
 
 func debugPeerf(format string, args ...any) {

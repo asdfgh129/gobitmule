@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 func signedPack(t *testing.T, root, name string, m *Manifest, script, privB64 string) string {

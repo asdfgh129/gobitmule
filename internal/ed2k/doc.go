@@ -2,7 +2,7 @@
 //
 // The public API is exposed from the module root so callers can import:
 //
-//	import "github.com/asdfgh129/ud/internal/ed2k"
+//	import "github.com/asdfgh129/gobitmule/internal/ed2k"
 //
 // Lower-level protocol helpers are available from subpackages such as
 // protocol, protocol/client, protocol/server, and protocol/kad.

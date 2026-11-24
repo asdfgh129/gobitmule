@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // newDigester maps a Metalink / RFC 6249 algorithm name to a standard-library

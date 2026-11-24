@@ -15,7 +15,7 @@
    整套 TUI；本 fork 只保留核心库（`*.go` + `data/` `disk/` `internal/` `protocol/`），
    零第三方依赖进入 ud 依赖树。`cmd/` 与 `examples/` 不复制。
 2. **改 import 路径**：`github.com/monkeyWie/goed2k` →
-   `github.com/asdfgh129/ud/internal/ed2k`。
+   `github.com/asdfgh129/gobitmule/internal/ed2k`。
 3. **移除上游测试文件**：上游 `*_test.go` 含真实网络集成测试，不进 fork；
    ud 侧测试走 `internal/transport/ed2k` 的 Downloader seam（CI 零网络）。
 4. **待接入时的隔离**（ADR-0030 / docs/25 §3）：生产 Downloader 必须关闭库内

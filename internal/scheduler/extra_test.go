@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/postproc"
-	"github.com/asdfgh129/ud/internal/resolve"
-	"github.com/asdfgh129/ud/internal/security"
-	"github.com/asdfgh129/ud/internal/store"
-	"github.com/asdfgh129/ud/internal/transport"
-	httptransport "github.com/asdfgh129/ud/internal/transport/http"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/postproc"
+	"github.com/asdfgh129/gobitmule/internal/resolve"
+	"github.com/asdfgh129/gobitmule/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/store"
+	"github.com/asdfgh129/gobitmule/internal/transport"
+	httptransport "github.com/asdfgh129/gobitmule/internal/transport/http"
 )
 
 // newHarnessAt builds the full scheduler stack against a caller-supplied origin

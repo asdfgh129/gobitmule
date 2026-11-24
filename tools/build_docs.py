@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Docs-as-code builder for the Universal Downloader documentation set.
+"""Docs-as-code builder for the GoBitMule documentation set.
 
 Usage:
     python3 tools/build_docs.py            # build docs/_site/index.html
@@ -542,7 +542,7 @@ def build_home(docs: list[Doc], by_rel: dict[str, Doc]) -> str:
 
     return f"""<article class="doc home" id="doc-{HOME_SLUG}" data-slug="{HOME_SLUG}">
 <header class="hero">
-  <div class="eyebrow">Universal Downloader / Documentation Home</div>
+  <div class="eyebrow">GoBitMule / Documentation Home</div>
   <h1>开发文档 · 状态总览</h1>
   <p>把 BT / 磁力 / ed2k / HTTP(S) / FTP(S) / SFTP / Metalink / 迅雷链接 / 视频网站 / Telegram / 微信等来源，收敛到一条流水线、一个调度器、一份状态。本页按文档版本头与 ADR 状态行自动汇总：哪些仍在待审核、哪些已决定、哪些已按 P0 实现校准，一眼可见。左侧全部文档链接保持不变。</p>
   <div class="chips">
@@ -1003,18 +1003,18 @@ def build() -> int:
             f'<div class="doc-head"><h1>{html.escape(d.title)}</h1>'
             f'<div class="doc-meta">{badge}{html.escape(d.meta)}</div></div>'
             f'{bodies[d.slug]}'
-            f'<div class="footnote">Universal Downloader 开发文档 · 由 tools/build_docs.py 生成于 {date.today().isoformat()} · '
+            f'<div class="footnote">GoBitMule 开发文档 · 由 tools/build_docs.py 生成于 {date.today().isoformat()} · '
             f'源文件 <code>{html.escape(d.rel)}</code></div></article>'
         )
 
     page = f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Universal Downloader · 开发文档</title>
+<title>GoBitMule · 开发文档</title>
 <style>{CSS}</style></head><body>
 <div id="app">
 <aside id="sidebar">
-  <div class="brand"><h1>Universal Downloader</h1><p>开发文档 · 状态首页 + {len(docs)} 篇</p></div>
+  <div class="brand"><h1>GoBitMule</h1><p>开发文档 · 状态首页 + {len(docs)} 篇</p></div>
   <input id="search" placeholder="搜索文档标题…" autocomplete="off">
   <nav id="nav">{''.join(nav)}</nav>
 </aside>

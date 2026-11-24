@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Hard limits for untrusted Metalink manifests (ADR-0006 安全要求, docs/11 §2).

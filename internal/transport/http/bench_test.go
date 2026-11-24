@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
 )
 
 // benchWriter discards the payload. The benchmark measures the HTTP Range

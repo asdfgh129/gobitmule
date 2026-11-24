@@ -1,8 +1,8 @@
 package goed2k
 
 import (
-	"github.com/asdfgh129/ud/internal/ed2k/data"
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/data"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 const EndGameDPLimit = 4

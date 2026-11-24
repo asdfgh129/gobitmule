@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Signature scheme (docs/08 §2, ADR-0014 §3):

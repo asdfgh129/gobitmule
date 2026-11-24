@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // RFC 6249 (Metalink/HTTP) describes mirrors and digests in HTTP response

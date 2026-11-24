@@ -1,4 +1,9 @@
-# Universal Downloader（通用下载器）
+# GoBitMule（原 Universal Downloader / 通用下载器）
+
+> 项目于 2026-11-24 正式更名为 **GoBitMule**，GitHub 仓库与 Go module 路径统一为
+> `github.com/asdfgh129/gobitmule`。为保持命令行与协议兼容，`udd` / `udctl` 等工具名、
+> `UD_*` 环境变量、`-UD0000-` PeerID 前缀继续作为兼容标识保留；历史证据中的旧名称
+> 按取证时点原样保留，不追溯改写。
 
 跨平台的统一下载引擎：把 **BT / 磁力 / ed2k / HTTP(S) / FTP(S) / SFTP / Metalink / 迅雷链接 / 视频网站 / Telegram / 微信** 等来源，收敛到一条流水线、一个调度器、一份状态。
 

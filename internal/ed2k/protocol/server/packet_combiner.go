@@ -1,6 +1,6 @@
 package server
 
-import "github.com/asdfgh129/ud/internal/ed2k/protocol"
+import "github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 
 const (
 	opGetServerList   byte = 0x14

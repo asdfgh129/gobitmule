@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // TranscodeName is the PostProcessor type accepted by TaskOptions.PostProcess.

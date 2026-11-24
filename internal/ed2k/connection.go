@@ -5,9 +5,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	"github.com/asdfgh129/ud/internal/ed2k/protocol/obfuscation"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol/obfuscation"
 )
 
 const connectionIODeadlineNS = int64(5 * 1000 * 1000)

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // MetalinkResolver implements FR-RSV-04 / ADR-0006: a pure-Go, cgo-free,

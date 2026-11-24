@@ -33,10 +33,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
-	httptransport "github.com/asdfgh129/ud/internal/transport/http"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
+	httptransport "github.com/asdfgh129/gobitmule/internal/transport/http"
 )
 
 const (

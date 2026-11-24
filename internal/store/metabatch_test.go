@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Use the production 500ms window with a long settle timer so overlapping

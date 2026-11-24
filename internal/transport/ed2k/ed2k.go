@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Downloader is the eD2k engine seam. The production implementation is the

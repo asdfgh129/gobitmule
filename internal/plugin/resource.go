@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
 )
 
 // pluginResult is the narrow, explicitly-allowlisted shape a rule may return.

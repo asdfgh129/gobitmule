@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // fakeGuard records every URL handed to Check so tests can assert the SSRF

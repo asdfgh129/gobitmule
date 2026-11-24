@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Offline tests for Goed2kDownloader. A fake engine/handle injects a real temp

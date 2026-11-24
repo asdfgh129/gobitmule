@@ -3,8 +3,8 @@ package goed2k
 import (
 	"net"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	serverproto "github.com/asdfgh129/ud/internal/ed2k/protocol/server"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
 
 type ServerConnection struct {

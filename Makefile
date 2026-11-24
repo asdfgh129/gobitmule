@@ -1,4 +1,4 @@
-# Universal Downloader · P0 build entrypoints (docs/13-构建发布与运维.md §3)
+# GoBitMule · P0 build entrypoints (docs/13-构建发布与运维.md §3)
 # All transport builds MUST keep CGO_ENABLED=0 (ADR-0001 / NFR-PORT-01).
 SHELL := /bin/bash
 GO ?= go
@@ -15,8 +15,8 @@ export GOSUMDB ?= sum.golang.org
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo v0.1.0)
 BUILD_ID ?= $(shell date -u +%Y%m%dT%H%M%SZ)
-LDFLAGS := -s -w -X github.com/asdfgh129/ud/internal/version.Version=$(VERSION) \
-           -X github.com/asdfgh129/ud/internal/version.BuildID=$(BUILD_ID)
+LDFLAGS := -s -w -X github.com/asdfgh129/gobitmule/internal/version.Version=$(VERSION) \
+           -X github.com/asdfgh129/gobitmule/internal/version.BuildID=$(BUILD_ID)
 DIST := dist
 
 PLATFORMS := \

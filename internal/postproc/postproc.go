@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // Passthrough is the P0 built-in processor: no remux/transcode, so it returns

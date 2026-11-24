@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
 )
 
 // SaveResource persists the full P0-frozen Resource graph in one transaction.

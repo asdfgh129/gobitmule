@@ -15,7 +15,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 // handshakeDeadline bounds the blocking handshake. It is cleared once the

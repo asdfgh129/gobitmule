@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
 )
 
 type packetFactory func() Serializable

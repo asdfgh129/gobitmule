@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/asdfgh129/ud/internal/store"
-	bttransport "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/store"
+	bttransport "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 // seedingObserver persists upload counters and drives the state machine.

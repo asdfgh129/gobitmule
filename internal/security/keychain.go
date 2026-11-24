@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // ADR-0015 decision ④ requires credentials (Cookie, Telegram session, proxy

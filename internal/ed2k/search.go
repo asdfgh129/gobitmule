@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	kadproto "github.com/asdfgh129/ud/internal/ed2k/protocol/kad"
-	serverproto "github.com/asdfgh129/ud/internal/ed2k/protocol/server"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	kadproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/kad"
+	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
 
 type SearchScope uint8

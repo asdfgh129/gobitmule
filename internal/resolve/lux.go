@@ -34,7 +34,7 @@ import (
 
 	"github.com/iawia002/lux/extractors"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 
 	// Curated extractor subset (ADR-0026): only sanctioned Chinese video
 	// sites link in. Site extractors self-register via init(), so the

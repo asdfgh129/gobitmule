@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // MaxSessionConnections caps concurrent network sessions for the P1 file

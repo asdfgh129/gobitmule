@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	serverproto "github.com/asdfgh129/ud/internal/ed2k/protocol/server"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
 
 // TestLowIDSimulatedServerHandshake covers ED-04's "Low ID (NAT) simulation"

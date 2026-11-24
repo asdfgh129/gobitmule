@@ -11,7 +11,7 @@ import (
 
 	"github.com/dop251/goja"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // httpClientProvider is an optional extension of core.URLGuard implemented by

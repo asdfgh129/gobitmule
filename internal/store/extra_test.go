@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 func mustInsertTask(t *testing.T, st *Store, state core.TaskState, kind core.InputKind, input string) core.TaskID {

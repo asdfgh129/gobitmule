@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asdfgh129/ud/internal/plugin"
+	"github.com/asdfgh129/gobitmule/internal/plugin"
 )
 
 func TestPluginCommandScaffoldLifecycle(t *testing.T) {

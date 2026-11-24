@@ -4,9 +4,9 @@ import (
 	"net"
 	"sort"
 
-	"github.com/asdfgh129/ud/internal/ed2k/internal/logx"
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	kadproto "github.com/asdfgh129/ud/internal/ed2k/protocol/kad"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	kadproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/kad"
 )
 
 const (

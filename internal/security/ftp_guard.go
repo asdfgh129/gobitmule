@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // FTP is the only protocol in scope where the SERVER picks a second address:

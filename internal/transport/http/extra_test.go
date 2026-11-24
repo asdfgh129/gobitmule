@@ -13,7 +13,7 @@ import (
 	"testing/iotest"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // coreOnlyGuard implements core.URLGuard without the optional NewHTTPClient

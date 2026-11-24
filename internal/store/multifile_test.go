@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 func multiFileFixture(t *testing.T) (*Store, core.TaskID, string, string) {

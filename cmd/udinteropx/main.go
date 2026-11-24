@@ -47,9 +47,9 @@ import (
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/interop"
-	bt "github.com/asdfgh129/ud/internal/transport/bt"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/interop"
+	bt "github.com/asdfgh129/gobitmule/internal/transport/bt"
 )
 
 const clientName = "aria2-next 3.0.9 (MotrixNext Rayburst 4.1.1)"

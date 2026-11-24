@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/store"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/store"
 )
 
 // ADR-0015 decision ③: progress is flushed in batches, not per chunk. Four

@@ -19,8 +19,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // ---------------------------------------------------------------------------

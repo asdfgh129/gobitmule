@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // withFlush overrides the ADR-0015 ③ flush knobs for one test.

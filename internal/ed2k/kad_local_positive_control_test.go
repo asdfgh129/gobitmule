@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asdfgh129/ud/internal/ed2k/protocol"
-	kadproto "github.com/asdfgh129/ud/internal/ed2k/protocol/kad"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
+	kadproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/kad"
 )
 
 // fakeKADPeer is an in-process KAD UDP peer built on the fork's own

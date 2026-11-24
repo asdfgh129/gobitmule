@@ -17,8 +17,8 @@ import (
 	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"
 
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/store"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/store"
 )
 
 // seedTaskStore builds a live store with one task, its resource and two

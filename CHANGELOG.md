@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > （首条为 2026-11-10 的覆盖率债清零）。标签 message 附本文件摘要。
 
 
+### Changed
+- **项目正式更名为 GoBitMule（2026-11-24）**：
+  - 项目显示名由 `Universal Downloader（通用下载器 / UD）` 更新为 **GoBitMule**；
+    GitHub 仓库名与 Go module 路径统一为 `github.com/asdfgh129/gobitmule`。
+  - 全量源码 import、Makefile LDFLAGS、`tools/check_arch.py` / `tools/gates.py`、
+    文档链接、README / docs 门户标题、Web 控制台标题和示例配置注释均已同步。
+  - 为保持兼容，保留 `udd` / `udctl` / `udperf` 等既有命令名、`UD_*` 环境变量、
+    `ud.interop/v1` schema 与 `-UD0000-` BT PeerID 前缀；这些是兼容标识，不再作为项目显示名。
+  - 历史证据目录 `docs/evidence/` 中的旧名称与旧 module 路径按取证时点原样保留，
+    不追溯改写，以免破坏已有 SHA-256 证据链。
+
+
 ### Added
 - **WBS 16：ED-01/03/04 收官 —— 六个 ED 门禁全部 PASS（2026-11-23）**：
   - 新增三件取证工具（fork 自身线协议 codec + 真内核 socket，不碰 ud 状态）：
@@ -477,7 +489,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     （超 Credential Manager 5×512 上限，验证 DPAPI 选型）、篡改密文拒绝、`KeychainStore`
     端到端 Put/Get/Delete + `windows-dpapi` 后端上报、落盘密文不含明文。两项依赖 POSIX 权限位的
     用例在 Windows 上如实 `SKIP: NOT_EXECUTED`（`os.Chmod` 不能制造宽权限 / 不可写目录），
-    **不把 SKIP 记为 PASS**；包级 `ok github.com/asdfgh129/ud/internal/security`。
+    **不把 SKIP 记为 PASS**；包级 `ok github.com/asdfgh129/gobitmule/internal/security`。
   - **真机缺陷修复**：`internal/security/keychain_file.go` 读取前的 0600 守卫改为 POSIX-only
     （Go mode bit 不反映 NTFS ACL，原实现在 Windows 恒失败）；`keychain_windows_test.go`
     新增 5 条真机用例。另：`keychain_cli.go` 补 `darwin || linux` 构建标签——它只服务
@@ -1486,7 +1498,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/03` §10、`docs/10` §4、`docs/11` §10、ADR-0013/0016/0020、根 `README.md` 全部同步；
   文档门户状态首页「已决定」由 1 篇升至 23 篇（41 篇 0 断链）；`v0.1.0` 附注标签已打，`14` §3 的 P1 门禁解除。
   覆盖率 8 个包未达标作为附加条件延后至 P1 首个 PR 前，当前 WARN 不记作通过。
-- **Go module 路径与仓库地址统一为 `github.com/asdfgh129/ud`**：首次推送 GitHub 时把 `go.mod`、
+- **Go module 路径与仓库地址统一为 `github.com/asdfgh129/gobitmule`**：首次推送 GitHub 时把 `go.mod`、
   全部 Go import、`Makefile` 的 `-X` 链接参数、`tools/check_arch.py` / `tools/gates.py` 的
   `MODULE` 常量、CHANGELOG 版本比较/发布链接同步为实际仓库地址；`docs/_site/index.html`
   由 `make docs` 重新生成。`.workbuddy/`（本地工作记忆）加入 `.gitignore`，不纳入版本库。
@@ -1702,5 +1714,5 @@ P0 骨架首个可运行基线：一条 HTTP(S) 直链走完 `Resolver → Resou
 - **文档门户**：`tools/build_docs.py` 支持 `@root:` 前缀登记根目录文档，`GROUPS` 新增「变更记录」分组，
   slug 规则显式固定 `changelog`；`docs/_site/index.html` 已重建。
 
-[Unreleased]: https://github.com/asdfgh129/ud/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/asdfgh129/ud/releases/tag/v0.1.0
+[Unreleased]: https://github.com/asdfgh129/gobitmule/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/asdfgh129/gobitmule/releases/tag/v0.1.0

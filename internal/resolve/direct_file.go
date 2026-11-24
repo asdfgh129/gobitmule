@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/asdfgh129/ud/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/core"
 )
 
 // fileSchemes are the direct-file protocols delivered by P1 WBS 9. The SSRF

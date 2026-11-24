@@ -1,4 +1,4 @@
-// udd is the Universal Downloader daemon (single binary, CGO_ENABLED=0).
+// udd is the GoBitMule daemon (single binary, CGO_ENABLED=0).
 package main
 
 import (
@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/asdfgh129/ud/internal/app"
-	"github.com/asdfgh129/ud/internal/version"
+	"github.com/asdfgh129/gobitmule/internal/app"
+	"github.com/asdfgh129/gobitmule/internal/version"
 )
 
 func main() {

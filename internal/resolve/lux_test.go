@@ -9,9 +9,9 @@ import (
 
 	"github.com/iawia002/lux/extractors"
 
-	"github.com/asdfgh129/ud/internal/config"
-	"github.com/asdfgh129/ud/internal/core"
-	"github.com/asdfgh129/ud/internal/security"
+	"github.com/asdfgh129/gobitmule/internal/config"
+	"github.com/asdfgh129/gobitmule/internal/core"
+	"github.com/asdfgh129/gobitmule/internal/security"
 )
 
 // luxGuard allows loopback (offline fixtures) while blocking private ranges.
