@@ -2,6 +2,7 @@ package goed2k
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -308,11 +309,12 @@ func (s *Session) SendDHTSourcesRequest(hash protocol.Hash, size int64, transfer
 		return false
 	}
 	return s.dhtTracker.SearchSources(hash, size, func(results []kadproto.SearchEntry) {
-		logx.Debug("dht source search result", "hash", hash.String(), "results", len(results))
 		s.mu.Lock()
 		current := s.transfers[hash]
 		s.mu.Unlock()
 		if current == nil || current != transfer {
+			logx.Debug("dht source search result dropped", "hash", hash.String(),
+				"results", len(results), "transfer_match", current == transfer)
 			return
 		}
 		// ED-05: a KAD source result carries the source node's 16-byte ID,
@@ -320,18 +322,42 @@ func (s *Session) SendDHTSourcesRequest(hash protocol.Hash, size int64, transfer
 		// carry it when obfuscation is explicitly enabled; sources without
 		// a usable hash keep the plaintext path.
 		obfuscationEnabled := s.GetEnableObfuscation()
-		for _, entry := range results {
+		parsed, added := 0, 0
+		for idx, entry := range results {
 			endpoint, ok := entry.SourceEndpoint()
 			if !ok || !endpoint.Defined() {
+				if idx < 3 {
+					logx.Debug("dht source entry skipped", "hash", hash.String(),
+						"endpoint_ok", ok, "endpoint", endpoint.String(), "tags", describeKadTags(entry.Tags))
+				}
 				continue
 			}
+			parsed++
+			var err error
 			if obfuscationEnabled && !entry.ID.Hash.Equal(protocol.Invalid) {
-				_ = current.AddPeerWithHash(endpoint, int(PeerDHT), entry.ID.Hash)
+				err = current.AddPeerWithHash(endpoint, int(PeerDHT), entry.ID.Hash)
 			} else {
-				_ = current.AddPeer(endpoint, int(PeerDHT))
+				err = current.AddPeer(endpoint, int(PeerDHT))
+			}
+			if err == nil {
+				added++
 			}
 		}
+		logx.Debug("dht source search result", "hash", hash.String(),
+			"results", len(results), "parsed", parsed, "added", added)
 	})
+}
+
+func describeKadTags(tags []kadproto.Tag) string {
+	parts := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		name := tag.Name
+		if name == "" {
+			name = fmt.Sprintf("id=%#x", tag.ID)
+		}
+		parts = append(parts, fmt.Sprintf("%s:%d", name, tag.UInt64))
+	}
+	return strings.Join(parts, ",")
 }
 
 func (s *Session) RequestSourcesNow(transfer *Transfer) bool {

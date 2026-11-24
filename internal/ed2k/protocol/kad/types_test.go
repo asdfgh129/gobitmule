@@ -37,6 +37,34 @@ func TestDecodePacketPlainAndPacked(t *testing.T) {
 	}
 }
 
+func TestSearchEntrySourceEndpointAcceptsEMuleSourceTypes(t *testing.T) {
+	// eMule's CSearch::ProcessResultFile handles source types 1/3/4/5/6.
+	// Type 0 means the tag was absent and is kept for older KAD peers.
+	for _, sourceType := range []byte{0, 1, 3, 4, 5, 6} {
+		entry := SearchEntry{Tags: []Tag{
+			{ID: TagSourceType, Type: TagTypeUint8, UInt64: uint64(sourceType)},
+			{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x04030201},
+			{ID: TagSourcePort, Type: TagTypeUint16, UInt64: 4662},
+		}}
+		endpoint, ok := entry.SourceEndpoint()
+		if !ok {
+			t.Fatalf("sourceType %d was rejected", sourceType)
+		}
+		if got := endpoint.String(); got != "1.2.3.4:4662" {
+			t.Fatalf("sourceType %d endpoint = %s, want 1.2.3.4:4662", sourceType, got)
+		}
+	}
+
+	unsupported := SearchEntry{Tags: []Tag{
+		{ID: TagSourceType, Type: TagTypeUint8, UInt64: 2},
+		{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x04030201},
+		{ID: TagSourcePort, Type: TagTypeUint16, UInt64: 4662},
+	}}
+	if _, ok := unsupported.SourceEndpoint(); ok {
+		t.Fatal("unsupported source type 2 should be rejected")
+	}
+}
+
 func TestTagGetNamedStringTag(t *testing.T) {
 	var wire bytes.Buffer
 	name := "filename"

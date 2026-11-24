@@ -27,8 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     避免 `listen :4662: bind: Only one usage...` 导致后续任务失败。
   - 下载引擎日志接入 daemon logger（`Goed2kConfig.Logger`），源发现/KAD 失败可见于日志。
   - 新增 `TestServerConnectFailure` 覆盖全部失败与空候选两条分支。
-  - 已知遗留：KAD `search-sources` 遍历未完成回调（`dht source search result` 未触发），
-    服务器 `FoundFileSources` 多为 0；这两项决定具体文件能否找到源，仍需后续排查。
+  - 已知遗留：服务器 `FoundFileSources` 多为 0；KAD `search-sources` 遍历未完成回调，
+    详见下条修复记录。
+
+- **KAD 源搜索不完成（2026-11-24）**：
+  - 对照 eMule 0.70b `CSearchManager::JumpStart` / `CSearch::ProcessResultFile` 定位三处差异：
+    - `processSearchRes()` 收到 `SEARCH_RES` 后只累加 `processedResponses`，从不调用
+      `observer.done()`，必须等满 12 秒 RPC 超时才推进；eMule 是按自身答案数/生命周期结束搜索。
+      现改为收到每个 `SEARCH_RES` 就实时累积到 traversal 并立即释放 observer（兼容同节点分包）。
+    - `find-sources` 返回的 100 个候选节点被全部用于 `search-sources`，无响应节点各等 12 秒，
+      整轮耗时数分钟；按 eMule 语义只向距离目标最近的 12 个联系人发起 `SEARCH_SOURCE_REQ`。
+    - `SearchEntry.SourceEndpoint()` 只接受 sourceType 0/1/4，而 eMule 接受 1/3/4/5/6，
+      现代节点的类型 3/5/6 源会被整条丢弃；已对齐 eMule 并保留 type 0 兼容旧节点。
+  - 新增源条目解析/入队统计日志（`parsed` / `added`）与跳过原因采样，便于定位 firewalled 源。
+  - 新增回归测试 `TestSearchResReleasesSourceTraversal`、
+    `TestSearchEntrySourceEndpointAcceptsEMuleSourceTypes`。
+  - 实测同一文件：`search-sources` 遍历可正常完成，源条目回调分别返回 31 与 25 条，
+    `parsed=31/25`、`added=31/25`（修复前回调从未触发）。
+  - 遗留：源已进入 transfer 且开始发起连接尝试，但当前文件的 peer 握手仍未成功，
+    `bytesDone` 仍为 0；这属于 eD2k peer 连接层问题，与 KAD 源发现无关。
 
 
 - **KAD2 公网搜索链路打通（2026-11-24）**：

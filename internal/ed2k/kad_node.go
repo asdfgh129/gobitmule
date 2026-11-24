@@ -377,8 +377,17 @@ func (n *kadNodeImpl) processSearchRes(addr *net.UDPAddr, res kadproto.SearchRes
 			"results", len(res.Results))
 		return
 	}
+	// eMule hands every SEARCH_RES to the owning search the moment it arrives;
+	// search completion is driven by its own answer count/lifetime instead of
+	// waiting for the per-node RPC to expire. Accumulate on receipt so split
+	// responses from the same node are not lost, then release the observer to
+	// let the traversal move on to the next closest contact immediately.
+	if tx.observer.traversal != nil {
+		tx.observer.traversal.accum = append(tx.observer.traversal.accum, res.Results...)
+	}
 	tx.observer.entries = append(tx.observer.entries, res.Results...)
 	tx.observer.processedResponses++
+	tx.observer.done()
 }
 
 func (n *kadNodeImpl) processPong(addr *net.UDPAddr, pong kadproto.Pong) {

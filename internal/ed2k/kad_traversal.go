@@ -21,6 +21,10 @@ const (
 	kadTraversalPreventRequest = 1
 	kadTraversalShortTimeout   = 2
 	kadTraversalMaxResults     = 100
+	// eMule only asks the few contacts closest to the file ID for sources
+	// (KADEMLIA_FIND_VALUE / m_mapBest). Querying every find-sources result
+	// makes an unresponsive peer cost 12s each and starves the download.
+	kadSearchSourcesTargets = 12
 )
 
 type kadTraversalKind string
@@ -336,9 +340,8 @@ func (t *kadTraversal) finished(o *kadObserver) {
 	}
 	switch t.kind {
 	case kadTraversalSearchSources, kadTraversalSearchKeyword:
-		if len(o.entries) > 0 {
-			t.accum = append(t.accum, o.entries...)
-		}
+		// SEARCH_RES entries are accumulated when each packet is received in
+		// processSearchRes(), so do not append them again here.
 	case kadTraversalFirewalled:
 		if o.externalIP != 0 && len(t.externalIPs) < 2 {
 			t.externalIPs = append(t.externalIPs, o.externalIP)
@@ -381,11 +384,18 @@ func (t *kadTraversal) done() {
 		if sp := t.node.storagePoint(); sp != nil {
 			direct.addNode(sp, t.target, 0, 0)
 		}
+		added := 0
 		for _, o := range t.results {
 			if o == nil || o.flags&kadObserverFlagFailed != 0 {
 				continue
 			}
+			// t.results is ordered by distance to the target; keep only the
+			// closest contacts, matching eMule's FILE source search.
+			if added >= kadSearchSourcesTargets {
+				break
+			}
 			direct.addNode(o.endpoint, o.id, o.portTCP, o.version)
+			added++
 		}
 		if !direct.start() {
 			logx.Debug("kad direct source search not started", "target", t.target.Hash.String(),

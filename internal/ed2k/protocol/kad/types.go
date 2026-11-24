@@ -416,7 +416,10 @@ func (s SearchEntry) SourceEndpoint() (protocol.Endpoint, bool) {
 	if !hasIP || !hasPort {
 		return protocol.Endpoint{}, false
 	}
-	if sourceType != 1 && sourceType != 4 && sourceType != 0 {
+	// eMule's CSearch::ProcessResultFile accepts source types 1/3/4/5/6.
+	// Type 0 means the TAG_SOURCETYPE tag was absent (older KAD peers);
+	// keep accepting it for compatibility as long as IP and port are present.
+	if sourceType != 0 && sourceType != 1 && sourceType != 3 && sourceType != 4 && sourceType != 5 && sourceType != 6 {
 		return protocol.Endpoint{}, false
 	}
 	return protocol.NewEndpoint(int32(uint32(ip)), int(port)), true
