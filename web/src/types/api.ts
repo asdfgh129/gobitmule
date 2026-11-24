@@ -170,9 +170,20 @@ export interface WsTicket {
   expiresAt: number
 }
 
-// The daemon returns the full config; only the six dotted keys below are
-// patchable at runtime (config.Manager.Patch whitelist). Everything else is
-// startup-only and is rendered read-only by the Settings view.
+// eD2k settings are UI-managed and persisted to config.yaml by the daemon.
+export interface ED2KConfig {
+  enabled: boolean
+  obfuscation: boolean
+  secureIdent: boolean
+  tcpPort: number
+  udpPort: number
+  outputDir: string
+  nodesDat: string
+  serverMet: string
+}
+
+// The daemon returns the full config; the dotted keys below are patchable at
+// runtime (config.Manager.Patch whitelist). Everything else is startup-only.
 export interface AppConfig {
   listen: string
   downloadDir: string
@@ -194,7 +205,7 @@ export interface AppConfig {
     [key: string]: unknown
   }
   bt: Record<string, unknown>
-  ed2k: Record<string, unknown>
+  ed2k: ED2KConfig
   plugins: Record<string, unknown>
   events: Record<string, unknown>
   postProcess: Record<string, unknown>
@@ -209,10 +220,139 @@ export const PATCHABLE_KEYS = [
   'global.maxConnectionsPerTask',
   'global.chunkSize',
   'security.blockPrivateNetworks',
+  'ed2k.enabled',
+  'ed2k.obfuscation',
+  'ed2k.secureIdent',
+  'ed2k.tcpPort',
+  'ed2k.udpPort',
+  'ed2k.outputDir',
+  'ed2k.nodesDat',
+  'ed2k.serverMet',
 ] as const
 
 export type PatchableKey = (typeof PATCHABLE_KEYS)[number]
 
 export interface CredentialResult {
   credentialRef: string
+}
+
+// ---------- eD2k search (mirrors internal/api/search.go) ----------
+export type ED2KSearchScope = 'all' | 'server' | 'kad'
+export type ED2KSearchState = 'IDLE' | 'RUNNING' | 'FINISHED' | 'STOPPED' | 'FAILED'
+export type ED2KSearchResultSource = 'server' | 'kad' | 'both' | ''
+
+export interface ED2KSearchParams {
+  query: string
+  scope: ED2KSearchScope
+  minSize: number
+  maxSize: number
+  minSources: number
+  minCompleteSources: number
+  fileType: string
+  extension: string
+}
+
+export interface ED2KSearchResult {
+  hash: string
+  fileName: string
+  fileSize: number
+  sources: number
+  completeSources: number
+  mediaBitrate: number
+  mediaLength: number
+  mediaCodec: string
+  extension: string
+  fileType: string
+  source: ED2KSearchResultSource
+  ed2kLink: string
+}
+
+export interface ED2KSearchSnapshot {
+  id: number
+  params: ED2KSearchParams
+  state: ED2KSearchState
+  results: ED2KSearchResult[]
+  startedAt: number
+  updatedAt: number
+  serverBusy: boolean
+  dhtBusy: boolean
+  kadKeyword: string
+  error: string
+}
+
+export interface ED2KSearchStatus {
+  available: boolean
+  snapshot: ED2KSearchSnapshot
+}
+
+export const EMPTY_ED2K_SEARCH_STATUS: ED2KSearchStatus = {
+  available: false,
+  snapshot: {
+    id: 0,
+    params: {
+      query: '', scope: 'all', minSize: 0, maxSize: 0,
+      minSources: 0, minCompleteSources: 0, fileType: '', extension: '',
+    },
+    state: 'IDLE',
+    results: [],
+    startedAt: 0,
+    updatedAt: 0,
+    serverBusy: false,
+    dhtBusy: false,
+    kadKeyword: '',
+    error: '',
+  },
+}
+
+// ---------- eD2k server list / KAD nodes (mirrors internal/api/ed2k_network.go) ----------
+export interface ED2KServerEntry {
+  address: string
+  name: string
+  description: string
+  source: string
+  connected: boolean
+  handshakeComplete: boolean
+  clientId: number
+}
+
+export interface ED2KServersStatus {
+  available: boolean
+  engineStarted: boolean
+  serverMet: string
+  connected: string
+  servers: ED2KServerEntry[]
+  message: string
+}
+
+export interface ED2KKadNode {
+  id: string
+  address: string
+  tcpPort: number
+  version: number
+  seed: boolean
+  helloSent: boolean
+  pinged: boolean
+  responded: boolean
+  failCount: number
+  firstSeen: number
+  lastSeen: number
+  router: boolean
+}
+
+export interface ED2KKadStatus {
+  available: boolean
+  engineStarted: boolean
+  bootstrapped: boolean
+  firewalled: boolean
+  liveNodes: number
+  replacementNodes: number
+  routerNodes: number
+  runningTraversals: number
+  knownNodes: number
+  verifiedNodes: number
+  listenPort: number
+  storagePoint: string
+  selfId: string
+  nodes: ED2KKadNode[]
+  message: string
 }

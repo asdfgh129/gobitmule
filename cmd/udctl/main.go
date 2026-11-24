@@ -26,6 +26,7 @@ var (
 	configPath      string
 	rawJSON         bool
 	insecurePlugins bool
+	openBrowser     bool
 )
 
 type cli struct {
@@ -43,6 +44,8 @@ func main() {
 	fs.BoolVar(&rawJSON, "json", false, "print raw JSON without indentation")
 	fs.BoolVar(&insecurePlugins, "insecure-plugins", false,
 		"skip plugin rule-pack signature verification (local development only)")
+	fs.BoolVar(&openBrowser, "open-browser", false,
+		"open the Web console in the default browser (daemon command only)")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		os.Exit(2)
 	}
@@ -60,6 +63,7 @@ func main() {
 		defer stop()
 		if err := app.Run(ctx, app.Options{
 			ConfigPath: configPath, Listen: addrFlag, InsecurePlugins: insecurePlugins,
+			OpenBrowser: openBrowser,
 		}); err != nil {
 			fatal(err)
 		}
@@ -374,7 +378,7 @@ func usage() {
   rm <id> [--with-files]    resolve <input>
   capabilities | stats | health
   config get [key] | config set <flat.key> <value>
-  daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins]
+  daemon [--config <file>] [--listen 127.0.0.1:0] [--insecure-plugins] [--open-browser]
   backup <dir> [--db <路径>] [--config <文件>]
   restore <dir> [--db <路径>]        （须先停止 daemon）
   migrate [--from N] [--db <路径>]   （须先停止 daemon）

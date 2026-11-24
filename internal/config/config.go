@@ -686,10 +686,22 @@ type Manager struct {
 	mu       sync.RWMutex
 	cfg      Config
 	onChange func(Config)
+	// persistPath is the config file used by the UI-managed eD2k settings.
+	// Empty disables persistence (tests / embedders). Other Patch keys stay
+	// runtime-only, preserving the original PATCH contract.
+	persistPath string
 }
 
 func NewManager(c Config, onChange func(Config)) *Manager {
 	return &Manager{cfg: c, onChange: onChange}
+}
+
+// SetPersistPath enables on-disk persistence for ed2k.* patches. Only the
+// ed2k section is rewritten, so comments and unknown keys survive the write.
+func (m *Manager) SetPersistPath(path string) {
+	m.mu.Lock()
+	m.persistPath = path
+	m.mu.Unlock()
 }
 
 // SetOnChange wires the callback after the Limiter/SSRFGuard have been built
@@ -723,8 +735,12 @@ func (m *Manager) patchLocked(kv map[string]any) (Config, func(Config), error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	next := m.cfg
+	persist := false
 	for k, v := range kv {
 		s := fmt.Sprint(v)
+		if strings.HasPrefix(k, "ed2k.") {
+			persist = true
+		}
 		switch k {
 		case "global.maxDownloadRate":
 			if _, err := ParseRate(s); err != nil {
@@ -759,12 +775,50 @@ func (m *Manager) patchLocked(kv map[string]any) (Config, func(Config), error) {
 				return m.cfg, nil, fmt.Errorf("invalid %s", k)
 			}
 			next.Security.BlockPrivateNetworks = b
+		case "ed2k.enabled", "ed2k.obfuscation", "ed2k.secureIdent":
+			b, err := strconv.ParseBool(s)
+			if err != nil {
+				return m.cfg, nil, fmt.Errorf("invalid %s", k)
+			}
+			switch k {
+			case "ed2k.enabled":
+				next.ED2K.Enabled = b
+			case "ed2k.obfuscation":
+				next.ED2K.Obfuscation = b
+			default:
+				next.ED2K.SecureIdent = b
+			}
+		case "ed2k.tcpPort", "ed2k.udpPort":
+			n, err := strconv.Atoi(s)
+			if err != nil || n < 0 || n > 65535 {
+				return m.cfg, nil, fmt.Errorf("invalid %s (must be 0..65535)", k)
+			}
+			if k == "ed2k.tcpPort" {
+				next.ED2K.TCPPort = n
+			} else {
+				next.ED2K.UDPPort = n
+			}
+		case "ed2k.outputDir", "ed2k.nodesDat", "ed2k.serverMet":
+			p := ExpandHome(strings.TrimSpace(s))
+			switch k {
+			case "ed2k.outputDir":
+				next.ED2K.OutputDir = p
+			case "ed2k.nodesDat":
+				next.ED2K.NodesDat = p
+			default:
+				next.ED2K.ServerMet = p
+			}
 		default:
 			return m.cfg, nil, fmt.Errorf("unsupported config key %q", k)
 		}
 	}
 	if err := next.Validate(); err != nil {
 		return m.cfg, nil, err
+	}
+	if persist && m.persistPath != "" {
+		if err := SaveED2K(m.persistPath, next.ED2K); err != nil {
+			return m.cfg, nil, fmt.Errorf("persist ed2k settings: %w", err)
+		}
 	}
 	m.cfg = next
 	return next, m.onChange, nil

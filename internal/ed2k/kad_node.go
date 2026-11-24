@@ -371,6 +371,9 @@ func (n *kadNodeImpl) processSearchRes(addr *net.UDPAddr, res kadproto.SearchRes
 	target := res.Target.Hash
 	tx := n.tracker.rpc.Incoming(addr, kadproto.SearchResOp, &target)
 	if tx == nil || tx.observer == nil {
+		logx.Debug("kad search res unmatched", "from", addr.String(),
+			"source", res.Source.Hash.String(), "target", target.String(),
+			"results", len(res.Results))
 		return
 	}
 	tx.observer.entries = append(tx.observer.entries, res.Results...)

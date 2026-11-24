@@ -8,6 +8,7 @@ type DHTStatus struct {
 	RouterNodes       int
 	RunningTraversals int
 	KnownNodes        int
+	VerifiedNodes     int
 	InitialBootstrap  bool
 	ListenPort        int
 	StoragePoint      string

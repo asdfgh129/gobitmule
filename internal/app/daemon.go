@@ -134,6 +134,10 @@ type Options struct {
 	// InsecurePlugins is the CLI --insecure-plugins escape hatch for local
 	// rule development: it skips Ed25519 verification for this run only.
 	InsecurePlugins bool
+	// OpenBrowser asks the daemon to launch the default browser once the HTTP
+	// listener is live. Defaults to false for embedders/tests; cmd/udd enables
+	// it by default (UD_NO_BROWSER=1 is the non-interactive escape hatch).
+	OpenBrowser bool
 }
 
 // Discovery is the local discovery file written when listen uses port 0
@@ -234,6 +238,13 @@ func Run(ctx context.Context, opts Options) error {
 	}()
 	guard := security.NewSSRFGuard(cfg.Security)
 	mgr := config.NewManager(cfg, nil)
+	// eD2k settings edited in the Web console are the only persisted PATCH
+	// keys; all other PATCH keys stay runtime-only (docs/07 §2).
+	persistPath := cfgPath
+	if persistPath == "" {
+		persistPath = "config.yaml"
+	}
+	mgr.SetPersistPath(persistPath)
 	// ADR-0015 decision ④: credentials go to the OS secret store when the host
 	// has one. The state directory is reused so the file/DPAPI backends keep
 	// their payload next to state.db and survive a restart; the chosen backend is
@@ -350,10 +361,22 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	// eD2k search is an optional REST capability: with ed2k.enabled=false the
+	// engine is never constructed and the UI reports the capability as absent.
+	var search api.ED2KSearchProvider
+	var network api.ED2KNetworkProvider
+	// The adapter is always wired so settings saved at runtime can enable the
+	// engine without restarting the daemon. When ed2k.enabled=false every eD2k
+	// endpoint reports available=false / 503 and no engine is constructed.
+	adapter := newED2KSearchAdapter(mgr, log)
+	search = adapter
+	network = adapter
+	defer func() { _ = adapter.Close() }()
+
 	loopback := isLoopbackListen(cfg.Listen)
 	srv := api.New(api.Options{
 		Control: sch, Config: mgr, Credentials: creds, Bus: bus, Logger: log,
-		EventHistory: st.Events,
+		EventHistory: st.Events, Search: search, Network: network,
 		// Fail closed: any non-loopback listener requires a Bearer token.
 		// config.Validate already rejects the token-less case at startup.
 		AuthToken: cfg.RemoteToken, RequireAuth: !loopback,
@@ -383,6 +406,7 @@ func Run(ctx context.Context, opts Options) error {
 	}()
 	log.Info("daemon ready", "addr", addr, "version", version.String(),
 		"db", dbPath, "recoveredTasks", recovered, "discovery", dpath)
+	maybeOpenBrowser(opts, addr, loopback, log)
 
 	select {
 	case <-ctx.Done():

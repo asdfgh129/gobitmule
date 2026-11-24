@@ -5685,8 +5685,30 @@ P1 WBS 7 之后仍未接入 <code>bt.clientConfig</code>（固定 <code>NoUpload
 <td><code>/ws-ticket</code></td>
 <td>用 bearer 换取 WebSocket 一次性票据：<code>201 {"ticket":"&lt;48 hex&gt;","expiresAt":&lt;ms&gt;}</code>，60 秒有效、单次消费。<strong>2026-11-20 新增</strong></td>
 </tr>
+<tr>
+<td>GET / POST / DELETE</td>
+<td><code>/ed2k/search</code></td>
+<td>eD2k 搜索状态 / 发起 / 停止；<code>available=false</code> 时 POST/DELETE 为 503。<strong>2026-11-24 新增</strong></td>
+</tr>
+<tr>
+<td>GET / POST / DELETE</td>
+<td><code>/ed2k/servers</code></td>
+<td>server.met 服务器列表 / 添加 / 按 <code>?address=</code> 删除；另见 <code>/ed2k/servers/connect</code>、<code>/ed2k/servers/disconnect</code>。<strong>2026-11-24 新增</strong></td>
+</tr>
+<tr>
+<td>GET / POST</td>
+<td><code>/ed2k/kad</code> · <code>/ed2k/kad/nodes</code></td>
+<td>KAD 路由表快照 / 添加引导节点。<strong>2026-11-24 新增</strong></td>
+</tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>eD2k 配置热更新（2026-11-24）</strong>：<code>PATCH /config</code> 除原有的运行时键外，还接受
+<code>ed2k.enabled</code>、<code>ed2k.tcpPort</code>、<code>ed2k.udpPort</code>、<code>ed2k.outputDir</code>、<code>ed2k.nodesDat</code>、
+<code>ed2k.serverMet</code>、<code>ed2k.obfuscation</code>、<code>ed2k.secureIdent</code>；这些键会只重写
+<code>config.yaml</code> 的 <code>ed2k:</code> 段（保留注释与其他键），搜索与服务器/KAD 页面立即生效，
+eD2k 下载通道因 Transport 在启动时注册，仍需重启守护进程。</p>
+</blockquote>
 <p><strong>创建任务示例</strong></p>
 <pre><code class="language-json">POST /api/v1/tasks
 {
@@ -15835,6 +15857,26 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
 <p>标「2026-11-09 评审闭环」的条目已随 <code>v0.1.0</code> 附注标签发布；自该标签起的 P1 变更记入本段
 （首条为 2026-11-10 的覆盖率债清零）。标签 message 附本文件摘要。</p>
 </blockquote>
+<h3 id="h-changelog--fixed">Fixed</h3>
+<ul>
+<li><strong>KAD2 公网搜索链路打通（2026-11-24）</strong>：</li>
+<li>补齐 eMule/aMule tag 的 named-tag 编码（<code>0x80</code> 清零时为 uint16 长度 + 名字；
+    单字符名字归一为数字 ID），修复真实节点 HELLO_RES 报
+    <code>kad tag without id is unsupported</code> 导致无法确认节点的问题。</li>
+<li>修正 <code>nodes.dat</code> 联系人 IP 的字节序转换：端点 uint32 按大端字节输出 IPv4，
+    避免把 <code>79.117.19.23</code> 误解析为 <code>23.19.117.79</code> 等无效地址；
+    修正后 209 引导可将 <code>verifiedNodes</code> 从 0 提升到 50+。</li>
+<li>KAD2 RC4 加密头改用 eMule/aMule 实际的 LittleEndian magic/verify-key 布局，
+    并修正 receiver-key fallback 的 6 字节 keyData，使公网节点能解密我方请求。</li>
+<li>支持 packed KAD 数据报（头字节 <code>0xE5</code>，opcode 明文、payload zlib 压缩），
+    此前几 KB 的 <code>SEARCH_RES</code> 全部因 <code>unsupported kad protocol header</code> 被丢弃。</li>
+<li>tag 解析扩展到 <code>HASH16/FLOAT32/BOOL/BOOLARRAY/BLOB/BSOB</code> 及 STR17–STR22，
+    避免真实搜索结果因未知 tag 类型整包解码失败。</li>
+<li>209 真机的 <code>server.met</code> 与 <code>nodes.dat</code> 入库到 <code>data/ed2k/</code>，配置示例注明可直接引用；
+    <code>nodes.dat</code> 与既有取证副本 SHA-256 一致。</li>
+<li>实测 <code>scope=kad</code> 搜索 <code>windows</code> 返回 998 条；<code>scope=all</code> 返回 6834 条
+    （server 4219 / kad 1661 / both 954）。</li>
+</ul>
 <h3 id="h-changelog--changed">Changed</h3>
 <ul>
 <li><strong>项目正式更名为 GoBitMule（2026-11-24）</strong>：</li>
@@ -15849,6 +15891,31 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
 </ul>
 <h3 id="h-changelog--added">Added</h3>
 <ul>
+<li><strong>Web 控制台：eMule 设置、服务器列表与 KAD 节点页（2026-11-24）</strong>：</li>
+<li>修正侧边栏品牌文字：由 <code>Universal Downloader</code> 改为 <strong>GoBitMule</strong>。</li>
+<li>设置页新增独立「eMule 设置」Tab，支持 <code>enabled</code> / <code>tcpPort</code> / <code>udpPort</code> /
+    <code>nodesDat</code> / <code>serverMet</code> / <code>outputDir</code> / <code>secureIdent</code> / <code>obfuscation</code>；
+    <code>PATCH /config</code> 的这批键会持久化到 <code>config.yaml</code> 的 <code>ed2k:</code> 段（保留注释与其他配置）。</li>
+<li>新增 <code>/#/servers</code> 服务器列表页：读取 server.met、显示连接状态、添加/删除服务器、
+    连接与断开；新增 <code>/#/kad</code> KAD 节点页：路由表统计、节点明细与引导节点添加。</li>
+<li>新增 L0 REST <code>GET/POST/DELETE /api/v1/ed2k/servers</code>、
+    <code>POST /api/v1/ed2k/servers/{connect,disconnect}</code>、<code>GET /api/v1/ed2k/kad</code>、
+    <code>POST /api/v1/ed2k/kad/nodes</code>；未启用引擎时返回 <code>available=false</code> 或 503。</li>
+<li>
+<p>eD2k 搜索引擎在设置变更后按需重启，配置即时生效；下载通道仍需重启守护进程。</p>
+</li>
+<li>
+<p><strong>Web 控制台：eMule 搜索页与启动自动打开浏览器（2026-11-24）</strong>：</p>
+</li>
+<li>Vue 3 + TS 新增 <code>/#/search</code> 搜索页：关键词输入、范围/类型/大小/来源筛选、
+    结果表（文件名/大小/来源/完整源/类型/哈希）、结果内筛选与排序、
+    eD2K 链接复制与一键加入下载队列；界面参照 eMule 搜索页布局。</li>
+<li>新增 L0 REST 接口 <code>GET/POST/DELETE /api/v1/ed2k/search</code>，把 forked goed2k
+    的 <code>StartSearch</code> / <code>SearchSnapshot</code> 封装为窄接口；<code>ed2k.enabled=false</code> 时
+    GET 返回 <code>available=false</code>，POST/DELETE 返回 503，不伪造结果。</li>
+<li>搜索引擎按首次搜索按需启动并复用，监听端口与下载器错开以避免任务下载冲突。</li>
+<li><code>udd</code> 启动后自动在默认浏览器打开 Web 控制台搜索页；
+    <code>--open-browser=false</code> 或 <code>UD_NO_BROWSER=1</code> 可关闭，非 loopback 监听自动跳过。</li>
 <li><strong>WBS 16：ED-01/03/04 收官 —— 六个 ED 门禁全部 PASS（2026-11-23）</strong>：</li>
 <li>新增三件取证工具（fork 自身线协议 codec + 真内核 socket，不碰 ud 状态）：
     <code>cmd/uded2kfakeserver</code>（受控 eD2k 服务器：LoginRequest→IdChange→GetFileSources→
@@ -17384,7 +17451,7 @@ Transmission / libtorrent，且要求抓包 + 千兆内网），故 BX 证据<st
 <li>ADR-0020 把 SBOM / 漏洞扫描 / 许可证扫描 / 覆盖率报告 / 回滚演练从「P1 待办」与
   「不包含」清单移出（它们属构建期门禁工具，不是产品能力）。</li>
 </ul>
-<h3 id="h-changelog--fixed">Fixed</h3>
+<h3 id="h-changelog--fixed_1">Fixed</h3>
 <ul>
 <li><strong>修复：钥匙串提交在 CI 跌破 <code>internal/security</code> 覆盖率阈值（<code>6d96918</code> run
   <code>44065445782</code> → <code>dbd31ec</code> run <code>44070121233</code>，2026-11-17）</strong>：</li>
@@ -17546,7 +17613,7 @@ ADR 0001–0020 全部转 <code>Accepted</code>；OPEN-01 定档 <strong>MPL-2.0
 <li><strong>敏感请求头不再明文落库</strong>：<code>TaskOptions.Headers</code> / <code>Resource.Headers</code> 原先以 JSON 原样写入 <code>task_options</code> 与 <code>resources.headers</code>，违反 <code>docs/06</code> §6「DB 仅 <code>cred_ref</code>」。新增 <code>security.StripSensitiveHeaders</code>，在 store 的两个持久化入口强制<strong>剥离</strong>（而非掩码，避免重启后把 <code>***</code> 当真实 header 回放）；<code>POST /tasks</code>、<code>POST /tasks/batch</code>、<code>PATCH /tasks/{id}</code> 直接拒绝 <code>Authorization</code> / <code>Cookie</code> / <code>X-Api-Key</code> 等内联凭据头（<code>400 E_INVALID_INPUT</code>），引导改用 <code>POST /credentials</code> + <code>credentialRef</code>。回归：<code>TestSensitiveHeadersNeverPersisted</code>、<code>TestInlineCredentialHeadersRejected</code>。</li>
 <li><strong>远程控制面 fail closed</strong>：<code>listen</code> 为非回环地址且未配置 <code>remoteToken</code> 时，<code>config.Validate</code> 拒绝启动（原先会暴露无鉴权监听）；daemon 侧 <code>RequireAuth</code> 对任何非回环监听恒为 <code>true</code>。同时禁止 <code>allowLoopbackForDev</code> 与非回环监听组合。回归：<code>TestRemoteListenRequiresToken</code>。对齐 <code>docs/07</code> §1 与 ADR-0016。</li>
 </ul>
-<h3 id="h-changelog--fixed_1">Fixed</h3>
+<h3 id="h-changelog--fixed_2">Fixed</h3>
 <ul>
 <li><code>PathGuard.Clean</code> 在 macOS <code>/var → /private/var</code> 符号链接下对任何临时目录误报「symlink escape」：
   改为根与父目录<strong>双方都</strong>解析符号链接后再比较。</li>

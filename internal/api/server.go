@@ -43,6 +43,12 @@ type Options struct {
 	// EventHistory reads persisted events for the UI's initial timeline.
 	// Optional: when absent, GET /events/history reports E_CAPABILITY_UNAVAILABLE.
 	EventHistory func(context.Context, int) ([]core.Event, error)
+	// Search is the optional eD2k search capability. Nil keeps the REST surface
+	// honest: status returns available=false, start/stop return 503.
+	Search ED2KSearchProvider
+	// Network exposes the eD2k server list and KAD routing table. Nil makes
+	// those endpoints return 503 instead of fabricated empty data.
+	Network ED2KNetworkProvider
 }
 
 type Server struct {
@@ -58,6 +64,8 @@ type Server struct {
 	mu           sync.Mutex
 	idempotent   map[string]core.TaskID
 	eventHistory func(context.Context, int) ([]core.Event, error)
+	search       ED2KSearchProvider
+	network      ED2KNetworkProvider
 	// rpc is the optional L1 aria2 facade (ADR-0031). Nil when disabled, in
 	// which case /jsonrpc is not registered and returns 404.
 	rpc *rpcFacade
@@ -79,7 +87,8 @@ func New(opts Options) *Server {
 		bus: opts.Bus, log: opts.Logger, hub: newWSHub(opts.Bus),
 		mux: http.NewServeMux(), authToken: opts.AuthToken,
 		requireAuth: opts.RequireAuth, idempotent: make(map[string]core.TaskID),
-		eventHistory: opts.EventHistory, tickets: make(map[string]time.Time),
+		eventHistory: opts.EventHistory, search: opts.Search, network: opts.Network,
+		tickets: make(map[string]time.Time),
 	}
 	// ADR-0031: opt-in L1 aria2 facade. When disabled the JSON-RPC routes are
 	// not registered at all, so the wire surface stays at L0 byte-for-byte.
@@ -109,6 +118,16 @@ func (s *Server) routes() {
 	mux.HandleFunc("GET /api/v1/stats", s.stats)
 	mux.HandleFunc("GET /api/v1/healthz", s.health)
 	mux.HandleFunc("POST /api/v1/credentials", s.putCredential)
+	mux.HandleFunc("GET /api/v1/ed2k/search", s.getED2KSearch)
+	mux.HandleFunc("POST /api/v1/ed2k/search", s.startED2KSearch)
+	mux.HandleFunc("DELETE /api/v1/ed2k/search", s.stopED2KSearch)
+	mux.HandleFunc("GET /api/v1/ed2k/servers", s.getED2KServers)
+	mux.HandleFunc("POST /api/v1/ed2k/servers", s.addED2KServer)
+	mux.HandleFunc("DELETE /api/v1/ed2k/servers", s.removeED2KServer)
+	mux.HandleFunc("POST /api/v1/ed2k/servers/connect", s.connectED2KServer)
+	mux.HandleFunc("POST /api/v1/ed2k/servers/disconnect", s.disconnectED2KServers)
+	mux.HandleFunc("GET /api/v1/ed2k/kad", s.getED2KKad)
+	mux.HandleFunc("POST /api/v1/ed2k/kad/nodes", s.addED2KKadNode)
 	mux.HandleFunc("GET /api/v1/events/history", s.eventHistoryHandler)
 	mux.HandleFunc("POST /api/v1/ws-ticket", s.issueWSTicket)
 	mux.Handle("GET /api/v1/events", http.HandlerFunc(s.hub.ServeHTTP))

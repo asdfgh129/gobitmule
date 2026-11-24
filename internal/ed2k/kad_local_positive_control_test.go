@@ -22,10 +22,11 @@ import (
 // same codec fork uses cannot produce responses>0 / entries>0, then the fault
 // is in the fork's encode/RPC/traversal chain, not the remote environment.
 type fakeKADPeer struct {
-	conn     *net.UDPConn
-	combiner kadproto.PacketCombiner
-	selfID   kadproto.ID
-	source   kadproto.SearchEntry
+	conn         *net.UDPConn
+	combiner     kadproto.PacketCombiner
+	selfID       kadproto.ID
+	udpVerifyKey uint32
+	source       kadproto.SearchEntry
 
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -52,10 +53,11 @@ func newFakeKADPeer(t *testing.T) *fakeKADPeer {
 		},
 	}
 	p := &fakeKADPeer{
-		conn:   conn,
-		selfID: kadproto.NewID(protocol.MustHashFromString("11223344556677889900AABBCCDDEEFF")),
-		source: source,
-		stopCh: make(chan struct{}),
+		conn:         conn,
+		selfID:       kadproto.NewID(protocol.MustHashFromString("11223344556677889900AABBCCDDEEFF")),
+		udpVerifyKey: 0x11223344,
+		source:       source,
+		stopCh:       make(chan struct{}),
 	}
 	p.wg.Add(1)
 	go p.serve()
@@ -93,7 +95,11 @@ func (p *fakeKADPeer) serve() {
 			}
 			return
 		}
-		opcode, msg, err := p.combiner.Unpack(buf[:n])
+		packet := buf[:n]
+		if plain, _, ok := kadproto.DecryptDatagram(packet, p.selfID, p.udpVerifyKey); ok {
+			packet = plain
+		}
+		opcode, msg, err := p.combiner.Unpack(packet)
 		if err != nil {
 			continue
 		}

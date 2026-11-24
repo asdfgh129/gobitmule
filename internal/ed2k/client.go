@@ -139,6 +139,7 @@ func (c *Client) AddDHTBootstrapNodes(nodes ...string) error {
 				return err
 			}
 			tracker.AddNode(addr)
+			tracker.ProbeNode(addr)
 		}
 	}
 	return nil

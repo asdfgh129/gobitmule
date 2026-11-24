@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > （首条为 2026-11-10 的覆盖率债清零）。标签 message 附本文件摘要。
 
 
+### Fixed
+- **KAD2 公网搜索链路打通（2026-11-24）**：
+  - 补齐 eMule/aMule tag 的 named-tag 编码（`0x80` 清零时为 uint16 长度 + 名字；
+    单字符名字归一为数字 ID），修复真实节点 HELLO_RES 报
+    `kad tag without id is unsupported` 导致无法确认节点的问题。
+  - 修正 `nodes.dat` 联系人 IP 的字节序转换：端点 uint32 按大端字节输出 IPv4，
+    避免把 `79.117.19.23` 误解析为 `23.19.117.79` 等无效地址；
+    修正后 209 引导可将 `verifiedNodes` 从 0 提升到 50+。
+  - KAD2 RC4 加密头改用 eMule/aMule 实际的 LittleEndian magic/verify-key 布局，
+    并修正 receiver-key fallback 的 6 字节 keyData，使公网节点能解密我方请求。
+  - 支持 packed KAD 数据报（头字节 `0xE5`，opcode 明文、payload zlib 压缩），
+    此前几 KB 的 `SEARCH_RES` 全部因 `unsupported kad protocol header` 被丢弃。
+  - tag 解析扩展到 `HASH16/FLOAT32/BOOL/BOOLARRAY/BLOB/BSOB` 及 STR17–STR22，
+    避免真实搜索结果因未知 tag 类型整包解码失败。
+  - 209 真机的 `server.met` 与 `nodes.dat` 入库到 `data/ed2k/`，配置示例注明可直接引用；
+    `nodes.dat` 与既有取证副本 SHA-256 一致。
+  - 实测 `scope=kad` 搜索 `windows` 返回 998 条；`scope=all` 返回 6834 条
+    （server 4219 / kad 1661 / both 954）。
+
+
 ### Changed
 - **项目正式更名为 GoBitMule（2026-11-24）**：
   - 项目显示名由 `Universal Downloader（通用下载器 / UD）` 更新为 **GoBitMule**；
@@ -28,6 +48,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **Web 控制台：eMule 设置、服务器列表与 KAD 节点页（2026-11-24）**：
+  - 修正侧边栏品牌文字：由 `Universal Downloader` 改为 **GoBitMule**。
+  - 设置页新增独立「eMule 设置」Tab，支持 `enabled` / `tcpPort` / `udpPort` /
+    `nodesDat` / `serverMet` / `outputDir` / `secureIdent` / `obfuscation`；
+    `PATCH /config` 的这批键会持久化到 `config.yaml` 的 `ed2k:` 段（保留注释与其他配置）。
+  - 新增 `/#/servers` 服务器列表页：读取 server.met、显示连接状态、添加/删除服务器、
+    连接与断开；新增 `/#/kad` KAD 节点页：路由表统计、节点明细与引导节点添加。
+  - 新增 L0 REST `GET/POST/DELETE /api/v1/ed2k/servers`、
+    `POST /api/v1/ed2k/servers/{connect,disconnect}`、`GET /api/v1/ed2k/kad`、
+    `POST /api/v1/ed2k/kad/nodes`；未启用引擎时返回 `available=false` 或 503。
+  - eD2k 搜索引擎在设置变更后按需重启，配置即时生效；下载通道仍需重启守护进程。
+
+- **Web 控制台：eMule 搜索页与启动自动打开浏览器（2026-11-24）**：
+  - Vue 3 + TS 新增 `/#/search` 搜索页：关键词输入、范围/类型/大小/来源筛选、
+    结果表（文件名/大小/来源/完整源/类型/哈希）、结果内筛选与排序、
+    eD2K 链接复制与一键加入下载队列；界面参照 eMule 搜索页布局。
+  - 新增 L0 REST 接口 `GET/POST/DELETE /api/v1/ed2k/search`，把 forked goed2k
+    的 `StartSearch` / `SearchSnapshot` 封装为窄接口；`ed2k.enabled=false` 时
+    GET 返回 `available=false`，POST/DELETE 返回 503，不伪造结果。
+  - 搜索引擎按首次搜索按需启动并复用，监听端口与下载器错开以避免任务下载冲突。
+  - `udd` 启动后自动在默认浏览器打开 Web 控制台搜索页；
+    `--open-browser=false` 或 `UD_NO_BROWSER=1` 可关闭，非 loopback 监听自动跳过。
 - **WBS 16：ED-01/03/04 收官 —— 六个 ED 门禁全部 PASS（2026-11-23）**：
   - 新增三件取证工具（fork 自身线协议 codec + 真内核 socket，不碰 ud 状态）：
     `cmd/uded2kfakeserver`（受控 eD2k 服务器：LoginRequest→IdChange→GetFileSources→

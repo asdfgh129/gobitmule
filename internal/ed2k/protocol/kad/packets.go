@@ -33,7 +33,9 @@ const (
 	PublishResAckOp       byte = 0x4C
 	SearchNotesReqOp      byte = 0x35
 
-	KademliaVersion byte = 0x05
+	// Public eMule/aMule nodes speak Kad2 (version >= 6). Advertising 0x05
+	// while sending Kad2 opcodes makes peers answer with the wrong framing.
+	KademliaVersion byte = 0x08
 
 	FindValue byte = 0x02
 	Store     byte = 0x04

@@ -1,8 +1,9 @@
 import { http } from './client'
 import type {
   AppConfig, BatchResult, Capabilities, CreatedTask, CredentialResult,
-  Health, PatchableKey, Resource, Stats, Task, TaskDetail, TaskList,
-  TaskOptions, TaskState, UDEvent, InputKind,
+  ED2KKadStatus, ED2KServersStatus, ED2KSearchParams, ED2KSearchStatus,
+  Health, PatchableKey, Resource, Stats,
+  Task, TaskDetail, TaskList, TaskOptions, TaskState, UDEvent, InputKind,
 } from '@/types/api'
 
 /**
@@ -58,6 +59,27 @@ export const rpc = {
 
   events: {
     history: (limit = 100) => http.get<{ events: UDEvent[] }>(`/api/v1/events/history?limit=${limit}`),
+  },
+
+  ed2kSearch: {
+    status: () => http.get<ED2KSearchStatus>('/api/v1/ed2k/search'),
+    start: (params: ED2KSearchParams) =>
+      http.post<ED2KSearchStatus>('/api/v1/ed2k/search', params),
+    stop: () => http.delete<ED2KSearchStatus>('/api/v1/ed2k/search'),
+  },
+
+  ed2kNetwork: {
+    servers: () => http.get<ED2KServersStatus>('/api/v1/ed2k/servers'),
+    addServer: (input: { address: string; name?: string; description?: string }) =>
+      http.post<ED2KServersStatus>('/api/v1/ed2k/servers', input),
+    removeServer: (address: string) =>
+      http.delete<ED2KServersStatus>(`/api/v1/ed2k/servers?address=${encodeURIComponent(address)}`),
+    connectServer: (address: string) =>
+      http.post<ED2KServersStatus>('/api/v1/ed2k/servers/connect', { address }),
+    disconnectServers: () => http.post<ED2KServersStatus>('/api/v1/ed2k/servers/disconnect'),
+    kad: () => http.get<ED2KKadStatus>('/api/v1/ed2k/kad'),
+    addKadNode: (address: string) =>
+      http.post<ED2KKadStatus>('/api/v1/ed2k/kad/nodes', { address }),
   },
 }
 

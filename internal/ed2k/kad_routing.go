@@ -14,9 +14,11 @@ type KadRoutingNode struct {
 	Addr      *net.UDPAddr
 	TCPPort   uint16
 	Version   byte
+	UDPKey    uint32
 	Seed      bool
 	HelloSent bool
 	Pinged    bool
+	Responded bool // set only after a real UDP reply from this node
 	FailCount int
 	FirstSeen time.Time
 	LastSeen  time.Time

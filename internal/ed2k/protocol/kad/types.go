@@ -2,24 +2,35 @@ package kad
 
 import (
 	"bytes"
+	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 const (
-	ProtocolHeader byte = 0xE4
-	SearchResOp    byte = 0x3B
-	SearchSrcReqOp byte = 0x34
+	ProtocolHeader       byte = 0xE4
+	PackedProtocolHeader byte = 0xE5
+	SearchResOp          byte = 0x3B
+	SearchSrcReqOp       byte = 0x34
 
-	TagTypeString byte = 0x02
-	TagTypeUint32 byte = 0x03
-	TagTypeUint16 byte = 0x08
-	TagTypeUint8  byte = 0x09
-	TagTypeUint64 byte = 0x0B
-	TagTypeStr1   byte = 0x11
+	TagTypeHash16    byte = 0x01
+	TagTypeString    byte = 0x02
+	TagTypeUint32    byte = 0x03
+	TagTypeFloat32   byte = 0x04
+	TagTypeBool      byte = 0x05
+	TagTypeBoolArray byte = 0x06
+	TagTypeBlob      byte = 0x07
+	TagTypeUint16    byte = 0x08
+	TagTypeUint8     byte = 0x09
+	TagTypeBsob      byte = 0x0A
+	TagTypeUint64    byte = 0x0B
+	TagTypeStr1      byte = 0x11
+	TagTypeStrMax    byte = 0x26 // STR22, accepted by eMule receive path
 
 	TagEncryption  byte = 0xF3
 	TagBuddyHash   byte = 0xF8
@@ -132,8 +143,10 @@ func (e Entry) Put(dst *bytes.Buffer) error {
 type Tag struct {
 	Type   byte
 	ID     byte
+	Name   string
 	UInt64 uint64
 	String string
+	Bytes  []byte
 }
 
 func (t *Tag) Get(src *bytes.Reader) error {
@@ -142,15 +155,88 @@ func (t *Tag) Get(src *bytes.Reader) error {
 		return err
 	}
 	t.Type = tagType & 0x7f
-	if tagType&0x80 == 0 {
-		return errors.New("kad tag without id is unsupported")
+	t.ID = 0
+	t.Name = ""
+	t.String = ""
+	t.UInt64 = 0
+	t.Bytes = nil
+	if tagType&0x80 != 0 {
+		// Numeric tag ID. This is the classic eD2k/Kad form emitted by
+		// our own packets and by most peers for well-known tags.
+		tagID, err := src.ReadByte()
+		if err != nil {
+			return err
+		}
+		t.ID = tagID
+	} else {
+		// Named tag. eMule/aMule write the name with CFileDataIO::WriteString,
+		// i.e. a little-endian uint16 length followed by the raw name bytes.
+		// A one-character name is canonicalised to its numeric ID by aMule.
+		nameSize, err := protocol.ReadUInt16(src)
+		if err != nil {
+			return err
+		}
+		rawName, err := protocol.ReadBytes(src, int(nameSize))
+		if err != nil {
+			return err
+		}
+		if nameSize == 1 {
+			t.ID = rawName[0]
+		} else {
+			t.Name = string(rawName)
+		}
 	}
-	tagID, err := src.ReadByte()
-	if err != nil {
-		return err
-	}
-	t.ID = tagID
 	switch t.Type {
+	case TagTypeHash16:
+		value, err := protocol.ReadBytes(src, 16)
+		if err != nil {
+			return err
+		}
+		t.Bytes = value
+	case TagTypeBool:
+		value, err := src.ReadByte()
+		if err != nil {
+			return err
+		}
+		t.UInt64 = uint64(value)
+	case TagTypeFloat32:
+		value, err := protocol.ReadUInt32(src)
+		if err != nil {
+			return err
+		}
+		t.UInt64 = uint64(value)
+	case TagTypeBoolArray:
+		bitCount, err := protocol.ReadUInt16(src)
+		if err != nil {
+			return err
+		}
+		t.UInt64 = uint64(bitCount)
+		// eMule/aMule use len/8 + 1 bytes for a bool array on the wire.
+		t.Bytes, err = protocol.ReadBytes(src, int(bitCount/8)+1)
+		return err
+	case TagTypeBlob:
+		size, err := protocol.ReadUInt32(src)
+		if err != nil {
+			return err
+		}
+		if uint64(size) > uint64(src.Len()) {
+			return errors.New("invalid kad blob tag size")
+		}
+		value, err := protocol.ReadBytes(src, int(size))
+		if err != nil {
+			return err
+		}
+		t.Bytes = value
+	case TagTypeBsob:
+		size, err := src.ReadByte()
+		if err != nil {
+			return err
+		}
+		value, err := protocol.ReadBytes(src, int(size))
+		if err != nil {
+			return err
+		}
+		t.Bytes = value
 	case TagTypeUint8:
 		value, err := src.ReadByte()
 		if err != nil {
@@ -186,7 +272,7 @@ func (t *Tag) Get(src *bytes.Reader) error {
 		}
 		t.String = string(value)
 	default:
-		if t.Type >= TagTypeStr1 && t.Type <= TagTypeStr1+15 {
+		if t.Type >= TagTypeStr1 && t.Type <= TagTypeStrMax {
 			size := int(t.Type-TagTypeStr1) + 1
 			value, err := protocol.ReadBytes(src, size)
 			if err != nil {
@@ -195,20 +281,56 @@ func (t *Tag) Get(src *bytes.Reader) error {
 			t.String = string(value)
 			return nil
 		}
-		return errors.New("unsupported kad tag type")
+		return fmt.Errorf("unsupported kad tag type %#x", t.Type)
 	}
 	return nil
 }
 
 func (t Tag) Put(dst *bytes.Buffer) error {
-	tagType := t.Type | 0x80
-	if err := dst.WriteByte(tagType); err != nil {
-		return err
-	}
-	if err := dst.WriteByte(t.ID); err != nil {
-		return err
+	if t.Name != "" {
+		if err := dst.WriteByte(t.Type); err != nil {
+			return err
+		}
+		if err := protocol.WriteUInt16(dst, uint16(len(t.Name))); err != nil {
+			return err
+		}
+		if _, err := dst.WriteString(t.Name); err != nil {
+			return err
+		}
+	} else {
+		if err := dst.WriteByte(t.Type | 0x80); err != nil {
+			return err
+		}
+		if err := dst.WriteByte(t.ID); err != nil {
+			return err
+		}
 	}
 	switch t.Type {
+	case TagTypeHash16:
+		_, err := dst.Write(t.Bytes)
+		return err
+	case TagTypeBool:
+		return dst.WriteByte(byte(t.UInt64))
+	case TagTypeFloat32:
+		return protocol.WriteUInt32(dst, uint32(t.UInt64))
+	case TagTypeBoolArray:
+		if err := protocol.WriteUInt16(dst, uint16(t.UInt64)); err != nil {
+			return err
+		}
+		_, err := dst.Write(t.Bytes)
+		return err
+	case TagTypeBlob:
+		if err := protocol.WriteUInt32(dst, uint32(len(t.Bytes))); err != nil {
+			return err
+		}
+		_, err := dst.Write(t.Bytes)
+		return err
+	case TagTypeBsob:
+		if err := dst.WriteByte(byte(len(t.Bytes))); err != nil {
+			return err
+		}
+		_, err := dst.Write(t.Bytes)
+		return err
 	case TagTypeUint8:
 		return dst.WriteByte(byte(t.UInt64))
 	case TagTypeUint16:
@@ -224,11 +346,11 @@ func (t Tag) Put(dst *bytes.Buffer) error {
 		_, err := dst.WriteString(t.String)
 		return err
 	default:
-		if t.Type >= TagTypeStr1 && t.Type <= TagTypeStr1+15 {
+		if t.Type >= TagTypeStr1 && t.Type <= TagTypeStrMax {
 			_, err := dst.WriteString(t.String)
 			return err
 		}
-		return errors.New("unsupported kad tag type")
+		return fmt.Errorf("unsupported kad tag type %#x", t.Type)
 	}
 }
 
@@ -468,10 +590,30 @@ func DecodePacket(packet []byte) (byte, []byte, error) {
 	if len(packet) < 2 {
 		return 0, nil, errors.New("kad packet too short")
 	}
-	if packet[0] != ProtocolHeader {
+	switch packet[0] {
+	case ProtocolHeader:
+		return packet[1], packet[2:], nil
+	case PackedProtocolHeader:
+		// aMule/eMule call CPacket::PackPacket() for KAD datagrams larger
+		// than 200 bytes. Only the payload (after header+opcode) is zlib
+		// compressed; the opcode stays in the clear.
+		reader, err := zlib.NewReader(bytes.NewReader(packet[2:]))
+		if err != nil {
+			return 0, nil, err
+		}
+		defer reader.Close()
+		const maxKadPayload = 4 << 20
+		payload, err := io.ReadAll(io.LimitReader(reader, maxKadPayload))
+		if err != nil {
+			return 0, nil, err
+		}
+		if len(payload) == maxKadPayload {
+			return 0, nil, errors.New("kad packed payload too large")
+		}
+		return packet[1], payload, nil
+	default:
 		return 0, nil, errors.New("unsupported kad protocol header")
 	}
-	return packet[1], packet[2:], nil
 }
 
 func DistanceCompare(a, b, target ID) int {

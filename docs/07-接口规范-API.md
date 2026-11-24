@@ -166,6 +166,15 @@
 | GET | `/events` (WS) | 事件推送；远程鉴权模式须带 `?ticket=`（见 §4） |
 | GET | `/events/history?limit=` | 持久化事件历史（默认 50，上限 200，按时间升序）。**2026-11-20 新增** |
 | POST | `/ws-ticket` | 用 bearer 换取 WebSocket 一次性票据：`201 {"ticket":"<48 hex>","expiresAt":<ms>}`，60 秒有效、单次消费。**2026-11-20 新增** |
+| GET / POST / DELETE | `/ed2k/search` | eD2k 搜索状态 / 发起 / 停止；`available=false` 时 POST/DELETE 为 503。**2026-11-24 新增** |
+| GET / POST / DELETE | `/ed2k/servers` | server.met 服务器列表 / 添加 / 按 `?address=` 删除；另见 `/ed2k/servers/connect`、`/ed2k/servers/disconnect`。**2026-11-24 新增** |
+| GET / POST | `/ed2k/kad` · `/ed2k/kad/nodes` | KAD 路由表快照 / 添加引导节点。**2026-11-24 新增** |
+
+> **eD2k 配置热更新（2026-11-24）**：`PATCH /config` 除原有的运行时键外，还接受
+> `ed2k.enabled`、`ed2k.tcpPort`、`ed2k.udpPort`、`ed2k.outputDir`、`ed2k.nodesDat`、
+> `ed2k.serverMet`、`ed2k.obfuscation`、`ed2k.secureIdent`；这些键会只重写
+> `config.yaml` 的 `ed2k:` 段（保留注释与其他键），搜索与服务器/KAD 页面立即生效，
+> eD2k 下载通道因 Transport 在启动时注册，仍需重启守护进程。
 
 **创建任务示例**
 ```json

@@ -1,6 +1,8 @@
 package goed2k
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"net"
 	"strings"
@@ -19,6 +21,7 @@ type DHTTracker struct {
 	searchTimeout       time.Duration
 	combiner            kadproto.PacketCombiner
 	selfID              kadproto.ID
+	udpVerifyKey        uint32 // sender/receiver key advertised in Kad2 UDP headers
 	node                *kadNodeImpl
 	nodes               map[string]*KadRoutingNode
 	table               *kadRoutingTable
@@ -45,10 +48,18 @@ func NewDHTTracker(listenPort int, timeout time.Duration) *DHTTracker {
 	if randomID, err := protocol.RandomHash(false); err == nil {
 		selfID = kadproto.NewID(randomID)
 	}
+	var keyBytes [4]byte
+	if _, err := rand.Read(keyBytes[:]); err != nil {
+		keyBytes[0] = byte(time.Now().UnixNano())
+		keyBytes[1] = byte(time.Now().UnixNano() >> 8)
+		keyBytes[2] = byte(time.Now().UnixNano() >> 16)
+		keyBytes[3] = byte(time.Now().UnixNano() >> 24)
+	}
 	tracker := &DHTTracker{
 		listenPort:    listenPort,
 		searchTimeout: timeout,
 		selfID:        selfID,
+		udpVerifyKey:  binary.LittleEndian.Uint32(keyBytes[:]),
 		nodes:         make(map[string]*KadRoutingNode),
 		table:         newKadRoutingTable(selfID, 10),
 		rpc:           newKadRPCManager(),
@@ -118,6 +129,23 @@ func (t *DHTTracker) AddNodes(addrs ...*net.UDPAddr) {
 	}
 }
 
+// ProbeNode sends a KAD2 HELLO to a bootstrap contact whose KadID is unknown.
+// The reply teaches us its ID, version and UDP verify key, which are required
+// to encrypt later requests to it.
+func (t *DHTTracker) ProbeNode(addr *net.UDPAddr) {
+	if addr == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	node := t.nodes[addr.String()]
+	if node == nil {
+		node = &KadRoutingNode{Addr: normalizeUDPAddr(addr)}
+		t.nodes[node.Key()] = node
+	}
+	t.maybeSendHelloLocked(node)
+}
+
 func (t *DHTTracker) LoadNodesDat(path string) error {
 	nodes, err := kadproto.LoadNodesDat(path)
 	if err != nil {
@@ -136,10 +164,7 @@ func (t *DHTTracker) ApplyNodesDat(nodes *kadproto.NodesDat) error {
 	haveVerified := false
 	loaded := make([]*KadRoutingNode, 0, len(nodes.Contacts))
 	for _, entry := range nodes.Contacts {
-		addr := &net.UDPAddr{
-			IP:   net.IPv4(byte(entry.Endpoint.IP), byte(entry.Endpoint.IP>>8), byte(entry.Endpoint.IP>>16), byte(entry.Endpoint.IP>>24)),
-			Port: int(entry.Endpoint.UDPPort),
-		}
+		addr := udpAddrFromKad(entry.Endpoint)
 		node := t.addOrUpdateNodeLocked(entry.ID, addr, entry.Endpoint.TCPPort, entry.Version, true)
 		if node == nil {
 			continue
@@ -215,16 +240,25 @@ func (t *DHTTracker) readLoop() {
 			continue
 		}
 		addr = normalizeUDPAddr(addr)
+		// Kad2 peers obfuscate every UDP packet. Learn their verify key from
+		// the encrypted header so later requests can be encrypted with it.
+		packet := buffer[:n]
+		encrypted := false
+		if plain, senderKey, ok := kadproto.DecryptDatagram(packet, t.selfID, t.udpVerifyKey); ok {
+			packet = plain
+			encrypted = true
+			t.rememberUDPKey(addr, senderKey)
+		}
 		// Packet-level observability: with -debug, distinguish "no packet"
 		// from "packet arrived but failed to decode". opcode 0 / len<2 means
 		// a malformed or non-KAD datagram.
 		recvOpcode := byte(0)
-		if n >= 2 {
-			recvOpcode = buffer[1]
+		if len(packet) >= 2 {
+			recvOpcode = packet[1]
 		}
 		logx.Debug("kad udp recv", "from", addr.String(), "bytes", n,
-			"header", recvOpcode)
-		opcode, message, err := t.combiner.Unpack(buffer[:n])
+			"header", recvOpcode, "encrypted", encrypted)
+		opcode, message, err := t.combiner.Unpack(packet)
 		if err != nil {
 			logx.Debug("kad udp recv decode failed", "from", addr.String(),
 				"bytes", n, "err", err.Error())
@@ -315,7 +349,7 @@ func (t *DHTTracker) handleHello(addr *net.UDPAddr, hello kadproto.Hello, reply 
 	if reply {
 		t.writePacket(addr, kadproto.Hello{
 			ID:      t.selfID,
-			TCPPort: uint16(t.ListenPort()),
+			TCPPort: uint16(t.listenPort), // called with t.mu held; never re-enter ListenPort()
 			Version: kadproto.KademliaVersion,
 		}, kadproto.HelloResOp)
 	}
@@ -470,7 +504,7 @@ func (t *DHTTracker) maybeSendHelloLocked(node *KadRoutingNode) {
 	node.HelloSent = true
 	t.writePacketLocked(node.Addr, kadproto.Hello{
 		ID:      t.selfID,
-		TCPPort: uint16(t.ListenPort()),
+		TCPPort: uint16(t.listenPort), // called with t.mu held; never re-enter ListenPort()
 		Version: kadproto.KademliaVersion,
 	}, kadproto.HelloReqOp)
 	t.rpc.Invoke(&kadRPCTransaction{endpointKey: node.Addr.String(), opcode: kadproto.HelloResOp})
@@ -621,19 +655,29 @@ func (t *DHTTracker) Status() DHTStatus {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	live, replacements := t.table.Size()
+	// Pinged is only set by confirmNodeLocked after a real UDP reply. Counting
+	// routing-table entries as "bootstrapped" hides the case where nodes.dat
+	// was loaded but no peer ever answered (e.g. incompatible Kad2 crypto).
+	verified := 0
+	for _, node := range t.nodes {
+		if node != nil && node.Responded && node.KnownID() {
+			verified++
+		}
+	}
 	status := DHTStatus{
 		Firewalled:       t.firewalled,
 		LiveNodes:        live,
 		ReplacementNodes: replacements,
 		RouterNodes:      len(t.table.RouterNodes()),
 		KnownNodes:       len(t.nodes),
+		VerifiedNodes:    verified,
 		ListenPort:       t.listenPort,
 	}
 	if t.node != nil {
 		status.RunningTraversals = len(t.node.running)
 		status.InitialBootstrap = t.node.initialBootstrapRequired
 	}
-	status.Bootstrapped = live > 0
+	status.Bootstrapped = verified > 0
 	if t.storagePoint != nil {
 		status.StoragePoint = t.storagePoint.String()
 	}
@@ -672,6 +716,7 @@ func (t *DHTTracker) SnapshotState() *ClientDHTState {
 			Seed:      node.Seed,
 			HelloSent: node.HelloSent,
 			Pinged:    node.Pinged,
+			Responded: node.Responded,
 			FailCount: node.FailCount,
 			FirstSeen: timeToMillis(node.FirstSeen),
 			LastSeen:  timeToMillis(node.LastSeen),
@@ -723,6 +768,7 @@ func (t *DHTTracker) ApplyState(state *ClientDHTState) error {
 			Seed:      record.Seed,
 			HelloSent: record.HelloSent,
 			Pinged:    record.Pinged,
+			Responded: record.Responded,
 			FailCount: record.FailCount,
 			FirstSeen: millisToTime(record.FirstSeen),
 			LastSeen:  millisToTime(record.LastSeen),
@@ -784,6 +830,22 @@ func (t *DHTTracker) addOrUpdateNode(id kadproto.ID, addr *net.UDPAddr, tcpPort 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.addOrUpdateNodeLocked(id, addr, tcpPort, version, seed)
+}
+
+// rememberUDPKey stores the sender verify key advertised by a Kad2 peer.
+// It does not mark the node alive: only an application-level reply does that.
+func (t *DHTTracker) rememberUDPKey(addr *net.UDPAddr, key uint32) {
+	if addr == nil || key == 0 {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	node := t.nodes[addr.String()]
+	if node == nil {
+		node = &KadRoutingNode{Addr: normalizeUDPAddr(addr)}
+		t.nodes[node.Key()] = node
+	}
+	node.UDPKey = key
 }
 
 func (t *DHTTracker) addOrUpdateNodeLocked(id kadproto.ID, addr *net.UDPAddr, tcpPort uint16, version byte, seed bool) *KadRoutingNode {
@@ -924,9 +986,20 @@ func (t *DHTTracker) writePacketWithOpcodeLocked(addr *net.UDPAddr, packet any, 
 	if len(raw) >= 2 {
 		opcode = raw[1]
 	}
+	encrypted := false
+	// Kad2 contacts require obfuscated UDP. Encrypt with the peer's KadID when
+	// known, otherwise with the verify key it advertised in an earlier packet.
+	if node := t.nodes[addr.String()]; node != nil && node.Version >= 6 {
+		if wire, err := kadproto.EncryptDatagram(raw, node.ID, node.UDPKey, t.udpVerifyKey); err == nil {
+			raw = wire
+			encrypted = true
+		} else {
+			logx.Debug("kad udp encrypt failed", "to", addr.String(), "err", err.Error())
+		}
+	}
 	n, writeErr := t.conn.WriteToUDP(raw, addr)
 	logx.Debug("kad udp send", "to", addr.String(), "opcode", opcode,
-		"bytes", len(raw), "err", errorString(writeErr))
+		"bytes", len(raw), "encrypted", encrypted, "err", errorString(writeErr))
 	return n, writeErr
 }
 
@@ -942,6 +1015,7 @@ func (t *DHTTracker) confirmNodeLocked(node *KadRoutingNode) {
 		return
 	}
 	node.Pinged = true
+	node.Responded = true
 	node.FailCount = 0
 	node.LastSeen = time.Now()
 	t.table.NodeSeen(node)
@@ -963,7 +1037,10 @@ func normalizeUDPAddr(addr *net.UDPAddr) *net.UDPAddr {
 }
 
 func udpAddrFromKad(endpoint kadproto.Endpoint) *net.UDPAddr {
-	ip := net.IPv4(byte(endpoint.IP), byte(endpoint.IP>>8), byte(endpoint.IP>>16), byte(endpoint.IP>>24))
+	// Endpoint.IP is stored the same way eMule/aMule write it: little-endian
+	// on the wire, but held here as a numeric uint32 whose big-endian bytes
+	// are the dotted IPv4 address. e.g. 0x4F751317 means 79.117.19.23.
+	ip := net.IPv4(byte(endpoint.IP>>24), byte(endpoint.IP>>16), byte(endpoint.IP>>8), byte(endpoint.IP))
 	return &net.UDPAddr{IP: ip, Port: int(endpoint.UDPPort)}
 }
 
@@ -972,7 +1049,7 @@ func protocolIP(ip net.IP) uint32 {
 	if len(ip4) != 4 {
 		return 0
 	}
-	return uint32(ip4[0]) | uint32(ip4[1])<<8 | uint32(ip4[2])<<16 | uint32(ip4[3])<<24
+	return uint32(ip4[0])<<24 | uint32(ip4[1])<<16 | uint32(ip4[2])<<8 | uint32(ip4[3])
 }
 
 func timeToMillis(value time.Time) int64 {

@@ -2,6 +2,9 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
 import TasksView from '@/views/TasksView.vue'
 import NewDownloadView from '@/views/NewDownloadView.vue'
+import SearchView from '@/views/SearchView.vue'
+import ServersView from '@/views/ServersView.vue'
+import KadView from '@/views/KadView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import OperationsView from '@/views/OperationsView.vue'
 
@@ -26,6 +29,18 @@ const router = createRouter({
     {
       path: '/new', name: 'new', component: NewDownloadView,
       meta: { title: '新建下载', subtitle: '解析链接并加入下载队列', icon: 'plus' } satisfies RouteMeta,
+    },
+    {
+      path: '/search', name: 'search', component: SearchView,
+      meta: { title: 'eMule 搜索', subtitle: '通过 eD2k 服务器与 KAD 网络查找文件', icon: 'search' } satisfies RouteMeta,
+    },
+    {
+      path: '/servers', name: 'servers', component: ServersView,
+      meta: { title: 'eD2k 服务器', subtitle: '管理 server.met 与服务器连接', icon: 'server' } satisfies RouteMeta,
+    },
+    {
+      path: '/kad', name: 'kad', component: KadView,
+      meta: { title: 'KAD 节点', subtitle: '查看路由表并添加引导节点', icon: 'wifi' } satisfies RouteMeta,
     },
     {
       path: '/settings', name: 'settings', component: SettingsView,

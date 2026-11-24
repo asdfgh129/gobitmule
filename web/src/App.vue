@@ -20,6 +20,9 @@ const nav = [
   { name: 'dashboard', label: '概览', icon: 'dashboard' },
   { name: 'tasks', label: '任务', icon: 'tasks' },
   { name: 'new', label: '新建下载', icon: 'plus' },
+  { name: 'search', label: 'eMule 搜索', icon: 'search' },
+  { name: 'servers', label: 'eD2k 服务器', icon: 'server' },
+  { name: 'kad', label: 'KAD 节点', icon: 'wifi' },
   { name: 'settings', label: '设置', icon: 'settings' },
   { name: 'operations', label: '运维', icon: 'tools' },
 ]
@@ -65,8 +68,8 @@ onUnmounted(() => {
       <div class="brand">
         <span class="brand__mark"><Icon name="download" :size="20" /></span>
         <div>
-          <strong>Universal<br />Downloader</strong>
-          <small>Web Console</small>
+          <strong>GoBitMule</strong>
+          <small>eMule · BitTorrent 控制台</small>
         </div>
       </div>
 

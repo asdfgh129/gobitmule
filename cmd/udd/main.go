@@ -23,6 +23,8 @@ func main() {
 	flag.StringVar(&opts.LogLevel, "log-level", "", "debug|info|warn|error")
 	flag.BoolVar(&opts.InsecurePlugins, "insecure-plugins", false,
 		"skip plugin rule-pack signature verification (local development only)")
+	flag.BoolVar(&opts.OpenBrowser, "open-browser", true,
+		"open the Web console in the default browser at startup (loopback listeners only)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("udd", version.String())

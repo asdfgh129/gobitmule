@@ -59,6 +59,7 @@ type ClientDHTNodeState struct {
 	Seed      bool          `json:"seed,omitempty"`
 	HelloSent bool          `json:"hello_sent,omitempty"`
 	Pinged    bool          `json:"pinged,omitempty"`
+	Responded bool          `json:"responded,omitempty"`
 	FailCount int           `json:"fail_count,omitempty"`
 	FirstSeen int64         `json:"first_seen,omitempty"`
 	LastSeen  int64         `json:"last_seen,omitempty"`
