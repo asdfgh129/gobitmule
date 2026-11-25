@@ -4,6 +4,7 @@ import (
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol/obfuscation"
@@ -25,8 +26,12 @@ func TestConnectionIncomingObfuscationAcceptsPlaintext(t *testing.T) {
 		_, _ = client.Write(plain)
 	}()
 
-	if err := conn.enableIncomingObfuscation(protocol.MustHashFromString("22222222222222222222222222222222")); err != nil {
+	greeting, err := conn.enableIncomingObfuscation(protocol.MustHashFromString("22222222222222222222222222222222"))
+	if err != nil {
 		t.Fatalf("enableIncomingObfuscation: %v", err)
+	}
+	if greeting {
+		t.Fatal("plaintext peer was misclassified as a silent server probe")
 	}
 	if conn.IsObfuscated() {
 		t.Fatal("plaintext peer wrongly marked as obfuscated")
@@ -61,8 +66,12 @@ func TestConnectionIncomingObfuscationCompletesHandshake(t *testing.T) {
 		done <- err
 	}()
 
-	if err := conn.enableIncomingObfuscation(peerHash); err != nil {
+	greeting, err := conn.enableIncomingObfuscation(peerHash)
+	if err != nil {
 		t.Fatalf("enableIncomingObfuscation: %v", err)
+	}
+	if greeting {
+		t.Fatal("obfuscated peer was misclassified as a silent server probe")
 	}
 	if !conn.IsObfuscated() {
 		t.Fatal("obfuscated peer not marked as obfuscated")
@@ -97,5 +106,59 @@ func TestConnectionPeerHashState(t *testing.T) {
 	conn.SetObfuscationPeerHash(protocol.Invalid)
 	if !conn.obfPeerHash.Equal(protocol.Invalid) {
 		t.Fatal("invalid hash should disarm outgoing obfuscation")
+	}
+}
+
+// TestIncomingSilentProbeGetsHello reproduces the eD2k server callback test:
+// the server connects to our listening port and waits for the client to send
+// the first Hello frame. Previously WrapIncoming blocked reading a marker and
+// closed the socket, so the server assigned a LowID.
+func TestIncomingPrefixKeepsPartialHeader(t *testing.T) {
+	conn := NewConnection(nil)
+	prefix := []byte{protocol.EdonkeyHeader, 0x3B, 0x00, 0x00, 0x00}
+	conn.AppendIncoming(prefix)
+
+	headers, bodies, err := conn.ReadFramesWithCombiner(nil)
+	if err != nil {
+		t.Fatalf("ReadFramesWithCombiner: %v", err)
+	}
+	if len(headers) != 0 || len(bodies) != 0 {
+		t.Fatalf("partial header yielded %d frames", len(headers))
+	}
+	if got := string(conn.DrainIncoming()); got != string(prefix) {
+		t.Fatalf("partial header lost: got %X want %X", got, prefix)
+	}
+}
+
+func TestIncomingSilentProbeGetsHello(t *testing.T) {
+	oldWait := incomingProbeWait
+	incomingProbeWait = 20 * time.Millisecond
+	t.Cleanup(func() { incomingProbeWait = oldWait })
+
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	session := NewSession(NewSettings())
+	pc := NewIncomingPeerConnection(session, server)
+	greeting, err := pc.enableIncomingObfuscation(session.GetUserAgent())
+	if err != nil {
+		t.Fatalf("enableIncomingObfuscation: %v", err)
+	}
+	if !greeting {
+		t.Fatal("silent server probe was not detected")
+	}
+	if pc.IsObfuscated() {
+		t.Fatal("silent probe must stay plaintext")
+	}
+
+	pc.OnConnect()
+	packets := pc.PendingPackets()
+	if len(packets) != 1 {
+		t.Fatalf("queued packets = %d, want 1", len(packets))
+	}
+	raw := packets[0]
+	if len(raw) < 6 || raw[0] != protocol.EdonkeyHeader || raw[5] != 0x01 {
+		t.Fatalf("silent probe did not queue a valid Hello frame: %X", raw)
 	}
 }

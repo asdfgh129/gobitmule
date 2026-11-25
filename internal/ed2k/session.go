@@ -600,19 +600,23 @@ func (s *Session) acceptIncomingConnections() {
 			}
 			pc := NewIncomingPeerConnection(s, conn)
 			// ED-05: accept eMule basic obfuscation on incoming peer sockets.
-			// WrapIncoming falls back to plaintext when the peer sends a normal
-			// eD2k header, so this is safe with cleartext peers. Do the blocking
-			// handshake before publishing the connection and outside s.mu.
-			if s.GetEnableObfuscation() {
-				if err := pc.enableIncomingObfuscation(s.GetUserAgent()); err != nil {
-					debugPeerf("incoming obfuscation handshake failed: %v", err)
-					pc.Close(EncryptionError)
-					continue
-				}
+			// The short probe first distinguishes cleartext peers, real
+			// obfuscated peers and the silent eD2k server port callback. The
+			// callback expects us to send the first client Hello; answering it
+			// is what turns a forwarded 4662 port into a HighID.
+			greetingNeeded, err := pc.prepareIncoming(s.GetUserAgent(), s.GetEnableObfuscation())
+			if err != nil {
+				debugPeerf("incoming handshake failed: %v", err)
+				pc.Close(EncryptionError)
+				continue
 			}
 			s.mu.Lock()
 			s.connections = append(s.connections, pc)
 			s.mu.Unlock()
+			if greetingNeeded {
+				debugPeerf("incoming %s is a silent probe, sending Hello", conn.RemoteAddr().String())
+				pc.OnConnect()
+			}
 		default:
 			return
 		}

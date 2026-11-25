@@ -2,21 +2,35 @@ package goed2k
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol/obfuscation"
 )
 
-// connectionIODeadlineNS is a socket read/write deadline passed directly to
-// net.Conn.Set{Read,Write}Deadline as a time.Duration in nanoseconds. It must
-// be 5 *seconds*, not 5 milliseconds: PumpIO serves many peer sockets in one
-// loop, and eD2k HelloAnswer packets routinely arrive 200-400ms after our
-// Hello. A 5ms deadline made DoRead time out before the reply arrived, so
-// otherwise-live KAD sources were misclassified as dead.
+// connectionIODeadlineNS is the write deadline passed directly to
+// net.Conn.SetWriteDeadline as a time.Duration in nanoseconds. It must be
+// seconds: a large compressed part can take a while to hand to a slow peer.
 const connectionIODeadlineNS = int64(5 * 1000 * 1000 * 1000)
+
+// connectionPollDeadlineNS bounds a single read in PumpIO. PumpIO serves all
+// sockets in one loop, so a long idle read would stall every other peer - in
+// particular the accepted server callback socket waiting for our Hello. A
+// timeout just returns control to the pump; data that arrives later is picked
+// up on the next tick, so replies after 200-400ms are not lost.
+const connectionPollDeadlineNS = int64(50 * 1000 * 1000)
+
+// incomingProbeWait bounds how long we wait for the first bytes of an
+// accepted socket before deciding it is a silent eD2k server callback. A
+// server testing our listening port connects and waits for us to send a
+// client Hello; it may not send a complete (or even any) frame first. Real
+// peers send either a plain eD2k header or the five-byte obfuscation prefix
+// immediately, so a short wait keeps both paths intact.
+var incomingProbeWait = 750 * time.Millisecond
 
 type Connection struct {
 	socket        net.Conn
@@ -64,7 +78,7 @@ func (c *Connection) DoRead() error {
 		return nil
 	}
 	tmp := make([]byte, 16*1024)
-	_ = c.socket.SetReadDeadline(CurrentTimeToDeadline(connectionIODeadlineNS))
+	_ = c.socket.SetReadDeadline(CurrentTimeToDeadline(connectionPollDeadlineNS))
 	n, err := c.socket.Read(tmp)
 	if err != nil {
 		if ne, ok := err.(net.Error); ok && ne.Timeout() {
@@ -117,20 +131,109 @@ func (c *Connection) armTentativeObfuscation(hash protocol.Hash) {
 // basic obfuscation (handshake completed, RC4 active).
 func (c *Connection) IsObfuscated() bool { return c.obfuscated }
 
-// enableIncomingObfuscation performs the B-side handshake on an accepted
-// socket. A plaintext peer is passed through unchanged (WrapIncoming falls
-// back), so enabling this never breaks cleartext connections.
-func (c *Connection) enableIncomingObfuscation(localHash protocol.Hash) error {
-	if c.socket == nil || localHash.Equal(protocol.Invalid) {
-		return nil
+// incomingPrefixConn replays bytes consumed by the silent-probe peek so the
+// obfuscation handshake (or the plaintext parser) still sees the original
+// stream from byte zero.
+type incomingPrefixConn struct {
+	prefix []byte
+	raw    net.Conn
+}
+
+func (p *incomingPrefixConn) Read(b []byte) (int, error) {
+	if len(p.prefix) > 0 {
+		n := copy(b, p.prefix)
+		p.prefix = p.prefix[n:]
+		return n, nil
 	}
-	wrapped, obf, err := obfuscation.WrapIncoming(c.socket, localHash, nil)
+	return p.raw.Read(b)
+}
+func (p *incomingPrefixConn) Write(b []byte) (int, error)   { return p.raw.Write(b) }
+func (p *incomingPrefixConn) Close() error                  { return p.raw.Close() }
+func (p *incomingPrefixConn) LocalAddr() net.Addr           { return p.raw.LocalAddr() }
+func (p *incomingPrefixConn) RemoteAddr() net.Addr          { return p.raw.RemoteAddr() }
+func (p *incomingPrefixConn) SetDeadline(t time.Time) error { return p.raw.SetDeadline(t) }
+func (p *incomingPrefixConn) SetReadDeadline(t time.Time) error {
+	return p.raw.SetReadDeadline(t)
+}
+func (p *incomingPrefixConn) SetWriteDeadline(t time.Time) error {
+	return p.raw.SetWriteDeadline(t)
+}
+
+// peekIncomingPrefix reads up to n bytes without discarding them. A timeout
+// with zero bytes means the peer is waiting for us to speak first; a timeout
+// after a partial prefix means the probe did not send a usable handshake.
+func peekIncomingPrefix(raw net.Conn, n int) ([]byte, bool, error) {
+	_ = raw.SetReadDeadline(time.Now().Add(incomingProbeWait))
+	defer func() { _ = raw.SetReadDeadline(time.Time{}) }()
+
+	buf := make([]byte, n)
+	total := 0
+	for total < n {
+		read, err := raw.Read(buf[total:])
+		total += read
+		if err == nil {
+			continue
+		}
+		if ne, ok := err.(net.Error); ok && ne.Timeout() {
+			return buf[:total], true, nil
+		}
+		if err == io.EOF && total > 0 {
+			return buf[:total], true, nil
+		}
+		return buf[:total], false, err
+	}
+	return buf[:total], false, nil
+}
+
+// prepareIncoming classifies an accepted socket before it is published to the
+// IO pump. It returns greeting=true when the peer stayed silent (or sent only
+// an incomplete handshake prefix): that is the eD2k server port callback,
+// which expects us to send the first client Hello. Plaintext peers and real
+// obfuscated peers keep their original paths.
+func (c *Connection) prepareIncoming(localHash protocol.Hash, obfEnabled bool) (bool, error) {
+	if c.socket == nil {
+		return false, nil
+	}
+	endpoint := c.Endpoint().String()
+	prefix, timedOut, err := peekIncomingPrefix(c.socket, 5)
 	if err != nil {
-		return err
+		return false, err
 	}
-	c.socket = wrapped
+	if len(prefix) == 0 && timedOut {
+		debugPeerf("incoming %s silent probe, answer with Hello", endpoint)
+		return true, nil
+	}
+	logx.Debug("incoming peer probe", "endpoint", endpoint, "bytes", len(prefix), "prefix", fmt.Sprintf("%X", prefix))
+
+	wrapped := net.Conn(&incomingPrefixConn{prefix: prefix, raw: c.socket})
+	if !obfuscation.ValidMarker(prefix[0]) {
+		// Plain eD2k header (0xE3/0xD4/0xC5): fall back to cleartext.
+		c.socket = wrapped
+		return false, nil
+	}
+	if timedOut || len(prefix) < 5 {
+		// A lone marker byte is not a usable obfuscation handshake. Treat it
+		// as a port probe and let the caller send a plaintext Hello.
+		debugPeerf("incoming %s incomplete probe prefix %X, answer with Hello", endpoint, prefix)
+		return true, nil
+	}
+	if !obfEnabled || localHash.Equal(protocol.Invalid) {
+		c.socket = wrapped
+		return false, nil
+	}
+	final, obf, err := obfuscation.WrapIncoming(wrapped, localHash, nil)
+	if err != nil {
+		return false, err
+	}
+	c.socket = final
 	c.obfuscated = obf
-	return nil
+	return false, nil
+}
+
+// enableIncomingObfuscation is the obfuscation-enabled entry point kept for
+// the existing connection tests.
+func (c *Connection) enableIncomingObfuscation(localHash protocol.Hash) (bool, error) {
+	return c.prepareIncoming(localHash, true)
 }
 
 func (c *Connection) Connect(address net.Addr) error {
@@ -322,6 +425,13 @@ func (c *Connection) ReadFramesWithCombiner(combiner *protocol.PacketCombiner) (
 	reader := bytes.NewReader(raw)
 	headers := make([]protocol.PacketHeader, 0)
 	bodies := make([][]byte, 0)
+	if reader.Len() < protocol.PacketHeaderSize {
+		// A partial eD2k header must survive until the next read. This is
+		// especially important for accepted sockets where the inbound probe
+		// replays the first five header bytes in their own chunk.
+		c.prependIncoming(raw)
+		return nil, nil, nil
+	}
 	for reader.Len() >= protocol.PacketHeaderSize {
 		frameStart := len(raw) - reader.Len()
 		var header protocol.PacketHeader

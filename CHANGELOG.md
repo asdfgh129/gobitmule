@@ -18,15 +18,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **修复 peer socket IO 超时单位错误，恢复 HelloAnswer 接收（2026-11-25）**：
   - `connectionIODeadlineNS` 原为 `5*1000*1000`（5 **毫秒**），却直接作为
-    `time.Duration`（纳秒）传给 `net.Conn.Set{Read,Write}Deadline`。eD2k 的
-    HelloAnswer 通常在发出 Hello 后 200~400ms 才到达，5ms 窗口使 `DoRead`
-    几乎总是超时返回，导致所有 peer 的握手回包被丢弃、被误判为失活源。
-  - 改为 `5*1000*1000*1000`（5 秒），并新增 `TestConnectionIODeadlineIsSeconds`
-    锁定单位。修复后 daemon 日志重新出现 `peer 81.57.136.116:4664 <- HelloAnswer`
-    与 `-> FileRequest`，此前该链路恒为 0。
-  - 诊断过程：原始 socket + Python/Go 复现均证明端点与混淆层正常（能收到合法
-    HelloAnswer），完整 `PeerConnection` 直连测试也能握手成功，最终定位到
-    daemon PumpIO 的读超时单位。
+    `time.Duration`（纳秒）传给 `net.Conn.Set{Read,Write}Deadline`。改为
+    `5*1000*1000*1000`（5 秒）后，daemon 日志重新出现
+    `peer 81.57.136.116:4664 <- HelloAnswer` 与 `-> FileRequest`。
+  - 随后发现 5 秒读期限会让串行 `PumpIO` 被任一空闲 socket 阻塞，进而延误
+    server 回连的 4662 握手。最终拆分为：写期限保留 5 秒
+    (`connectionIODeadlineNS`)，单次读轮询改为 50ms
+    (`connectionPollDeadlineNS`)；超时只返回 pump，数据在下个 tick 读取，
+    不会丢失 200~400ms 后到达的 HelloAnswer。
+  - 回归：`TestConnectionIODeadlineIsSeconds`、`TestConnectionPollDeadlineIsShort`。
+
+- **修复入站 4662 探测，NAT 后成功取得 HighID（2026-11-25）**：
+  - 问题：eD2k server 登录时会另开 TCP 回连客户端 4662，模拟 client-to-client
+    握手来判断是否可入站。原 `WrapIncoming()` 第一步阻塞读取 marker，遇到
+    server 回连的明文 `OP_HELLO`（实测前 5 字节 `E3 3B 00 00 00`）时虽会回退
+    明文，但 `ReadFramesWithCombiner` 会丢掉不足 6 字节的半包头，Hello 最终
+    解析失败；server 报 `No answer from your 4662 port` 并下发 LowID。
+  - 修复：入站连接先做 750ms 短探测，区分静默探测、明文 peer、真实混淆 peer；
+    静默/半前缀探测视为 server 回调并主动发送合法 `client.Hello`。
+    `incomingPrefixConn` 回放已读字节；`ReadFramesWithCombiner` 保留不完整
+    包头到下一次读取。写路径继续使用 5 秒期限，读路径用 50ms 轮询避免阻塞
+    server 回调响应。
+  - 回归：`TestIncomingSilentProbeGetsHello`、`TestIncomingPrefixKeepsPartialHeader`
+    及原有明文/混淆入站测试。
+  - 实测：26889 使用修复后的二进制 + 下载引擎占用 4662/4672 后，日志出现
+    `incoming peer probe prefix=E33B000000`、`peer 176.123.5.89:4662 <- Hello`，
+    server 不再报 4662 无响应，`IdChange clientID=71042416 (0x43C0570)`；
+    该值大于 `0x01000000`，确认 HighID。
 
 - **搜索结果渐进显示（2026-11-25）**：
   - 问题：KAD 关键字搜索期间，条目虽逐批到达 `kadTraversal.accum`，但 listener 只在
