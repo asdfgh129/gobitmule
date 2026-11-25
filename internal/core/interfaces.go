@@ -77,6 +77,15 @@ type ChunkWriter interface {
 	Release(ctx context.Context, c Chunk, err error) error
 }
 
+// ProgressSink is an OPTIONAL ChunkWriter capability for transports whose
+// engine downloads the whole file before the reader adapter can copy chunks
+// (the eD2k engine is the current case). Reporting engine bytes here lets the
+// scheduler expose live progress without pretending those bytes are committed
+// chunks; task completion still advances only through WriteChunk.
+type ProgressSink interface {
+	ReportProgress(done int64)
+}
+
 // Budget is a rate budget obtained from the one and only Limiter.
 type Budget interface {
 	Consume(ctx context.Context, n int) error

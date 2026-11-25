@@ -16,6 +16,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **eD2k 任务实时进度上报（2026-11-25）**：
+  - 问题：eD2k 引擎把字节写进自己的 piece manager，`Goed2kDownloader.Open()` 要等整份文件
+    下载完才返回 reader，因此 Web 任务在下载全过程里始终 `Running / bytesDone=0`，
+    用户无法区分“引擎正在下载”和“引擎卡住”。这是进度模型限制，不是下载失败。
+  - 修复（不改变 `bytes_done` 的单一真相源）：
+    - `core.ProgressSink`（可选 `ChunkWriter` 能力，`ReportProgress(done int64)`）。
+    - `Transport.Run()` 检测 writer 是否实现 `ProgressSink`，并优先调用可选的
+      `progressDownloader.OpenWithProgress(ctx, r, report)`；普通 writer 仍走 `Open`，
+      行为不变。
+    - `Goed2kDownloader.OpenWithProgress()` 通过 `transferHandle` 的可选 `GetStatus()`
+      取 `TotalDone`，在 `Wait()` 期间以 1 秒 ticker 上报。
+    - `chunkWriter.ReportProgress()` 夹取 `[0, 单文件大小]` 后写入调度器内存叠加层，
+      并以 500ms 节流发布 `EventTaskProgress`；SQLite `bytes_done` 仍只在
+      `WriteChunk` → `WriteChunkDoneBatch` 时增长。
+    - `Scheduler.liveProgress` 内存表 + `setLiveProgress/clearLiveProgress/applyLiveProgress`；
+      `Get()`/`List()` 用 `max(DB bytesDone, live)` 覆盖返回值，并在 `bytesTotal` 处封顶，
+      已提交 chunk 数更大时不被回退；ETA 改用叠加后的字段。
+    - 多文件任务：`progressBase`（前面文件已完成的字节）+ `taskTotal`（整任务总量）
+      保证第二个文件的 live 进度从正确偏移继续，文件成功后累加 `baseDone`。
+  - 影响面：仅 REST/事件层可见的进度显示；断点续传、校验与任务完成判定仍以已提交
+    chunk 为准，不引入任何“未校验字节算完成”的风险。
+  - 回归测试：`TestGoed2kOpenWithProgressReportsEngineBytes`、
+    `TestRunForwardsEngineProgressWhenWriterSupportsIt`、
+    `TestChunkWriterReportProgressIsLiveOnly`、
+    `TestChunkWriterReportProgressEmitsThrottledEvent`、
+    `TestApplyLiveProgressOverlay`。
+
 - **KAD 源文件 IP 字节序修复（2026-11-25）**：
   - 定位根因：`SearchEntry.SourceEndpoint()` 把 KAD `TAG_SOURCEIP`（eMule 按网络字节序写入的
     uint32）当成主机序端点值，导致真实源 `37.119.55.104` 被解析成镜像地址

@@ -28,17 +28,27 @@ var (
 // chunkWriter is the scheduler-owned implementation of core.ChunkWriter.
 // The .part file is the only place bytes go; all state lives in SQLite.
 type chunkWriter struct {
-	st          *store.Store
-	taskID      core.TaskID
-	resourceID  string
-	tempPath    string
-	fileIdx     int
-	f           *os.File
-	mu          sync.Mutex
-	bus         *core.EventBus
-	maxAttempts int
-	onWrite     func(int64)
-	lastEvent   time.Time
+	st               *store.Store
+	taskID           core.TaskID
+	resourceID       string
+	tempPath         string
+	fileIdx          int
+	f                *os.File
+	mu               sync.Mutex
+	bus              *core.EventBus
+	maxAttempts      int
+	total            int64
+	onWrite          func(int64)
+	onEngineProgress func(int64)
+	lastEvent        time.Time
+	lastLiveEvent    time.Time
+
+	// Progress-event accounting for multi-file tasks: this writer only owns one
+	// file, so live events must add the bytes of the preceding files (progressBase)
+	// and report the whole task as the denominator (taskTotal). Both are zero for
+	// single-file tasks, where total already is the task total.
+	progressBase int64
+	taskTotal    int64
 
 	// Batch state (ADR-0015 ③). pending holds chunk completions that the .part
 	// file already has but SQLite does not yet know about.
@@ -79,6 +89,7 @@ func newChunkWriterForFile(st *store.Store, taskID core.TaskID, resourceID, temp
 	w := &chunkWriter{
 		st: st, taskID: taskID, resourceID: resourceID, tempPath: tempPath,
 		fileIdx: fileIdx, f: f, bus: bus, maxAttempts: maxAttempts, onWrite: onWrite,
+		total:       total,
 		flushWindow: chunkFlushWindow, flushBytes: chunkFlushBytes,
 		stopFlush: make(chan struct{}), flushStopped: make(chan struct{}),
 	}
@@ -244,6 +255,43 @@ func (w *chunkWriter) currentProgress(ctx context.Context) (int64, int64) {
 		return 0, 0
 	}
 	return t.BytesDone, t.BytesTotal
+}
+
+// ReportProgress implements core.ProgressSink. It carries engine bytes that
+// are not yet committed chunks, so it only updates the scheduler's live map
+// and emits a progress event; SQLite bytes_done stays chunk-authoritative.
+func (w *chunkWriter) ReportProgress(done int64) {
+	if done < 0 {
+		done = 0
+	}
+	w.mu.Lock()
+	total := w.total
+	if total > 0 && done > total {
+		done = total
+	}
+	base := w.progressBase
+	taskTotal := w.taskTotal
+	if taskTotal <= 0 {
+		taskTotal = total
+	}
+	cb := w.onEngineProgress
+	due := time.Since(w.lastLiveEvent) >= 500*time.Millisecond
+	if due {
+		w.lastLiveEvent = time.Now()
+	}
+	w.mu.Unlock()
+
+	if cb != nil {
+		cb(done)
+	}
+	if !due || w.bus == nil {
+		return
+	}
+	w.bus.Publish(core.Event{
+		Type:    core.EventTaskProgress,
+		TaskID:  w.taskID,
+		Payload: map[string]any{"bytesDone": base + done, "bytesTotal": taskTotal},
+	})
 }
 
 // Sync persists the buffered completion records, then fsyncs the .part file

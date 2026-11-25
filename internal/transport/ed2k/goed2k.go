@@ -20,6 +20,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/asdfgh129/gobitmule/internal/core"
 	goed2k "github.com/asdfgh129/gobitmule/internal/ed2k"
@@ -31,6 +32,23 @@ import (
 type transferHandle interface {
 	IsFinished() bool
 	GetFile() *os.File
+}
+
+// statusHandle is implemented by the real goed2k.TransferHandle. Keeping it
+// optional lets offline fakes that only care about file/is-finished stay tiny.
+type statusHandle interface {
+	GetStatus() goed2k.TransferStatus
+}
+
+func reportEngineProgress(report func(int64), h transferHandle) {
+	if report == nil || h == nil {
+		return
+	}
+	sh, ok := h.(statusHandle)
+	if !ok {
+		return
+	}
+	report(sh.GetStatus().TotalDone)
 }
 
 // engine is the narrow surface Goed2kDownloader needs from the forked client.
@@ -66,12 +84,12 @@ type engineFactory func() (engine, error)
 type Goed2kConfig struct {
 	ListenPort      int
 	UDPPort         int
-	OutputDir       string // controlled dir for completed files
-	NodesDat        string // optional KAD bootstrap file
-	ServerMet       string // optional eD2k server list
-	DisableRate     bool   // zero the engine's own upload limiter (ADR-0002)
-	DisableAutoSave bool   // zero AutoSaveInterval (ADR-0002)
-	Obfuscation     bool   // accept eMule basic obfuscation on incoming peers (ED-05)
+	OutputDir       string       // controlled dir for completed files
+	NodesDat        string       // optional KAD bootstrap file
+	ServerMet       string       // optional eD2k server list
+	DisableRate     bool         // zero the engine's own upload limiter (ADR-0002)
+	DisableAutoSave bool         // zero AutoSaveInterval (ADR-0002)
+	Obfuscation     bool         // accept eMule basic obfuscation on incoming peers (ED-05)
 	Logger          *slog.Logger // optional: route engine logx into the daemon log
 }
 
@@ -116,6 +134,20 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 // Open drives the engine to completion and returns a seekable reader over the
 // completed file. It is the only method that touches the network.
 func (d *Goed2kDownloader) Open(ctx context.Context, r *core.Resource) (io.ReadSeekCloser, int64, error) {
+	return d.open(ctx, r, nil)
+}
+
+// OpenWithProgress is Open plus a periodic engine byte counter. The eD2k
+// engine writes into its own piece manager before the reader adapter can copy
+// chunks, so without this hook the REST task would stay at bytesDone=0 until
+// the whole transfer finished.
+func (d *Goed2kDownloader) OpenWithProgress(ctx context.Context, r *core.Resource,
+	report func(done int64)) (io.ReadSeekCloser, int64, error) {
+	return d.open(ctx, r, report)
+}
+
+func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
+	report func(done int64)) (io.ReadSeekCloser, int64, error) {
 	if d == nil || d.factory == nil {
 		return nil, 0, core.Err(core.E_CAPABILITY_UNAVAILABLE, "goed2k engine factory is not configured")
 	}
@@ -157,19 +189,34 @@ func (d *Goed2kDownloader) Open(ctx context.Context, r *core.Resource) (io.ReadS
 		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k AddLink failed: %v", err)
 	}
 
+	reportEngineProgress(report, handle)
+
 	// Wait() has no ctx; run it in a goroutine so cancellation is honored.
 	waitErr := make(chan error, 1)
 	go func() { waitErr <- eng.Wait() }()
-	select {
-	case <-ctx.Done():
-		_ = eng.Stop()
-		return nil, 0, ctx.Err()
-	case err := <-waitErr:
-		if err != nil {
+	var tickCh <-chan time.Time
+	if report != nil {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		tickCh = ticker.C
+	}
+waitLoop:
+	for {
+		select {
+		case <-ctx.Done():
 			_ = eng.Stop()
-			return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k wait failed: %v", err)
+			return nil, 0, ctx.Err()
+		case err := <-waitErr:
+			if err != nil {
+				_ = eng.Stop()
+				return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k wait failed: %v", err)
+			}
+			break waitLoop
+		case <-tickCh:
+			reportEngineProgress(report, handle)
 		}
 	}
+	reportEngineProgress(report, handle)
 
 	if !handle.IsFinished() {
 		_ = eng.Stop()

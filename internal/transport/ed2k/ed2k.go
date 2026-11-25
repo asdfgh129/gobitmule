@@ -41,6 +41,13 @@ type Downloader interface {
 	Open(ctx context.Context, r *core.Resource) (io.ReadSeekCloser, int64, error)
 }
 
+// progressDownloader is the optional progress-aware variant of Downloader.
+// The production Goed2kDownloader implements it; simple test doubles keep
+// satisfying Downloader alone.
+type progressDownloader interface {
+	OpenWithProgress(ctx context.Context, r *core.Resource, report func(done int64)) (io.ReadSeekCloser, int64, error)
+}
+
 // Transport is the eD2k implementation of core.Transport.
 type Transport struct {
 	downloader Downloader
@@ -95,9 +102,25 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 	if err != nil {
 		return err
 	}
-	reader, size, err := t.downloader.Open(ctx, r)
-	if err != nil {
-		return core.Err(core.E_TRANSIENT_NETWORK, "ed2k download failed: %v", err)
+	// eD2k engines download the whole file before Open can return a reader.
+	// Forward their live byte count to the scheduler when the writer supports
+	// the optional ProgressSink; otherwise keep the legacy Open contract.
+	var report func(int64)
+	if sink, ok := w.(core.ProgressSink); ok {
+		report = sink.ReportProgress
+	}
+	var (
+		reader  io.ReadSeekCloser
+		size    int64
+		openErr error
+	)
+	if pd, ok := t.downloader.(progressDownloader); ok {
+		reader, size, openErr = pd.OpenWithProgress(ctx, r, report)
+	} else {
+		reader, size, openErr = t.downloader.Open(ctx, r)
+	}
+	if openErr != nil {
+		return core.Err(core.E_TRANSIENT_NETWORK, "ed2k download failed: %v", openErr)
 	}
 	defer reader.Close()
 	if size != wantSize {

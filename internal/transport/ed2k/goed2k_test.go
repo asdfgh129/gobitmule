@@ -6,9 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/asdfgh129/gobitmule/internal/core"
+	goed2k "github.com/asdfgh129/gobitmule/internal/ed2k"
 )
 
 // Offline tests for Goed2kDownloader. A fake engine/handle injects a real temp
@@ -200,6 +204,76 @@ func TestGoed2kOpenRespectsCancellation(t *testing.T) {
 	}
 	if !eng.stopped {
 		t.Fatal("engine must be stopped on cancellation")
+	}
+}
+
+// statusFakeHandle adds the optional engine status surface used by the progress
+// reporting path, so OpenWithProgress can be exercised with zero network.
+type statusFakeHandle struct {
+	*fakeHandle
+	done atomic.Int64
+}
+
+func (h *statusFakeHandle) GetStatus() goed2k.TransferStatus {
+	return goed2k.TransferStatus{TotalDone: h.done.Load()}
+}
+
+// The eD2k engine writes into its own piece manager, so Open only returns once
+// the whole file is done. Without a periodic counter the Web task would show
+// bytesDone=0 for the entire transfer; OpenWithProgress must publish the
+// engine's TotalDone while Wait is still blocking.
+func TestGoed2kOpenWithProgressReportsEngineBytes(t *testing.T) {
+	h, _ := completedHandle(t, []byte("0123456789abcdef"))
+	sh := &statusFakeHandle{fakeHandle: h}
+	block := make(chan struct{})
+	eng := &fakeEngine{handle: sh, waitBlock: block}
+	dl := newGoed2kDownloaderWithFactory(Goed2kConfig{OutputDir: t.TempDir()},
+		func() (engine, error) { return eng, nil })
+	r := &core.Resource{Kind: core.KindED2K,
+		Files:    []core.ResourceFile{{Path: "x.bin", Size: 16, Selected: true}},
+		Identity: core.ProtocolIdentity{ED2KFileHash: strings.Repeat("ab", 16)}}
+
+	var mu sync.Mutex
+	var seen []int64
+	report := func(done int64) {
+		mu.Lock()
+		seen = append(seen, done)
+		mu.Unlock()
+	}
+
+	// Drive the engine counter while Wait blocks: 0 -> 8 -> 16 -> finish.
+	go func() {
+		time.Sleep(1200 * time.Millisecond)
+		sh.done.Store(8)
+		time.Sleep(1200 * time.Millisecond)
+		sh.done.Store(16)
+		close(block)
+	}()
+
+	reader, size, err := dl.OpenWithProgress(context.Background(), r, report)
+	if err != nil {
+		t.Fatalf("OpenWithProgress: %v", err)
+	}
+	defer reader.Close()
+	if size != 16 {
+		t.Fatalf("size=%d want 16", size)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(seen) < 2 {
+		t.Fatalf("expected periodic progress reports, got %v", seen)
+	}
+	var sawMid, sawDone bool
+	for _, v := range seen {
+		if v == 8 {
+			sawMid = true
+		}
+		if v == 16 {
+			sawDone = true
+		}
+	}
+	if !sawMid || !sawDone {
+		t.Fatalf("engine byte counter not forwarded: %v", seen)
 	}
 }
 

@@ -117,28 +117,29 @@ func (s *slots) release() {
 
 // Scheduler implements core.ControlPlane.
 type Scheduler struct {
-	st          *store.Store
-	resolvers   *resolve.Registry
-	transports  *transport.Registry
-	postprocs   *postproc.Registry
-	guard       core.URLGuard
-	creds       core.CredentialStore
-	cfg         *config.Manager
-	bus         *core.EventBus
-	log         *slog.Logger
-	limiter     *Limiter
-	pathGuard   security.PathGuard
-	queue       chan core.TaskID
-	active      map[core.TaskID]context.CancelFunc
-	inputs      map[core.TaskID]string
-	speeds      map[core.TaskID]*speedCounter
-	mu          sync.Mutex
-	slots       *slots
-	ctx         context.Context
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
-	started     time.Time
-	maxAttempts int
+	st           *store.Store
+	resolvers    *resolve.Registry
+	transports   *transport.Registry
+	postprocs    *postproc.Registry
+	guard        core.URLGuard
+	creds        core.CredentialStore
+	cfg          *config.Manager
+	bus          *core.EventBus
+	log          *slog.Logger
+	limiter      *Limiter
+	pathGuard    security.PathGuard
+	queue        chan core.TaskID
+	active       map[core.TaskID]context.CancelFunc
+	inputs       map[core.TaskID]string
+	speeds       map[core.TaskID]*speedCounter
+	liveProgress map[core.TaskID]int64
+	mu           sync.Mutex
+	slots        *slots
+	ctx          context.Context
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	started      time.Time
+	maxAttempts  int
 }
 
 func New(opts Options) (*Scheduler, error) {
@@ -154,7 +155,8 @@ func New(opts Options) (*Scheduler, error) {
 		cfg: opts.Config, bus: opts.Bus, log: opts.Logger, limiter: lim,
 		queue: make(chan core.TaskID, 4096), active: make(map[core.TaskID]context.CancelFunc),
 		inputs: make(map[core.TaskID]string), speeds: make(map[core.TaskID]*speedCounter),
-		slots: newSlots(cfg.Global.MaxConcurrentTasks), ctx: ctx, cancel: cancel,
+		liveProgress: make(map[core.TaskID]int64),
+		slots:        newSlots(cfg.Global.MaxConcurrentTasks), ctx: ctx, cancel: cancel,
 		started: time.Now(), maxAttempts: 3,
 	}
 	if s.bus == nil {
@@ -366,6 +368,7 @@ func (s *Scheduler) Get(ctx context.Context, id core.TaskID) (*core.TaskDetail, 
 		return nil, err
 	}
 	d := &core.TaskDetail{Task: *t}
+	s.applyLiveProgress(&d.Task)
 	bitfield, count, verified, err := s.st.Bitfield(ctx, id)
 	if err == nil {
 		d.Bitfield, d.NumPieces, d.ChunksVerified = bitfield, count, verified
@@ -378,8 +381,8 @@ func (s *Scheduler) Get(ctx context.Context, id core.TaskID) (*core.TaskDetail, 
 	}
 	d.Connections = t.Options.MaxConnections
 	d.Speed = s.speedOf(id)
-	if d.Speed > 0 && t.BytesTotal > t.BytesDone {
-		d.ETA = (t.BytesTotal - t.BytesDone) / d.Speed
+	if d.Speed > 0 && d.BytesTotal > d.BytesDone {
+		d.ETA = (d.BytesTotal - d.BytesDone) / d.Speed
 	}
 	if t.Resource != nil {
 		for _, f := range t.Resource.Files {
@@ -395,7 +398,51 @@ func (s *Scheduler) Get(ctx context.Context, id core.TaskID) (*core.TaskDetail, 
 }
 
 func (s *Scheduler) List(ctx context.Context, f core.TaskFilter) ([]*core.Task, int, error) {
-	return s.st.ListTasks(ctx, f)
+	tasks, total, err := s.st.ListTasks(ctx, f)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, t := range tasks {
+		s.applyLiveProgress(t)
+	}
+	return tasks, total, nil
+}
+
+func (s *Scheduler) setLiveProgress(id core.TaskID, done int64) {
+	if done < 0 {
+		done = 0
+	}
+	s.mu.Lock()
+	if s.liveProgress == nil {
+		s.liveProgress = make(map[core.TaskID]int64)
+	}
+	s.liveProgress[id] = done
+	s.mu.Unlock()
+}
+
+func (s *Scheduler) clearLiveProgress(id core.TaskID) {
+	s.mu.Lock()
+	delete(s.liveProgress, id)
+	s.mu.Unlock()
+}
+
+// applyLiveProgress overlays the engine's byte counter on a task read from
+// SQLite. bytes_done remains the count of committed chunks; live progress can
+// only move the reported value forward and never beyond bytes_total.
+func (s *Scheduler) applyLiveProgress(t *core.Task) {
+	if t == nil {
+		return
+	}
+	s.mu.Lock()
+	live, ok := s.liveProgress[t.ID]
+	s.mu.Unlock()
+	if !ok || live <= t.BytesDone {
+		return
+	}
+	if t.BytesTotal > 0 && live > t.BytesTotal {
+		live = t.BytesTotal
+	}
+	t.BytesDone = live
 }
 
 func (s *Scheduler) Delete(ctx context.Context, id core.TaskID, withFiles bool) error {
@@ -562,6 +609,8 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 	if len(files) < 2 {
 		return core.Err(core.E_INVALID_INPUT, "multi-file task needs at least two selected files")
 	}
+	s.clearLiveProgress(id)
+	defer s.clearLiveProgress(id)
 	for i, f := range files {
 		if f.URL == "" {
 			return core.Err(core.E_INVALID_INPUT, "file %d (%s) has no source URL", i, f.Path)
@@ -576,7 +625,7 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 			continue
 		}
 		sub := &core.Resource{ID: res.ID, Kind: res.Kind, Engine: res.Engine,
-			Files: []core.ResourceFile{f},
+			Files:   []core.ResourceFile{f},
 			Mirrors: []core.Mirror{{URL: f.URL, Priority: 1}},
 			Headers: res.Headers, Identity: res.Identity, Limits: res.Limits}
 		p, err := tr.Probe(ctx, sub)
@@ -658,6 +707,11 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 
 	// Sequential per-file download: one budget (the task's rate lease), one
 	// transport, a fresh file-scoped ChunkWriter per file.
+	taskTotal := int64(0)
+	for _, sz := range sizes {
+		taskTotal += sz
+	}
+	baseDone := int64(0)
 	for i, f := range files {
 		tempPath, err := s.st.Option(ctx, id, tempPathOptionKey(i))
 		if err != nil {
@@ -671,6 +725,10 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 		if err != nil {
 			return err
 		}
+		fileBase := baseDone
+		cw.progressBase = fileBase
+		cw.taskTotal = taskTotal
+		cw.onEngineProgress = func(done int64) { s.setLiveProgress(id, fileBase+done) }
 		sub := &core.Resource{
 			ID:       res.ID,
 			Kind:     res.Kind,
@@ -694,6 +752,10 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 		if runErr != nil {
 			return runErr
 		}
+		// Advance the offset so the next file's engine bytes are reported on top
+		// of the files already finished; otherwise every file would restart the
+		// task-level live counter at zero.
+		baseDone += sizes[i]
 	}
 	if err := s.checkFailedChunks(ctx, id); err != nil {
 		return err
@@ -805,6 +867,8 @@ func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 		return err
 	}
 	res := t.Resource
+	s.clearLiveProgress(id)
+	defer s.clearLiveProgress(id)
 
 	if res == nil {
 		if t.State != core.StateResolving {
@@ -959,6 +1023,7 @@ func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 	if err != nil {
 		return err
 	}
+	cw.onEngineProgress = func(done int64) { s.setLiveProgress(id, done) }
 	err = tr.Run(ctx, runRes, cw, budget)
 	syncErr := cw.Sync()
 	closeErr := cw.Close()

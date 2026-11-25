@@ -54,8 +54,8 @@ type seekNopCloser struct {
 func (s *seekNopCloser) Close() error { *s.closed++; return nil }
 
 type testChunkWriter struct {
-	chunks  []core.Chunk
-	written map[int64][]byte
+	chunks   []core.Chunk
+	written  map[int64][]byte
 	released []core.Chunk
 }
 
@@ -194,6 +194,70 @@ func TestRunSizeMismatch(t *testing.T) {
 	}
 	if dl.closed != 1 {
 		t.Fatalf("reader must be closed on error, closed=%d", dl.closed)
+	}
+}
+
+// progressFakeDownloader is the progress-aware variant of fakeDownloader. The
+// transport uses it whenever the downloader offers the hook, but must pass a nil
+// report when the writer cannot consume progress.
+type progressFakeDownloader struct {
+	*fakeDownloader
+	progressed int
+	gotReport  bool
+}
+
+func (d *progressFakeDownloader) OpenWithProgress(ctx context.Context, r *core.Resource,
+	report func(done int64)) (io.ReadSeekCloser, int64, error) {
+	d.progressed++
+	d.gotReport = report != nil
+	if report != nil {
+		report(d.size / 2)
+	}
+	return d.fakeDownloader.Open(ctx, r)
+}
+
+// progressTestWriter adds the optional sink the scheduler's chunkWriter exposes.
+type progressTestWriter struct {
+	*testChunkWriter
+	reports []int64
+}
+
+func (w *progressTestWriter) ReportProgress(done int64) { w.reports = append(w.reports, done) }
+
+// Run must route engine bytes to the writer when it supports ProgressSink, and
+// keep the plain Open contract when it does not (no behavioural change for
+// non-eD2k writers).
+func TestRunForwardsEngineProgressWhenWriterSupportsIt(t *testing.T) {
+	body := []byte("0123456789abcdef")
+	dl := &progressFakeDownloader{fakeDownloader: &fakeDownloader{body: body, size: 16}}
+	tr := New(dl)
+
+	w := &progressTestWriter{testChunkWriter: newTestChunkWriter(16, 4)}
+	if err := tr.Run(context.Background(), ed2kResource(16), w, &countingBudget{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if dl.progressed != 1 || !dl.gotReport {
+		t.Fatalf("progress-aware Open not used (calls=%d report=%v)", dl.progressed, dl.gotReport)
+	}
+	if len(w.reports) != 1 || w.reports[0] != 8 {
+		t.Fatalf("engine progress not forwarded: %v", w.reports)
+	}
+	if got := w.concat(); !bytes.Equal(got, body) {
+		t.Fatalf("committed bytes = %q, want %q", got, body)
+	}
+
+	// Writer without the sink: no bytes are reported and the transfer still
+	// completes exactly as before.
+	dl2 := &progressFakeDownloader{fakeDownloader: &fakeDownloader{body: body, size: 16}}
+	plain := newTestChunkWriter(16, 4)
+	if err := New(dl2).Run(context.Background(), ed2kResource(16), plain, &countingBudget{}); err != nil {
+		t.Fatalf("Run (plain writer): %v", err)
+	}
+	if dl2.gotReport {
+		t.Fatal("plain writer must not receive a progress callback")
+	}
+	if !bytes.Equal(plain.concat(), body) || dl2.opened != 1 {
+		t.Fatalf("plain writer transfer changed (opened=%d)", dl2.opened)
 	}
 }
 
