@@ -7,6 +7,7 @@ require (
 	github.com/anacrolix/torrent v1.62.0
 	github.com/dop251/goja v0.0.0-20261108153707-d8dfb4d8b999
 	github.com/gorilla/websocket v1.5.3
+	github.com/gotd/td v0.166.1
 	github.com/iawia002/lux v0.24.1
 	github.com/jlaffaye/ftp v0.2.4
 	github.com/pkg/sftp v1.13.12
@@ -70,7 +71,6 @@ require (
 	github.com/gotd/ige v0.3.0 // indirect
 	github.com/gotd/log v0.1.0 // indirect
 	github.com/gotd/neo v0.1.5 // indirect
-	github.com/gotd/td v0.166.1 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
