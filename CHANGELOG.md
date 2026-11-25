@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **扩大 KAD 源发现并快速隔离失活源（2026-11-25）**：
+  - `searchSources` 初始联系人从 50 增至 100，direct `search-sources` 目标从 12 增至 32
+    （仍按距离最近优先且有上限）。实测同一 hash 的 `search-sources` 响应从 5 增至 16、
+    返回条目从 20 增至 40~43；`find-sources` 覆盖 100 个联系人（响应 58）。
+  - 新增失活源隔离：peer 建连后 60s 内未收到任何 Hello/HelloAnswer、且以
+    `EndOfStream`/`IOException` 断开的端点视为失效发布，按次升级隔离
+    （2 分钟、4 分钟、6 分钟……）；隔离期间 `Policy.FindConnectCandidate` 不再选它，
+    真实握手成功会清零 strikes 并解除隔离。避免同一批死源每 20~40s 反复占用连接槽。
+  - 回归测试：`TestSilentDisconnectQuarantinesDeadSource`、
+    `TestOtherDisconnectDoesNotQuarantine`、`TestPolicySkipsQuarantinedPeer`。
+  - 实测：26889 新二进制日志出现 `kad source search nodes nodes=81`、
+    `kad traversal done kind=search-sources responses=16 results=32 entries=43`，
+    以及 `peer 88.6.3.93:4662 quarantined as dead source strikes=1 until=120000ms`、`peer 109.129.34.191:4262 ...`，
+    随后同一批 peer 的重连次数明显下降。
+
 - **eD2k 握手诊断日志（2026-11-25）**：
   - `PeerConnection.OnConnect()` 在 debug 级别打印完整 OP_HELLO 帧（hex），
     `ProcessIncoming()` 打印帧读取失败原因，配合 `ed2k engine progress` 采样日志，

@@ -21,10 +21,13 @@ const (
 	kadTraversalPreventRequest = 1
 	kadTraversalShortTimeout   = 2
 	kadTraversalMaxResults     = 100
-	// eMule only asks the few contacts closest to the file ID for sources
-	// (KADEMLIA_FIND_VALUE / m_mapBest). Querying every find-sources result
-	// makes an unresponsive peer cost 12s each and starves the download.
-	kadSearchSourcesTargets = 12
+	// eMule asks contacts closest to the file ID for sources (KADEMLIA_FIND_VALUE
+	// / m_mapBest). The original 12 contacts returned the same handful of dead
+	// endpoints on public networks: with 5 of 12 nodes answering we got one
+	// distinct source. Widen to 32 (still bounded, still closest-first) so a
+	// non-responding node cannot starve discovery, and let the peer policy
+	// quarantine endpoints that accept TCP but never answer Hello.
+	kadSearchSourcesTargets = 32
 )
 
 type kadTraversalKind string

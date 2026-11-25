@@ -180,6 +180,12 @@ func (p *Policy) FindConnectCandidate(sessionTime int64) *Peer {
 		if pe.NextConnection != 0 && pe.NextConnection < sessionTime {
 			continue
 		}
+		// Dead-source quarantine: a stale publication keeps re-adding the same
+		// IP:port, but it must not compete with fresh candidates until it has
+		// had time to become useful again.
+		if pe.DeadUntil > sessionTime {
+			continue
+		}
 		if pe.LastConnected != 0 && (sessionTime < pe.LastConnected+Seconds(int64(pe.FailCount+1))*MinReconnectTimeout) {
 			continue
 		}

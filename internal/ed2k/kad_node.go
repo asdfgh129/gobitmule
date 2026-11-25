@@ -98,7 +98,10 @@ func (n *kadNodeImpl) searchSources(hash protocol.Hash, size int64, cb func([]ka
 		return false
 	}
 	t := newKadTraversal(n, kadproto.NewID(hash), kadTraversalFindSources, size, cb)
-	nodes := n.tracker.closestNodesLocked(kadproto.NewID(hash), 50, true)
+	// 100 instead of 50: the closest bucket is mostly unresponsive on the
+	// public network, and find-sources is the only stage that can introduce
+	// NEW contacts before search-sources asks them for the file.
+	nodes := n.tracker.closestNodesLocked(kadproto.NewID(hash), 100, true)
 	for _, node := range nodes {
 		t.addNode(node.Addr, node.ID, node.TCPPort, node.Version)
 	}

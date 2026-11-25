@@ -20,6 +20,15 @@ func debugPeerf(format string, args ...any) {
 
 const MaxOutgoingBufferSize = 102*2 + 8
 
+const (
+	// A live eMule client answers OP_HELLO well inside this window. A peer that
+	// closes TCP before answering is a stale publication, not a busy source.
+	deadSourceHandshakeWindow = 60 // seconds
+	// Quarantine grows per strike: 2 min, 4 min, 6 min ... so a dead endpoint
+	// leaves the rotation after two attempts instead of ten.
+	deadSourceCooldownStep = 120 // seconds
+)
+
 type PeerSpeed int
 
 const (
@@ -134,13 +143,19 @@ func NewPendingBlock(block data.PieceBlock, totalSize int64) PendingBlock {
 
 type PeerConnection struct {
 	Connection
-	remotePeerInfo    RemotePeerInfo
-	remoteHash        protocol.Hash
-	transfer          *Transfer
-	remotePieces      protocol.BitField
-	speed             PeerSpeed
-	peerInfo          *Peer
-	failed            bool
+	remotePeerInfo RemotePeerInfo
+	remoteHash     protocol.Hash
+	transfer       *Transfer
+	remotePieces   protocol.BitField
+	speed          PeerSpeed
+	peerInfo       *Peer
+	failed         bool
+	// Dead-source detection: a stale KAD endpoint accepts TCP, sees our Hello,
+	// then closes without ever answering. Track the dial time and whether a
+	// handshake completed so the policy can quarantine it instead of spending
+	// a connection slot every backoff cycle.
+	connectStarted    int64
+	helloAnswered     bool
 	transferringData  bool
 	recvReq           data.PeerRequest
 	recvReqCompressed bool
@@ -216,6 +231,8 @@ func (p *PeerConnection) Connect() error {
 	if err := p.Connection.Connect(addr); err != nil {
 		return err
 	}
+	p.connectStarted = CurrentTime()
+	p.helloAnswered = false
 	p.OnConnect()
 	return nil
 }
@@ -238,11 +255,44 @@ func (p *PeerConnection) learnRemoteHash(hash protocol.Hash) {
 		p.endpoint.String(), hash.String())
 }
 
+// clearDeadSourceStrikes is called once a real Hello/HelloAnswer arrives: the
+// endpoint is alive, so earlier silent closes were transient.
+func (p *PeerConnection) clearDeadSourceStrikes() {
+	if p == nil || p.peerInfo == nil {
+		return
+	}
+	p.peerInfo.DeadUntil = 0
+	p.peerInfo.DeadStrikes = 0
+}
+
+// markDeadSourceIfNeeded quarantines endpoints that accept our TCP connection
+// and Hello but never answer. Without this, the same dead KAD source is retried
+// every generic backoff interval and occupies a connection slot that could go
+// to a fresh candidate. A real HelloAnswer clears the quarantine.
+func (p *PeerConnection) markDeadSourceIfNeeded(ec BaseErrorCode) {
+	if p == nil || p.peerInfo == nil || p.helloAnswered || p.connectStarted <= 0 {
+		return
+	}
+	if ec == nil || (ec.Code() != EndOfStream.Code() && ec.Code() != IOException.Code()) {
+		return
+	}
+	now := CurrentTime()
+	if now > p.connectStarted+Seconds(deadSourceHandshakeWindow) {
+		return
+	}
+	p.peerInfo.DeadStrikes++
+	wait := Seconds(int64(deadSourceCooldownStep * p.peerInfo.DeadStrikes))
+	p.peerInfo.DeadUntil = now + wait
+	debugPeerf("peer %s quarantined as dead source strikes=%d until=%dms",
+		p.endpoint.String(), p.peerInfo.DeadStrikes, wait)
+}
+
 func (p *PeerConnection) OnDisconnect(ec BaseErrorCode) {
 	debugPeerf("peer %s disconnect code=%d", p.endpoint.String(), ec.Code())
 	if ec.Code() != NoError.Code() && ec.Code() != TransferPaused.Code() {
 		p.failed = true
 	}
+	p.markDeadSourceIfNeeded(ec)
 	if q := p.session.UploadQueue(); q != nil {
 		q.RemoveFromUploadQueue(p)
 	}
@@ -685,6 +735,8 @@ func (p *PeerConnection) HandleHelloAnswer(value *clientproto.HelloAnswer) {
 	if value == nil {
 		return
 	}
+	p.helloAnswered = true
+	p.clearDeadSourceStrikes()
 	p.learnRemoteHash(value.Hash)
 	p.friendSlot = p.session.IsFriendSlot(value.Hash)
 	if value.Point.Defined() {
@@ -705,6 +757,8 @@ func (p *PeerConnection) HandleClientHello(value *clientproto.Hello) {
 	if value == nil {
 		return
 	}
+	p.helloAnswered = true
+	p.clearDeadSourceStrikes()
 	p.learnRemoteHash(value.Hash)
 	p.friendSlot = p.session.IsFriendSlot(value.Hash)
 	if value.Point.Defined() {
