@@ -40,15 +40,21 @@ type statusHandle interface {
 	GetStatus() goed2k.TransferStatus
 }
 
-func reportEngineProgress(report func(int64), h transferHandle) {
-	if report == nil || h == nil {
-		return
+// reportEngineProgress samples the engine's byte counter and forwards it. It
+// returns the sampled value so callers can log changes without a second call.
+func reportEngineProgress(report func(int64), h transferHandle) (int64, bool) {
+	if h == nil {
+		return 0, false
 	}
 	sh, ok := h.(statusHandle)
 	if !ok {
-		return
+		return 0, false
 	}
-	report(sh.GetStatus().TotalDone)
+	done := sh.GetStatus().TotalDone
+	if report != nil {
+		report(done)
+	}
+	return done, true
 }
 
 // engine is the narrow surface Goed2kDownloader needs from the forked client.
@@ -189,13 +195,21 @@ func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
 		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k AddLink failed: %v", err)
 	}
 
-	reportEngineProgress(report, handle)
+	lastProgress, _ := reportEngineProgress(report, handle)
+	// Log the first sample even when it is 0: that line distinguishes "engine
+	// started, no bytes yet" from "engine never reached the sampling loop" when
+	// a task looks stuck at 0 bytes.
+	logged := false
 
 	// Wait() has no ctx; run it in a goroutine so cancellation is honored.
 	waitErr := make(chan error, 1)
 	go func() { waitErr <- eng.Wait() }()
+
+	// Sample the engine while it runs: this byte counter is the only progress
+	// signal available before the whole file completes, so it feeds both the
+	// scheduler overlay (report) and the debug log (change-only, 1s cadence).
 	var tickCh <-chan time.Time
-	if report != nil {
+	if report != nil || d.cfg.Logger != nil {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		tickCh = ticker.C
@@ -213,7 +227,13 @@ waitLoop:
 			}
 			break waitLoop
 		case <-tickCh:
-			reportEngineProgress(report, handle)
+			done, ok := reportEngineProgress(report, handle)
+			if ok && (!logged || done != lastProgress) {
+				logged, lastProgress = true, done
+				if d.cfg.Logger != nil {
+					d.cfg.Logger.Debug("ed2k engine progress", "bytesDone", done)
+				}
+			}
 		}
 	}
 	reportEngineProgress(report, handle)
