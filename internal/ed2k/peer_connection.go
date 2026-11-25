@@ -1312,7 +1312,12 @@ func (p *PeerConnection) ReceivePendingData() {
 		p.RequestBlocks()
 		return
 	}
+	// The request was fully received but the block cannot be accepted
+	// (compressed payload damaged or short). Dropping the connection releases
+	// the assigned blocks so another source can re-download them instead of
+	// leaving the piece stuck forever.
 	p.transferringData = false
+	p.Close(IOException)
 	p.continueBufferedIncoming()
 }
 
@@ -1356,13 +1361,22 @@ func (p *PeerConnection) CompleteBlock(pb *PendingBlock) bool {
 	}
 	if p.recvReqCompressed {
 		reader, err := zlib.NewReader(bytes.NewReader(pb.Buffer[:pb.Received]))
-		if err == nil {
-			defer reader.Close()
-			raw, err := io.ReadAll(reader)
-			if err == nil {
-				pb.Buffer = raw
-			}
+		if err != nil {
+			debugPeerf("peer %s compressed block decompress failed: %v", p.endpoint.String(), err)
+			return false
 		}
+		defer reader.Close()
+		raw, err := io.ReadAll(reader)
+		if err != nil {
+			debugPeerf("peer %s compressed block read failed: %v", p.endpoint.String(), err)
+			return false
+		}
+		if len(raw) != len(pb.Buffer) {
+			debugPeerf("peer %s compressed block size mismatch got=%d want=%d",
+				p.endpoint.String(), len(raw), len(pb.Buffer))
+			return false
+		}
+		pb.Buffer = raw
 	}
 	return true
 }

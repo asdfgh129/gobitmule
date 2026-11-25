@@ -618,6 +618,13 @@ func (t *DHTTracker) PublishNotes(fileHash protocol.Hash, entries ...kadproto.Se
 }
 
 func (t *DHTTracker) SearchKeywords(hash protocol.Hash, cb func([]kadproto.SearchEntry)) bool {
+	return t.SearchKeywordsWithProgress(hash, cb, nil)
+}
+
+// SearchKeywordsWithProgress is the streaming variant used by the keyword
+// search API: progress receives every SEARCH_RES batch as it arrives, while cb
+// still fires once when the traversal is complete.
+func (t *DHTTracker) SearchKeywordsWithProgress(hash protocol.Hash, cb func([]kadproto.SearchEntry), progress func([]kadproto.SearchEntry)) bool {
 	if cb == nil {
 		return false
 	}
@@ -630,7 +637,7 @@ func (t *DHTTracker) SearchKeywords(hash protocol.Hash, cb func([]kadproto.Searc
 		return false
 	}
 	t.mu.Unlock()
-	return t.node.searchKeywords(hash, cb)
+	return t.node.searchKeywords(hash, cb, progress)
 }
 
 func (t *DHTTracker) SetStoragePoint(addr *net.UDPAddr) {

@@ -108,6 +108,7 @@ type kadTraversal struct {
 	numTargetNodes int
 	size           int64
 	listener       func([]kadproto.SearchEntry)
+	progress       func([]kadproto.SearchEntry)
 	accum          []kadproto.SearchEntry
 	externalIPs    []uint32
 }
@@ -130,6 +131,16 @@ func newKadTraversal(node *kadNodeImpl, target kadproto.ID, kind kadTraversalKin
 		traversal.numTargetNodes = 20
 	}
 	return traversal
+}
+
+// emitProgress hands each SEARCH_RES batch to the caller as soon as it arrives.
+// The final listener still fires once in done() to signal completion; callers
+// merge by hash so overlapping batches are harmless.
+func (t *kadTraversal) emitProgress(entries []kadproto.SearchEntry) {
+	if t == nil || t.progress == nil || len(entries) == 0 {
+		return
+	}
+	t.progress(entries)
 }
 
 func (t *kadTraversal) key() string {
@@ -406,6 +417,7 @@ func (t *kadTraversal) done() {
 		}
 	case kadTraversalFindKeywords:
 		direct := newKadTraversal(t.node, t.target, kadTraversalSearchKeyword, 0, t.listener)
+		direct.progress = t.progress
 		if sp := t.node.storagePoint(); sp != nil {
 			direct.addNode(sp, t.target, 0, 0)
 		}

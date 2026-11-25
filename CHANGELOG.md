@@ -16,6 +16,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **搜索结果渐进显示（2026-11-25）**：
+  - 问题：KAD 关键字搜索期间，条目虽逐批到达 `kadTraversal.accum`，但 listener 只在
+    `done()` 触发，REST 快照在搜索结束前始终为 0 条，用户体感是“结束后一次性刷出”。
+  - 修复：遍历层新增 `progress func([]kadproto.SearchEntry)` 回调，每收到一批
+    `SEARCH_RES` 立即交给 Session 合并；`done()` 中的最终 listener 保留，仍负责标记
+    关键字完成（`dhtBusy` / `finishOnce` 语义不变）。`DHTTracker.SearchKeywordsWithProgress`
+    为带进度版本，旧 `SearchKeywords` 保持兼容包装。`Session.startDHTSearch` 的 `merge`
+    按 hash 去重，重复批次无害。前端沿用现有 1 秒轮询，无需改动。
+  - 实测：`t=18s state=RUNNING results=514 dhtBusy=True`、
+    `t=20s results=576`、`t=44s state=FINISHED results=576`，进度期间结果持续增长。
+
+- **压缩块解压失败不再静默写入（2026-11-25）**：
+  - 问题：`CompleteBlock()` 在 `recvReqCompressed=true` 时对 zlib 解压错误静默忽略，
+    把压缩字节当成明文写入 piece manager，且该块不会重下，造成文件损坏 + 该 piece 卡死。
+  - 修复：解压失败、读取失败、解压后长度与块容量不符均返回 false；`ReceivePendingData()`
+    遇到“完整收到但块不可接受”时断开连接，释放已分配块给其他源重下。
+  - 回归测试：`internal/ed2k/compressed_block_test.go` 覆盖有效解压、损坏数据、
+    长度不符、未完成块与明文块四路径。
+  - 对照诊断：关闭 obfuscation 的对照实例（26889/26897）同样 0 字节，且此前能握手成功的
+    瞬时源在明文模式下立即断连（code=10），确认**混淆层必须保持开启**；此前 2.1MB 的下载
+    来自临时高端口源（20:21:49 被对端强制关闭）而非 4662 上的 KAD 发布端点，停滞主因是
+    可用源流失失，不是引擎握手/写块缺陷。
+
 - **扩大 KAD 源发现并快速隔离失活源（2026-11-25）**：
   - `searchSources` 初始联系人从 50 增至 100，direct `search-sources` 目标从 12 增至 32
     （仍按距离最近优先且有上限）。实测同一 hash 的 `search-sources` 响应从 5 增至 16、

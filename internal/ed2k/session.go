@@ -817,7 +817,10 @@ func (s *Session) startDHTSearch(task *searchTask, params SearchParams) bool {
 		// once so dhtBusy never clears while another lookup is still running.
 		var finishOnce sync.Once
 		finish := func() { finishOnce.Do(task.finishDHTKeyword) }
-		ok := s.dhtTracker.SearchKeywords(keywordHash, func(entries []kadproto.SearchEntry) {
+		// SEARCH_RES batches arrive while the traversal is still running. Merge
+		// them immediately so the snapshot shows results progressively; only the
+		// final listener marks this keyword finished.
+		merge := func(entries []kadproto.SearchEntry) {
 			s.searchMu.Lock()
 			current := s.activeSearch
 			s.searchMu.Unlock()
@@ -831,8 +834,11 @@ func (s *Session) startDHTSearch(task *searchTask, params SearchParams) bool {
 				}
 				task.mergeResult(result)
 			}
+		}
+		ok := s.dhtTracker.SearchKeywordsWithProgress(keywordHash, func(entries []kadproto.SearchEntry) {
+			merge(entries)
 			finish()
-		})
+		}, merge)
 		if ok {
 			started = true
 		} else {

@@ -109,11 +109,12 @@ func (n *kadNodeImpl) searchSources(hash protocol.Hash, size int64, cb func([]ka
 	return t.start()
 }
 
-func (n *kadNodeImpl) searchKeywords(hash protocol.Hash, cb func([]kadproto.SearchEntry)) bool {
+func (n *kadNodeImpl) searchKeywords(hash protocol.Hash, cb func([]kadproto.SearchEntry), progress func([]kadproto.SearchEntry)) bool {
 	if n == nil || n.tracker == nil || cb == nil {
 		return false
 	}
 	t := newKadTraversal(n, kadproto.NewID(hash), kadTraversalFindKeywords, 0, cb)
+	t.progress = progress
 	for _, node := range n.tracker.closestNodesLocked(kadproto.NewID(hash), 50, true) {
 		t.addNode(node.Addr, node.ID, node.TCPPort, node.Version)
 	}
@@ -387,6 +388,7 @@ func (n *kadNodeImpl) processSearchRes(addr *net.UDPAddr, res kadproto.SearchRes
 	// let the traversal move on to the next closest contact immediately.
 	if tx.observer.traversal != nil {
 		tx.observer.traversal.accum = append(tx.observer.traversal.accum, res.Results...)
+		tx.observer.traversal.emitProgress(res.Results)
 	}
 	tx.observer.entries = append(tx.observer.entries, res.Results...)
 	tx.observer.processedResponses++
