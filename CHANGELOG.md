@@ -16,6 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **修复 peer socket IO 超时单位错误，恢复 HelloAnswer 接收（2026-11-25）**：
+  - `connectionIODeadlineNS` 原为 `5*1000*1000`（5 **毫秒**），却直接作为
+    `time.Duration`（纳秒）传给 `net.Conn.Set{Read,Write}Deadline`。eD2k 的
+    HelloAnswer 通常在发出 Hello 后 200~400ms 才到达，5ms 窗口使 `DoRead`
+    几乎总是超时返回，导致所有 peer 的握手回包被丢弃、被误判为失活源。
+  - 改为 `5*1000*1000*1000`（5 秒），并新增 `TestConnectionIODeadlineIsSeconds`
+    锁定单位。修复后 daemon 日志重新出现 `peer 81.57.136.116:4664 <- HelloAnswer`
+    与 `-> FileRequest`，此前该链路恒为 0。
+  - 诊断过程：原始 socket + Python/Go 复现均证明端点与混淆层正常（能收到合法
+    HelloAnswer），完整 `PeerConnection` 直连测试也能握手成功，最终定位到
+    daemon PumpIO 的读超时单位。
+
 - **搜索结果渐进显示（2026-11-25）**：
   - 问题：KAD 关键字搜索期间，条目虽逐批到达 `kadTraversal.accum`，但 listener 只在
     `done()` 触发，REST 快照在搜索结束前始终为 0 条，用户体感是“结束后一次性刷出”。

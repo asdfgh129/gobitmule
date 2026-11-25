@@ -10,7 +10,13 @@ import (
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol/obfuscation"
 )
 
-const connectionIODeadlineNS = int64(5 * 1000 * 1000)
+// connectionIODeadlineNS is a socket read/write deadline passed directly to
+// net.Conn.Set{Read,Write}Deadline as a time.Duration in nanoseconds. It must
+// be 5 *seconds*, not 5 milliseconds: PumpIO serves many peer sockets in one
+// loop, and eD2k HelloAnswer packets routinely arrive 200-400ms after our
+// Hello. A 5ms deadline made DoRead time out before the reply arrived, so
+// otherwise-live KAD sources were misclassified as dead.
+const connectionIODeadlineNS = int64(5 * 1000 * 1000 * 1000)
 
 type Connection struct {
 	socket        net.Conn
