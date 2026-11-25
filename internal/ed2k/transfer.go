@@ -663,12 +663,13 @@ func (t *Transfer) SecondTick(accumulator *Statistics, tickIntervalMS int64) {
 		now := CurrentTime()
 		activeConnections := t.ActiveConnections()
 		connectCandidates := t.policy.NumConnectCandidates()
-		if activeConnections <= 1 && connectCandidates <= 1 && t.nextSourcesRequest > now+Seconds(5) {
-			t.nextSourcesRequest = now
-		}
-		if activeConnections <= 1 && connectCandidates <= 1 && t.nextDHTRequest > now+Seconds(10) {
-			t.nextDHTRequest = now
-		}
+		// A successful request has already chosen its next deadline in
+		// nextServerSourcesInterval / nextDHTSourcesInterval. Pulling that
+		// deadline forward on every tick turns "retry in 30s" into a request
+		// storm (observed as 50+ KAD source searches in 10s), which drowns
+		// real traversal responses and delays the transfer. Never override
+		// a future deadline here; only the scheduled time may trigger a new
+		// request.
 		if t.nextSourcesRequest <= now {
 			sent := t.session.SendSourcesRequest(t.hash, t.size)
 			t.nextSourcesRequest = now + t.nextServerSourcesInterval(activeConnections, connectCandidates, sent)

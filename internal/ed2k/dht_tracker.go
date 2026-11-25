@@ -541,7 +541,7 @@ func (t *DHTTracker) PublishSource(hash protocol.Hash, endpoint protocol.Endpoin
 		ID: kadproto.NewID(hash),
 		Tags: []kadproto.Tag{
 			{Type: kadproto.TagTypeUint8, ID: kadproto.TagSourceType, UInt64: 1},
-			{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: uint64(uint32(endpoint.IP()))},
+			{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: uint64(protocolIPToKadTag(endpoint.IP()))},
 			{Type: kadproto.TagTypeUint16, ID: kadproto.TagSourcePort, UInt64: uint64(uint16(endpoint.Port()))},
 		},
 	}
@@ -1056,6 +1056,14 @@ func protocolIP(ip net.IP) uint32 {
 		return 0
 	}
 	return uint32(ip4[0])<<24 | uint32(ip4[1])<<16 | uint32(ip4[2])<<8 | uint32(ip4[3])
+}
+
+// protocolIPToKadTag converts an internal eD2k endpoint IP (host order, e.g.
+// 0x04030201 for 1.2.3.4) to the network-order uint32 expected in KAD
+// TAG_SOURCEIP (0x01020304).
+func protocolIPToKadTag(ip int32) uint32 {
+	v := uint32(ip)
+	return (v&0xff)<<24 | ((v>>8)&0xff)<<16 | ((v>>16)&0xff)<<8 | (v>>24)&0xff
 }
 
 func timeToMillis(value time.Time) int64 {

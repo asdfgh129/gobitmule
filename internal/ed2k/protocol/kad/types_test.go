@@ -43,7 +43,8 @@ func TestSearchEntrySourceEndpointAcceptsEMuleSourceTypes(t *testing.T) {
 	for _, sourceType := range []byte{0, 1, 3, 4, 5, 6} {
 		entry := SearchEntry{Tags: []Tag{
 			{ID: TagSourceType, Type: TagTypeUint8, UInt64: uint64(sourceType)},
-			{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x04030201},
+			// TAG_SOURCEIP is network order: 1.2.3.4 is encoded as 0x01020304.
+			{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x01020304},
 			{ID: TagSourcePort, Type: TagTypeUint16, UInt64: 4662},
 		}}
 		endpoint, ok := entry.SourceEndpoint()
@@ -57,11 +58,29 @@ func TestSearchEntrySourceEndpointAcceptsEMuleSourceTypes(t *testing.T) {
 
 	unsupported := SearchEntry{Tags: []Tag{
 		{ID: TagSourceType, Type: TagTypeUint8, UInt64: 2},
-		{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x04030201},
+		{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x01020304},
 		{ID: TagSourcePort, Type: TagTypeUint16, UInt64: 4662},
 	}}
 	if _, ok := unsupported.SourceEndpoint(); ok {
 		t.Fatal("unsupported source type 2 should be rejected")
+	}
+}
+
+func TestSearchEntrySourceEndpointUsesNetworkOrderIP(t *testing.T) {
+	// Observed on the public KAD network: interpreting TAG_SOURCEIP as host
+	// order produced the mirrored, unroutable address 233.167.56.101. eMule
+	// writes the tag in network order, so the real peer is 101.56.167.233.
+	entry := SearchEntry{Tags: []Tag{
+		{ID: TagSourceType, Type: TagTypeUint8, UInt64: 1},
+		{ID: TagSourceIP, Type: TagTypeUint32, UInt64: 0x6538A7E9},
+		{ID: TagSourcePort, Type: TagTypeUint16, UInt64: 4662},
+	}}
+	endpoint, ok := entry.SourceEndpoint()
+	if !ok {
+		t.Fatal("source entry rejected")
+	}
+	if got := endpoint.String(); got != "101.56.167.233:4662" {
+		t.Fatalf("endpoint = %s, want 101.56.167.233:4662", got)
 	}
 }
 

@@ -91,7 +91,7 @@ func run() int {
 		source: kadproto.SearchEntry{
 			ID: kadproto.NewID(sourceHashValue),
 			Tags: []kadproto.Tag{
-				{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: uint64(binary.LittleEndian.Uint32(ip))},
+				{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: uint64(binary.BigEndian.Uint32(ip))},
 				{Type: kadproto.TagTypeUint16, ID: kadproto.TagSourcePort, UInt64: uint64(*tcpPort)},
 				{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceUPort, UInt64: uint64(*sourceUPort)},
 				{Type: kadproto.TagTypeUint8, ID: kadproto.TagSourceType, UInt64: 1}, // HighID

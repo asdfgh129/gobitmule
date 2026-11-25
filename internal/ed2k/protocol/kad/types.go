@@ -409,6 +409,17 @@ func (s SearchEntry) StringTag(id byte) (string, bool) {
 	return "", false
 }
 
+// kadTagIPToProtocolIP converts a KAD TAG_SOURCEIP value into the internal
+// eD2k endpoint representation. eMule writes this tag as a uint32 in network
+// byte order (for example 1.2.3.4 is 0x01020304), while protocol.Endpoint
+// stores the address in host order (0x04030201) so that ip2String prints it
+// back as 1.2.3.4. Treating the tag as host order produced mirrored addresses
+// such as 233.167.56.101 instead of 101.56.167.233.
+func kadTagIPToProtocolIP(value uint64) int32 {
+	v := uint32(value)
+	return int32((v&0xff)<<24 | ((v>>8)&0xff)<<16 | ((v>>16)&0xff)<<8 | (v>>24)&0xff)
+}
+
 func (s SearchEntry) SourceEndpoint() (protocol.Endpoint, bool) {
 	sourceType, _ := s.UIntTag(TagSourceType)
 	ip, hasIP := s.UIntTag(TagSourceIP)
@@ -422,7 +433,7 @@ func (s SearchEntry) SourceEndpoint() (protocol.Endpoint, bool) {
 	if sourceType != 0 && sourceType != 1 && sourceType != 3 && sourceType != 4 && sourceType != 5 && sourceType != 6 {
 		return protocol.Endpoint{}, false
 	}
-	return protocol.NewEndpoint(int32(uint32(ip)), int(port)), true
+	return protocol.NewEndpoint(kadTagIPToProtocolIP(ip), int(port)), true
 }
 
 type SearchSourcesReq struct {

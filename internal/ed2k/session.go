@@ -333,6 +333,12 @@ func (s *Session) SendDHTSourcesRequest(hash protocol.Hash, size int64, transfer
 				continue
 			}
 			parsed++
+			if idx < 5 {
+				sourceType, _ := entry.UIntTag(kadproto.TagSourceType)
+				logx.Debug("dht source entry accepted", "hash", hash.String(),
+					"endpoint", endpoint.String(), "sourceType", sourceType,
+					"nodeID", entry.ID.Hash.String(), "tags", describeKadTags(entry.Tags))
+			}
 			var err error
 			if obfuscationEnabled && !entry.ID.Hash.Equal(protocol.Invalid) {
 				err = current.AddPeerWithHash(endpoint, int(PeerDHT), entry.ID.Hash)
@@ -355,7 +361,13 @@ func describeKadTags(tags []kadproto.Tag) string {
 		if name == "" {
 			name = fmt.Sprintf("id=%#x", tag.ID)
 		}
-		parts = append(parts, fmt.Sprintf("%s:%d", name, tag.UInt64))
+		value := fmt.Sprintf("%#x/%d", tag.UInt64, tag.UInt64)
+		if tag.String != "" {
+			value = fmt.Sprintf("%q", tag.String)
+		} else if len(tag.Bytes) > 0 {
+			value = fmt.Sprintf("%x", tag.Bytes)
+		}
+		parts = append(parts, fmt.Sprintf("%s(t=%#x)=%s", name, tag.Type, value))
 	}
 	return strings.Join(parts, ",")
 }

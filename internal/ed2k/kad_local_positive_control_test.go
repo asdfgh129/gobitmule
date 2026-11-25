@@ -46,7 +46,7 @@ func newFakeKADPeer(t *testing.T) *fakeKADPeer {
 	source := kadproto.SearchEntry{
 		ID: sourceID,
 		Tags: []kadproto.Tag{
-			{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: 0x0100007F}, // 127.0.0.1 (LE uint32)
+			{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: 0x7F000001}, // 127.0.0.1 (KAD/network order)
 			{Type: kadproto.TagTypeUint16, ID: kadproto.TagSourcePort, UInt64: 4662},
 			{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceUPort, UInt64: 4672},
 			{Type: kadproto.TagTypeUint8, ID: kadproto.TagSourceType, UInt64: 1}, // HighID / TCP

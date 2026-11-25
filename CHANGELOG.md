@@ -16,6 +16,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **KAD 源文件 IP 字节序修复（2026-11-25）**：
+  - 定位根因：`SearchEntry.SourceEndpoint()` 把 KAD `TAG_SOURCEIP`（eMule 按网络字节序写入的
+    uint32）当成主机序端点值，导致真实源 `37.119.55.104` 被解析成镜像地址
+    `104.55.119.37`，`82.105.36.30` 被解析成 `30.36.105.82`，日志里大量出现
+    `233.x / 249.x / 244.x / 242.x` 这类非法首字节。该错误在 obfuscation 开启和关闭时都存在。
+  - 修复：`SourceEndpoint()` 先反转 TAG_SOURCEIP 的 4 个字节再构造 `protocol.Endpoint`；
+    同步修正本地发布源（`DHTTracker.PublishSource`）与 `cmd/uded2kkadpeer` 的写入方向，
+    使本地 KAD 节点也按 eMule 的网络序发布 source IP。新增
+    `TestSearchEntrySourceEndpointUsesNetworkOrderIP` 锁定该字节序。
+  - 实测验证：新二进制 `gobitmule-tags.exe`，debug 实例 `127.0.0.1:26896`：
+    `TAG_SOURCEIP=0x25773768` 解析为 `37.119.55.104:4662`，
+    `TAG_SOURCEIP=0xca3bce81` 解析为 `202.59.206.129:4662`；源回调
+    `results=123 parsed=123 added=123`。随后 peer `82.105.36.30:39703` 完成
+    `HelloAnswer -> FileRequest -> FileAnswer -> FileStatusAnswer -> HashSetAnswer -> StartUpload -> AcceptUpload`，
+    持续收到 `SendingPart32`，磁盘文件开始增长。另一 peer `176.189.196.128:51296`
+    收到 `QueueRanking` 后保持连接，验证上一轮排队修复生效。
+  - Web 任务的 `bytesDone` 仍为 0，属于已知的“引擎下载完成后再复制”进度模型限制，
+    不代表引擎未下载；本次修复解决的是 KAD 源端点错误导致连错 IP 的问题。
+  - `go test ./internal/ed2k/... -count=1` 全部通过；`./...` 在后续包超时前已通过
+    `cmd/...` 与 `internal/api`。
+
+- **22 源文件“无法下载”复查与源轮询风暴修复（2026-11-25）**：
+  - 用同一 hash `39F8BAB86C16143B3152807FBCA89B5E`（搜索结果显示 22 个源）在 debug 实例
+    `127.0.0.1:26893` 复现：二进制构建于 `22:48:31`，已包含 KAD 源搜索修复。
+  - 日志证实下载链路实际打通：服务器 `FoundFileSources` 返回 6/5 个源，5 个 peer 完成
+    `HelloAnswer -> FileRequest -> FileAnswer -> FileStatusAnswer -> HashSetAnswer -> StartUpload`；
+    `82.105.36.30:39703` 与 `207.188.161.95:15000` 收到 `AcceptUpload`，随后持续收到
+    `SendingPart32`，`sources` 回调 `results=71 parsed=71 added=71`。因此不是“有源但握手失败”。
+  - 真正的 UI 假象：`Goed2kDownloader.Open()` 要等整份文件完成后才把 reader 交给调度器，
+    `Task.BytesDone` 由 `ChunkWriter` 在复制阶段累加；下载期间任务会长期显示 `Running / 0 bytes`。
+    这是进度上报模型限制，不是下载未进行。
+  - 同时发现并修复两处会让可用源被浪费的缺陷：
+    - `Transfer.SecondTick()` 的“无源时加速”会把一个已经安排到 30s/60s 后的请求截止时间
+      反复拉回当前时间，10 秒内发起 55 次 KAD 源搜索，淹没真实遍历响应。现移除该错误加速逻辑，
+      只由 `nextServerSourcesInterval` / `nextDHTSourcesInterval` 安排的截止时间触发请求；
+      新增 `TestSecondTickKeepsFutureSourceDeadlines`。
+    - `ProcessIncoming()` 收到 `OP_QUEUERANKING` 后直接 `Close(QueueRanking)`。eMule 的
+      QueueRanking 表示“已进入上传队列、请继续等待”，后续还会发 `AcceptUpload`；当前实现
+      会把排队中的源全部丢弃。现改为记录远端排队名次并保持连接；新增
+      `TestQueueRankingKeepsPeerConnected`。
+  - 复查后，上一轮“0 字节属于文件/源质量问题”的结论仅对 hash
+    `7221BFD00304905F4C282A1FBB5E9586` 的 aMule 对照成立，不能泛化到 22 源文件。
+
 - **eD2k 下载任务失败与启动缓慢（2026-11-24）**：
   - 修复 `ConnectServers` 遇到 server.met 中任意一台不可达服务器就整体返回错误的问题：
     第 37 台 `45.82.80.155:5687` 超时会让前 36 台的成功连接全部作废，下载适配器把该错误

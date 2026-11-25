@@ -81,7 +81,7 @@ func TestSearchResReleasesSourceTraversal(t *testing.T) {
 		ID: kadproto.NewID(protocol.MustHashFromString("AABBCCDDEEFF00112233445566778899")),
 		Tags: []kadproto.Tag{
 			{ID: kadproto.TagSourceType, Type: kadproto.TagTypeUint8, UInt64: 1},
-			{ID: kadproto.TagSourceIP, Type: kadproto.TagTypeUint32, UInt64: 0x04030201},
+			{ID: kadproto.TagSourceIP, Type: kadproto.TagTypeUint32, UInt64: 0x01020304},
 			{ID: kadproto.TagSourcePort, Type: kadproto.TagTypeUint16, UInt64: 4662},
 		},
 	}

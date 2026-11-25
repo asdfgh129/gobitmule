@@ -150,6 +150,7 @@ type PeerConnection struct {
 	downloadQueue     []PendingBlock
 	uploadState       UploadState
 	uploadQueueRank   uint16
+	remoteQueueRank   uint16
 	uploadWaitStart   int64
 	uploadStartTime   int64
 	uploadSessionBase int64
@@ -509,6 +510,18 @@ func (p *PeerConnection) SendQueueRanking(rank uint16) {
 	if raw, err := p.combiner.Pack("client.QueueRanking", &packet); err == nil {
 		p.QueuePacket(raw)
 	}
+}
+
+// HandleQueueRanking keeps the connection alive while we sit in the remote
+// upload queue. eMule sends OP_QUEUERANKING as progress information and may
+// follow it with OP_ACCEPTUPLOAD at any time; closing here threw away exactly
+// the sources that were willing to serve us after their current upload slot.
+func (p *PeerConnection) HandleQueueRanking(value *clientproto.QueueRanking) {
+	if value == nil {
+		return
+	}
+	p.remoteQueueRank = value.Rank
+	debugPeerf("peer %s <- QueueRanking rank=%d (waiting for AcceptUpload)", p.endpoint.String(), value.Rank)
 }
 
 func (p *PeerConnection) SendOutOfParts() {
@@ -924,8 +937,7 @@ func (p *PeerConnection) ProcessIncoming() error {
 		case *clientproto.CancelTransfer:
 			p.HandleClientCancelTransfer()
 		case *clientproto.QueueRanking:
-			debugPeerf("peer %s <- QueueRanking", p.endpoint.String())
-			p.Close(QueueRanking)
+			p.HandleQueueRanking(value)
 		case *clientproto.SendingPart32:
 			debugPeerf("peer %s <- SendingPart32 %d..%d", p.endpoint.String(), value.BeginOffset, value.EndOffset)
 			if req, err := data.MakePeerRequest(int64(value.BeginOffset), int64(value.EndOffset)); err == nil {
