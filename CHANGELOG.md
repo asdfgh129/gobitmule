@@ -16,6 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **eD2k 握手诊断日志（2026-11-25）**：
+  - `PeerConnection.OnConnect()` 在 debug 级别打印完整 OP_HELLO 帧（hex），
+    `ProcessIncoming()` 打印帧读取失败原因，配合 `ed2k engine progress` 采样日志，
+    可区分“引擎未收到字节”“peer 不接受 Hello”“源本身已失活”三种 0 字节场景。
+  - 诊断结论：关闭 obfuscation 对照实例（26897）仍出现同一批 peer 的
+    `disconnect code=10/11`；逐字节比对 eMule 0.70b `SendHelloTypePacket` /
+    `ProcessHelloTypePacket` 后确认我方 83 字节 OP_HELLO 的头部（E3 + size + opcode）、
+    hash 长度、端点、7 个 tag 的 ID/类型/长度均一致，末尾 6 字节空 ServerPoint
+    仅被 eMule 记为附加数据、不会导致断连。用独立 Python socket 发送同一帧复现：
+    peer 在 0.3~0.4s 内 `ConnectionReset/Aborted`；**不发送任何数据、仅建立 TCP
+    连接时同样立刻被关闭**。因此这批 KAD 源端点本身已失活，不是混淆层或 Hello
+    编码问题。eMule Sunrise 服务器返回 lowid 警告，其余 server.met 服务器不可达，
+    当前网络下可用源极少。
+  - 端口回退核查：`Session.ListenPort/UDPPort` 在绑定失败后会更新为实际端口，
+    Hello/login 均使用更新后的值，回退本身不影响握手。
+
 - **eD2k 任务实时进度上报（2026-11-25）**：
   - 问题：eD2k 引擎把字节写进自己的 piece manager，`Goed2kDownloader.Open()` 要等整份文件
     下载完才返回 reader，因此 Web 任务在下载全过程里始终 `Running / bytesDone=0`，

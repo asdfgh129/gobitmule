@@ -397,7 +397,12 @@ func (p *PeerConnection) PrepareHello() clientproto.Hello {
 func (p *PeerConnection) OnConnect() {
 	packet := p.PrepareHello()
 	if raw, err := p.combiner.Pack("client.Hello", &packet); err == nil {
+		// Log the complete on-wire frame once: a peer that closes right after
+		// our Hello is otherwise indistinguishable from a stale KAD source.
+		debugPeerf("peer %s -> Hello %d bytes %X", p.endpoint.String(), len(raw), raw)
 		p.QueuePacket(raw)
+	} else {
+		debugPeerf("peer %s -> Hello pack failed: %v", p.endpoint.String(), err)
 	}
 }
 
@@ -883,6 +888,7 @@ func (p *PeerConnection) HandleFileStatusAnswer(value *clientproto.FileStatusAns
 func (p *PeerConnection) ProcessIncoming() error {
 	headers, bodies, err := p.ReadFramesWithCombiner(&p.combiner)
 	if err != nil {
+		debugPeerf("peer %s frame read failed: %v", p.endpoint.String(), err)
 		return err
 	}
 	for i, header := range headers {
