@@ -195,6 +195,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **从已连接节点更新服务器/KAD 节点、任务源列表（2026-11-25）**：
+  - 参考 eMule 0.70b：`CUpDownClient::ProcessHelloTypePacket()` 读取 HelloAnswer 尾部的
+    ServerPoint；`CT_EMULE_UDPPORTS`(0xF9) 高 16 位是 Kad UDP 端口；
+    `CKademlia::Bootstrap()` 用这个端点扩充路由表。
+  - 引擎侧新增 `internal/ed2k/discovered.go`（30 分钟 TTL 地址注册表，过滤本地/私网/
+    广播地址）和 `client_registry.go`（活跃下载客户端注册表）。`PrepareHelloAnswer()`
+    回传当前已握手的服务器与 UDP 端口；`HandleHelloAnswer()` 记录对端宣告的 server point
+    和 Kad UDP 端点，并立即调用 `BootstrapKadFromPeer()`。
+  - REST 新增 `POST /api/v1/ed2k/servers/update-from-peers`（走既有 AddServer 路径写回
+    server.met）和 `POST /api/v1/ed2k/kad/bootstrap-from-peers`（加入 KAD 引导与探测）。
+    Web 服务器页 / KAD 页各新增一个显式按钮：eMule 是勾选项自动执行，这里保留用户
+    确认，避免后台无条件改写节点文件。
+  - eMule 风格任务源列表：`TaskDetail.sources` 输出每个已连接源的端点、UserHash、
+    客户端与版本、来源标签、状态（handshaking/requesting/queued/downloading/
+    disconnecting/connected）、本地与远端队列排名、远端进度、上下行速度、失败次数和文件名。
+    由 API 层从活跃 eD2k 引擎按 transfer hash 聚合，best-effort 富化，不影响非 eD2k 任务。
+  - Web 任务详情新增「源列表」Tab，打开期间每 3 秒刷新状态、速度与队列位置。
+  - 回归测试：`TestUsableDiscoveredAddress`、`TestRecordDiscoveredServerDeduplicates`、
+    `TestDiscoveredAddressesExpire`、`TestEd2kHashFromInput`、`TestEnrichSourcesFromTaskDetail`，
+    并在 `TestED2KNetworkRoutes` 中断言两条新路由。
+
 - **搜索表达式与可组合筛选（2026-11-24）**：
   - 多个关键词默认按 `AND` 处理，只有显式输入 `OR` 才切换为或关系。
     eD2k 服务器搜索按 token 写入 bool operator（`AND=0x00` / `OR=0x01`），

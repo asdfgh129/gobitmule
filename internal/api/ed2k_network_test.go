@@ -10,11 +10,13 @@ import (
 )
 
 type fakeED2KNetwork struct {
-	servers ED2KServersStatus
-	kad     ED2KKadStatus
-	added   string
-	removed string
-	node    string
+	servers             ED2KServersStatus
+	kad                 ED2KKadStatus
+	added               string
+	removed             string
+	node                string
+	updatedFromPeers    bool
+	bootstrappedKadPeer bool
 }
 
 func (f *fakeED2KNetwork) Servers(context.Context) (ED2KServersStatus, error) { return f.servers, nil }
@@ -36,6 +38,14 @@ func (f *fakeED2KNetwork) DisconnectServers(context.Context) (ED2KServersStatus,
 func (f *fakeED2KNetwork) Kad(context.Context) (ED2KKadStatus, error) { return f.kad, nil }
 func (f *fakeED2KNetwork) AddKadNode(_ context.Context, address string) (ED2KKadStatus, error) {
 	f.node = address
+	return f.kad, nil
+}
+func (f *fakeED2KNetwork) UpdateServersFromPeers(context.Context) (ED2KServersStatus, error) {
+	f.updatedFromPeers = true
+	return f.servers, nil
+}
+func (f *fakeED2KNetwork) BootstrapKadFromPeers(context.Context) (ED2KKadStatus, error) {
+	f.bootstrappedKadPeer = true
 	return f.kad, nil
 }
 
@@ -101,5 +111,23 @@ func TestED2KNetworkRoutes(t *testing.T) {
 	bad.Body.Close()
 	if bad.StatusCode != http.StatusBadRequest {
 		t.Fatalf("empty node address: status=%d, want 400", bad.StatusCode)
+	}
+
+	updated, err := http.Post(srv.URL+"/api/v1/ed2k/servers/update-from-peers", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated.Body.Close()
+	if updated.StatusCode != http.StatusOK || !fake.updatedFromPeers {
+		t.Fatalf("update servers from peers: status=%d called=%v", updated.StatusCode, fake.updatedFromPeers)
+	}
+
+	bootstrapped, err := http.Post(srv.URL+"/api/v1/ed2k/kad/bootstrap-from-peers", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bootstrapped.Body.Close()
+	if bootstrapped.StatusCode != http.StatusOK || !fake.bootstrappedKadPeer {
+		t.Fatalf("bootstrap kad from peers: status=%d called=%v", bootstrapped.StatusCode, fake.bootstrappedKadPeer)
 	}
 }

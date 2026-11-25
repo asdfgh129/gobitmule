@@ -88,6 +88,23 @@ export interface Task {
   resource?: Resource
 }
 
+/** One live eD2k peer of a download task (eMule source list equivalent). */
+export interface TaskSource {
+  endpoint: string
+  userHash?: string
+  client?: string
+  version?: string
+  sources: string[]
+  state: string
+  queueRank?: number
+  remoteQueueRank?: number
+  progress: number
+  downloadSpeed: number
+  uploadSpeed: number
+  failCount: number
+  fileName?: string
+}
+
 export interface TaskDetail extends Task {
   speed: number
   eta: number
@@ -101,6 +118,7 @@ export interface TaskDetail extends Task {
   trackers?: string[]
   selectedFiles?: number[]
   chunksVerified: number
+  sources?: TaskSource[]
 }
 
 export interface TaskList {

@@ -253,6 +253,21 @@ func (s *Session) GetListenPort() int {
 	return s.settings.ListenPort
 }
 
+// BootstrapKadFromPeer adds a Kad UDP contact learned from a connected peer,
+// mirroring eMule's CKademlia::Bootstrap(peerIP, peerKadPort) on Hello.
+func (s *Session) BootstrapKadFromPeer(address string) bool {
+	if s == nil || s.dhtTracker == nil || address == "" {
+		return false
+	}
+	addr, err := net.ResolveUDPAddr("udp", address)
+	if err != nil || addr == nil {
+		return false
+	}
+	s.dhtTracker.AddNode(addr)
+	s.dhtTracker.ProbeNode(addr)
+	return true
+}
+
 func (s *Session) GetUDPPort() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()

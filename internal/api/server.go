@@ -49,6 +49,14 @@ type Options struct {
 	// Network exposes the eD2k server list and KAD routing table. Nil makes
 	// those endpoints return 503 instead of fabricated empty data.
 	Network ED2KNetworkProvider
+	// Sources optionally enriches task details with the live eD2k peer list.
+	// Nil keeps sources out of the response instead of fabricating them.
+	Sources TaskSourceProvider
+}
+
+// TaskSourceProvider is implemented by the daemon's eD2k adapter.
+type TaskSourceProvider interface {
+	TaskSources(ctx context.Context, hash string) ([]core.TaskSource, error)
 }
 
 type Server struct {
@@ -66,6 +74,7 @@ type Server struct {
 	eventHistory func(context.Context, int) ([]core.Event, error)
 	search       ED2KSearchProvider
 	network      ED2KNetworkProvider
+	sources      TaskSourceProvider
 	// rpc is the optional L1 aria2 facade (ADR-0031). Nil when disabled, in
 	// which case /jsonrpc is not registered and returns 404.
 	rpc *rpcFacade
@@ -88,6 +97,7 @@ func New(opts Options) *Server {
 		mux: http.NewServeMux(), authToken: opts.AuthToken,
 		requireAuth: opts.RequireAuth, idempotent: make(map[string]core.TaskID),
 		eventHistory: opts.EventHistory, search: opts.Search, network: opts.Network,
+		sources: opts.Sources,
 		tickets: make(map[string]time.Time),
 	}
 	// ADR-0031: opt-in L1 aria2 facade. When disabled the JSON-RPC routes are
@@ -127,7 +137,9 @@ func (s *Server) routes() {
 	mux.HandleFunc("POST /api/v1/ed2k/servers/connect", s.connectED2KServer)
 	mux.HandleFunc("POST /api/v1/ed2k/servers/disconnect", s.disconnectED2KServers)
 	mux.HandleFunc("GET /api/v1/ed2k/kad", s.getED2KKad)
+	mux.HandleFunc("POST /api/v1/ed2k/servers/update-from-peers", s.updateServersFromPeers)
 	mux.HandleFunc("POST /api/v1/ed2k/kad/nodes", s.addED2KKadNode)
+	mux.HandleFunc("POST /api/v1/ed2k/kad/bootstrap-from-peers", s.bootstrapKadFromPeers)
 	mux.HandleFunc("GET /api/v1/events/history", s.eventHistoryHandler)
 	mux.HandleFunc("POST /api/v1/ws-ticket", s.issueWSTicket)
 	mux.Handle("GET /api/v1/events", http.HandlerFunc(s.hub.ServeHTTP))
@@ -425,7 +437,48 @@ func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	s.enrichSources(r.Context(), d)
 	writeJSON(w, http.StatusOK, d)
+}
+
+// enrichSources attaches the live eD2k peer list to a task detail. It is
+// deliberately best-effort: a stopped engine or a malformed link must never
+// fail the task API itself.
+func (s *Server) enrichSources(ctx context.Context, d *core.TaskDetail) {
+	if s == nil || s.sources == nil || d == nil || d.Input == "" {
+		return
+	}
+	hash := ""
+	if d.Resource != nil {
+		hash = strings.TrimSpace(d.Resource.Identity.ED2KFileHash)
+	}
+	if hash == "" {
+		hash = ed2kHashFromInput(d.Input)
+	}
+	if hash == "" {
+		return
+	}
+	sources, err := s.sources.TaskSources(ctx, hash)
+	if err != nil || len(sources) == 0 {
+		return
+	}
+	d.Sources = sources
+}
+
+// ed2kHashFromInput reads the MD4 hash out of an ed2k://|file|... link. The
+// control plane keeps only the raw input on TaskDetail, so this is the fallback
+// when the resolved Resource is not attached to the detail.
+func ed2kHashFromInput(raw string) string {
+	parts := strings.Split(strings.TrimSpace(raw), "|")
+	if len(parts) < 5 || !strings.EqualFold(parts[0], "ed2k://") || !strings.EqualFold(parts[1], "file") {
+		return ""
+	}
+	hash := strings.TrimSpace(parts[4])
+	decoded, err := hex.DecodeString(hash)
+	if err != nil || len(decoded) != 16 {
+		return ""
+	}
+	return strings.ToUpper(hash)
 }
 
 func (s *Server) patchTask(w http.ResponseWriter, r *http.Request) {

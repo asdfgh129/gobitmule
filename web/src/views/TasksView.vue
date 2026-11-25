@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TaskTable from '@/components/TaskTable.vue'
 import Drawer from '@/components/Drawer.vue'
@@ -18,7 +18,21 @@ const router = useRouter()
 const tasks = useTasksStore()
 const events = useEventsStore()
 const session = useSessionStore()
-const detailTab = ref<'overview' | 'files' | 'events'>('overview')
+const detailTab = ref<'overview' | 'files' | 'sources' | 'events'>('overview')
+let sourceTimer: ReturnType<typeof setInterval> | null = null
+
+const sourceStateLabels: Record<string, string> = {
+  disconnecting: '断开中', downloading: '下载中', queued: '排队中',
+  handshaking: '握手中', requesting: '请求中', connected: '已连接',
+}
+function sourceLabel(value: string): string {
+  return sourceStateLabels[value] || value || '未知'
+}
+function sourceChip(state: string): string {
+  if (state === 'downloading') return 'chip--success'
+  if (state === 'queued' || state === 'handshaking' || state === 'disconnecting') return 'chip--warn'
+  return 'chip--soft'
+}
 
 const states: Array<TaskState | ''> = [
   '', 'Pending', 'Resolving', 'Ready', 'Running', 'Paused',
@@ -42,6 +56,19 @@ function removeTask(id: string): void {
 
 watch(() => tasks.filter.state, () => void tasks.fetchList())
 watch(() => tasks.filter.kind, () => void tasks.fetchList())
+
+// eMule refreshes its client list continuously; poll the task detail only
+// while the source tab is visible so speeds and queue ranks stay fresh.
+watch(detailTab, (tab) => {
+  if (sourceTimer) { clearInterval(sourceTimer); sourceTimer = null }
+  if (tab === 'sources' && tasks.selectedId) {
+    void tasks.refreshDetail()
+    sourceTimer = setInterval(() => {
+      if (!document.hidden && tasks.selectedId) void tasks.refreshDetail()
+    }, 3000)
+  }
+})
+onUnmounted(() => { if (sourceTimer) clearInterval(sourceTimer) })
 
 onMounted(() => {
   const id = route.query.task
@@ -103,6 +130,9 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
       <div class="tabs">
         <button :class="{ active: detailTab === 'overview' }" @click="detailTab = 'overview'">概览</button>
         <button :class="{ active: detailTab === 'files' }" @click="detailTab = 'files'">资源与文件</button>
+        <button :class="{ active: detailTab === 'sources' }" @click="detailTab = 'sources'">
+          源列表 <span class="count-pill">{{ tasks.detail.sources?.length || 0 }}</span>
+        </button>
         <button :class="{ active: detailTab === 'events' }" @click="detailTab = 'events'">事件</button>
       </div>
 
@@ -168,6 +198,58 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
         <p v-if="sidecars().length" class="hint-line">
           <Icon name="info" :size="14" /> 已探测 sidecar：{{ sidecars().join(', ') }}
         </p>
+      </div>
+
+      <div v-else-if="detailTab === 'sources'" class="detail-section">
+        <h3 class="subhead">已连接的源</h3>
+        <p class="muted source-hint">每 3 秒自动刷新；状态、速度与队列位置来自 eD2k 下载引擎。</p>
+        <p v-if="!tasks.detail.sources?.length" class="muted">
+          当前没有已握手的下载源。任务开始下载后，这里会列出每个源的状态、速度和远端进度。
+        </p>
+        <div v-else class="task-table__wrap source-table__wrap">
+          <table class="task-table ed-table source-table">
+            <thead>
+              <tr>
+                <th>端点</th>
+                <th>客户端</th>
+                <th>来源</th>
+                <th>状态</th>
+                <th>队列</th>
+                <th>进度</th>
+                <th>下载速度</th>
+                <th>上传速度</th>
+                <th>失败</th>
+                <th>文件</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(source, i) in tasks.detail.sources" :key="`${source.endpoint}-${i}`">
+                <td class="mono">{{ source.endpoint }}</td>
+                <td>
+                  {{ source.client || '未知客户端' }}
+                  <span v-if="source.version" class="muted-cell">{{ source.version }}</span>
+                </td>
+                <td>
+                  <span v-for="tag in source.sources" :key="tag" class="chip chip--soft">{{ sourceLabel(tag) }}</span>
+                  <span v-if="!source.sources?.length" class="muted-cell">—</span>
+                </td>
+                <td><span class="chip" :class="sourceChip(source.state)">{{ sourceLabel(source.state) }}</span></td>
+                <td class="mono">
+                  <template v-if="source.queueRank || source.remoteQueueRank">
+                    <span v-if="source.queueRank">本地 {{ source.queueRank }}</span>
+                    <span v-if="source.remoteQueueRank"> / 远端 {{ source.remoteQueueRank }}</span>
+                  </template>
+                  <span v-else class="muted-cell">—</span>
+                </td>
+                <td>{{ Math.round((source.progress || 0) * 100) }}%</td>
+                <td class="mono">{{ formatRate(source.downloadSpeed) }}</td>
+                <td class="mono">{{ formatRate(source.uploadSpeed) }}</td>
+                <td>{{ source.failCount || 0 }}</td>
+                <td class="muted-cell" :title="source.fileName">{{ source.fileName || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div v-else class="detail-section">

@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"path/filepath"
+	"strconv"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/data"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
@@ -409,6 +410,35 @@ func (p *PeerConnection) IsUploadLowID() bool {
 	return false
 }
 
+// sessionServerPoint returns the address of the server we are currently
+// handshaked with. eMule puts this at the tail of OP_HELLOANSWER so a newly
+// connected client can learn a usable server ("Update server list when a
+// client connects").
+func (p *PeerConnection) sessionServerPoint() protocol.Endpoint {
+	if p == nil || p.session == nil {
+		return protocol.Endpoint{}
+	}
+	for _, s := range p.session.ServerSnapshots() {
+		if !s.Connected || !s.HandshakeCompleted || s.Address == "" {
+			continue
+		}
+		host, portText, err := net.SplitHostPort(s.Address)
+		if err != nil {
+			continue
+		}
+		ip, err := String2IP(host)
+		if err != nil {
+			continue
+		}
+		port, err := strconv.Atoi(portText)
+		if err != nil || port <= 0 || port > 65535 {
+			continue
+		}
+		return protocol.NewEndpoint(ip, port)
+	}
+	return protocol.Endpoint{}
+}
+
 func (p *PeerConnection) PrepareHelloAnswer() clientproto.HelloAnswer {
 	const clientSoftwareAMule = 3
 	mo := MiscOptions{
@@ -428,14 +458,25 @@ func (p *PeerConnection) PrepareHelloAnswer() clientproto.HelloAnswer {
 			protocol.NewStringTag(0x01, p.session.GetClientName()),
 			protocol.NewStringTag(0x55, p.session.GetModName()),
 			protocol.NewUInt32Tag(0x11, uint32(p.session.GetAppVersion())),
-			protocol.NewUInt32Tag(0xF9, 0),
+			// eMule CT_EMULE_UDPPORTS: high 16 bits Kad UDP port, low 16 bits
+			// eD2K UDP port. Peers use the Kad half to bootstrap us.
+			protocol.NewUInt32Tag(0xF9, uint32(p.sessionKadPort())<<16|uint32(p.sessionUDPPort())),
 			protocol.NewUInt32Tag(0xFB, uint32((clientSoftwareAMule<<24)|((p.session.GetModMajorVersion()&0x7f)<<17)|((p.session.GetModMinorVersion()&0x7f)<<10)|((p.session.GetModBuildVersion()&0x7f)<<7))),
 			protocol.NewUInt32Tag(0xFA, uint32(mo.IntValue())),
 			protocol.NewUInt32Tag(0xFE, uint32(mo2.Value)),
 		},
-		ServerPoint: protocol.Endpoint{},
+		ServerPoint: p.sessionServerPoint(),
 	}
 }
+
+func (p *PeerConnection) sessionKadPort() int {
+	if p == nil || p.session == nil {
+		return 0
+	}
+	return p.session.GetUDPPort()
+}
+
+func (p *PeerConnection) sessionUDPPort() int { return p.sessionKadPort() }
 
 func (p *PeerConnection) PrepareHello() clientproto.Hello {
 	return clientproto.Hello{
@@ -737,6 +778,30 @@ func (p *PeerConnection) HandleHelloAnswer(value *clientproto.HelloAnswer) {
 	}
 	p.helloAnswered = true
 	p.clearDeadSourceStrikes()
+	// eMule "Update server list when a client connects": the server address
+	// sits at the tail of HelloAnswer. Record it; the API folds it into the
+	// user's server list on demand.
+	if value.ServerPoint.Defined() {
+		recordDiscoveredServer(value.ServerPoint.String(), "peer")
+	}
+	// CT_EMULE_UDPPORTS carries the peer's Kad UDP port in its high 16 bits.
+	// Bootstrapping from it is how eMule grows the Kad routing table from a
+	// connected client without a nodes.dat update.
+	for _, tag := range value.Properties {
+		if tag.ID != 0xF9 {
+			continue
+		}
+		kadPort := int((tag.UInt64 >> 16) & 0xffff)
+		if kadPort <= 0 {
+			break
+		}
+		addr := net.JoinHostPort(IP2String(p.endpoint.IP()), strconv.Itoa(kadPort))
+		recordDiscoveredKadNode(addr, "peer")
+		if p.session != nil {
+			p.session.BootstrapKadFromPeer(addr)
+		}
+		break
+	}
 	p.learnRemoteHash(value.Hash)
 	p.friendSlot = p.session.IsFriendSlot(value.Hash)
 	if value.Point.Defined() {
@@ -1051,6 +1116,25 @@ func (p *PeerConnection) GetInfo() PeerInfo {
 	info.Version = p.remotePeerInfo.Version
 	info.ModVersion = p.remotePeerInfo.ModNumber
 	info.StrModVersion = p.remotePeerInfo.ModVersion
+	info.QueueRank = int(p.uploadQueueRank)
+	info.RemoteQueueRank = int(p.remoteQueueRank)
+	if total := p.remotePieces.Len(); total > 0 {
+		info.Progress = float64(p.remotePieces.Count()) / float64(total)
+	}
+	switch {
+	case p.IsDisconnecting():
+		info.State = "disconnecting"
+	case p.transferringData:
+		info.State = "downloading"
+	case p.uploadState == UploadStateOnQueue:
+		info.State = "queued"
+	case !p.helloAnswered:
+		info.State = "handshaking"
+	case len(p.downloadQueue) > 0:
+		info.State = "requesting"
+	default:
+		info.State = "connected"
+	}
 	return info
 }
 

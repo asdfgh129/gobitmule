@@ -81,9 +81,27 @@ export const useED2KNetworkStore = defineStore('ed2kNetwork', () => {
     }
   }
 
+  async function updateServersFromPeers(): Promise<void> {
+    busy.value = true
+    try {
+      servers.value = await rpc.ed2kNetwork.updateServersFromPeers()
+    } finally {
+      busy.value = false
+    }
+  }
+
+  async function bootstrapKadFromPeers(): Promise<void> {
+    busy.value = true
+    try {
+      kad.value = await rpc.ed2kNetwork.bootstrapKadFromPeers()
+    } finally {
+      busy.value = false
+    }
+  }
+
   return {
     servers, kad, serversLoading, kadLoading, busy,
     refreshServers, refreshKad, addServer, removeServer, connectServer,
-    disconnectServers, addKadNode,
+    disconnectServers, addKadNode, updateServersFromPeers, bootstrapKadFromPeers,
   }
 })

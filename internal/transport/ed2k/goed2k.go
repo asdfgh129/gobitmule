@@ -74,7 +74,10 @@ func (e *realEngine) Start() error                      { return e.c.Start() }
 func (e *realEngine) LoadDHTNodesDat(p ...string) error { return e.c.LoadDHTNodesDat(p...) }
 func (e *realEngine) ConnectServerMet(p string) error   { return e.c.ConnectServerMet(p) }
 func (e *realEngine) Wait() error                       { return e.c.Wait() }
-func (e *realEngine) Stop() error                       { return e.c.Stop() }
+func (e *realEngine) Stop() error {
+	defer goed2k.UnregisterActiveClient(e.c)
+	return e.c.Stop()
+}
 func (e *realEngine) AddLink(link, out string) (transferHandle, string, error) {
 	h, path, err := e.c.AddLink(link, out)
 	return h, path, err // goed2k.TransferHandle satisfies transferHandle
@@ -133,6 +136,7 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 		st.MaxUploadRateKB = 0                 // ud is the unique rate authority (ADR-0002)
 		c := goed2k.NewClient(st)
 		c.SetAutoSaveInterval(0) // no state double-write (ADR-0002)
+		goed2k.RegisterActiveClient(c)
 		return &realEngine{c: c}, nil
 	}
 }

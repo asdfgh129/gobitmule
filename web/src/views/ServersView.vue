@@ -84,6 +84,21 @@ async function disconnect(): Promise<void> {
   }
 }
 
+// eMule's "Update server list when a client connects": the engine records the
+// server point from each HelloAnswer; this button folds those addresses into
+// server.met through the same AddServer path used by manual entries.
+async function updateFromPeers(): Promise<void> {
+  updating.value = true
+  try {
+    await network.updateServersFromPeers()
+    ui.success(network.servers.message || '已从连接节点更新服务器列表')
+  } catch (cause) {
+    ui.error(cause)
+  } finally {
+    updating.value = false
+  }
+}
+
 onMounted(() => {
   void refresh()
   timer = setInterval(() => { if (!document.hidden && !showAdd.value) void refresh() }, 6000)
@@ -105,6 +120,10 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
           </button>
           <button class="btn btn--ghost" :disabled="!network.servers.connected || updating || network.busy" @click="disconnect">
             <Icon name="close" :size="15" /> 断开全部
+          </button>
+          <button class="btn btn--ghost" :disabled="updating || network.busy || !network.servers.available"
+            title="读取已连接客户端 HelloAnswer 中的服务器地址，写入 server.met" @click="updateFromPeers">
+            <Icon name="link" :size="15" /> 从连接更新
           </button>
           <button class="btn btn--primary" @click="showAdd = !showAdd">
             <Icon :name="showAdd ? 'close' : 'plus'" :size="15" /> {{ showAdd ? '取消' : '添加服务器' }}

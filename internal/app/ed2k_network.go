@@ -17,6 +17,7 @@ import (
 
 	"github.com/asdfgh129/gobitmule/internal/api"
 	"github.com/asdfgh129/gobitmule/internal/core"
+	goed2k "github.com/asdfgh129/gobitmule/internal/ed2k"
 	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
 
@@ -325,4 +326,108 @@ func (a *ed2kSearchAdapter) AddKadNode(ctx context.Context, address string) (api
 		return api.ED2KKadStatus{}, core.Err(core.E_INVALID_INPUT, "添加 KAD 节点失败：%v", err)
 	}
 	return a.Kad(ctx)
+}
+
+// UpdateServersFromPeers implements the Web console action equivalent to
+// eMule's "Update server list when a client connects". Connected clients send
+// their current server in the tail of HelloAnswer; the engine records those
+// addresses and this action folds them into server.met (deduplicated by
+// AddServer, invalid/local addresses filtered at collection time).
+func (a *ed2kSearchAdapter) UpdateServersFromPeers(ctx context.Context) (api.ED2KServersStatus, error) {
+	if err := ctx.Err(); err != nil {
+		return api.ED2KServersStatus{}, err
+	}
+	if err := a.requireEnabled(); err != nil {
+		return api.ED2KServersStatus{}, err
+	}
+	addresses := goed2k.DiscoveredServers()
+	before, err := a.Servers(ctx)
+	if err != nil {
+		return api.ED2KServersStatus{}, err
+	}
+	for _, address := range addresses {
+		if err := ctx.Err(); err != nil {
+			return api.ED2KServersStatus{}, err
+		}
+		if _, err := a.AddServer(ctx, api.ED2KServerInput{Address: address}); err != nil {
+			// A single malformed/stale endpoint must not abort the whole update.
+			continue
+		}
+	}
+	status, err := a.Servers(ctx)
+	if err != nil {
+		return api.ED2KServersStatus{}, err
+	}
+	added := len(status.Servers) - len(before.Servers)
+	if added < 0 {
+		added = 0
+	}
+	status.Message = fmt.Sprintf("从已连接节点发现 %d 个服务器地址，新增 %d 个", len(addresses), added)
+	return status, nil
+}
+
+// BootstrapKadFromPeers probes the Kad UDP ports learned from connected
+// clients (eMule's Bootstrap action on a client in the peer/client list).
+func (a *ed2kSearchAdapter) BootstrapKadFromPeers(ctx context.Context) (api.ED2KKadStatus, error) {
+	if err := ctx.Err(); err != nil {
+		return api.ED2KKadStatus{}, err
+	}
+	c, err := a.ensureClient()
+	if err != nil {
+		return api.ED2KKadStatus{}, err
+	}
+	nodes := goed2k.DiscoveredKadNodes()
+	status, err := a.Kad(ctx)
+	if err != nil {
+		return api.ED2KKadStatus{}, err
+	}
+	if len(nodes) == 0 {
+		status.Message = "尚未从已连接节点学到 Kad 地址，等握手完成后再试"
+		return status, nil
+	}
+	if err := c.AddDHTBootstrapNodes(nodes...); err != nil {
+		return api.ED2KKadStatus{}, core.Err(core.E_INVALID_INPUT, "从节点引导 KAD 失败：%v", err)
+	}
+	status, err = a.Kad(ctx)
+	if err != nil {
+		return api.ED2KKadStatus{}, err
+	}
+	status.Message = fmt.Sprintf("已从 %d 个已连接节点引导 KAD", len(nodes))
+	return status, nil
+}
+
+// TaskSources exposes the live peer list of eD2k download tasks. It reads the
+// registered per-task engines (not the search client), so the Web console can
+// show eMule-style source state/queue/speed columns while a task is running.
+func (a *ed2kSearchAdapter) TaskSources(ctx context.Context, hash string) ([]core.TaskSource, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]core.TaskSource, 0)
+	for _, snap := range goed2k.ActivePeerStatuses() {
+		if !strings.EqualFold(snap.TransferHash.String(), hash) {
+			continue
+		}
+		p := snap.Peer
+		version := strings.TrimSpace(p.StrModVersion)
+		if version == "" && p.ModVersion > 0 {
+			version = fmt.Sprintf("0x%x", p.ModVersion)
+		}
+		out = append(out, core.TaskSource{
+			Endpoint:        p.Endpoint.String(),
+			UserHash:        p.UserHash.String(),
+			Client:          p.ModName,
+			Version:         version,
+			Sources:         p.SourceLabels(),
+			State:           p.State,
+			QueueRank:       p.QueueRank,
+			RemoteQueueRank: p.RemoteQueueRank,
+			Progress:        p.Progress,
+			DownloadSpeed:   int64(p.PayloadDownloadSpeed),
+			UploadSpeed:     int64(p.PayloadUploadSpeed),
+			FailCount:       p.FailCount,
+			FileName:        snap.FileName,
+		})
+	}
+	return out, nil
 }

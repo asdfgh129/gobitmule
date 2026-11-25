@@ -82,6 +82,13 @@ type ED2KNetworkProvider interface {
 	DisconnectServers(ctx context.Context) (ED2KServersStatus, error)
 	Kad(ctx context.Context) (ED2KKadStatus, error)
 	AddKadNode(ctx context.Context, address string) (ED2KKadStatus, error)
+	// UpdateServersFromPeers folds server endpoints learned from connected
+	// clients into server.met (eMule: "Update server list when a client
+	// connects"), exposed as an explicit action for the Web console.
+	UpdateServersFromPeers(ctx context.Context) (ED2KServersStatus, error)
+	// BootstrapKadFromPeers probes the Kad UDP ports learned from connected
+	// clients, the eMule "Bootstrap" action on a client in the peer list.
+	BootstrapKadFromPeers(ctx context.Context) (ED2KKadStatus, error)
 }
 
 func (s *Server) requireNetwork(w http.ResponseWriter) bool {
@@ -168,6 +175,22 @@ func (s *Server) getED2KKad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.network.Kad(r.Context())
+	s.ed2kNetworkResult(w, result, err)
+}
+
+func (s *Server) updateServersFromPeers(w http.ResponseWriter, r *http.Request) {
+	if !s.requireNetwork(w) {
+		return
+	}
+	result, err := s.network.UpdateServersFromPeers(r.Context())
+	s.ed2kNetworkResult(w, result, err)
+}
+
+func (s *Server) bootstrapKadFromPeers(w http.ResponseWriter, r *http.Request) {
+	if !s.requireNetwork(w) {
+		return
+	}
+	result, err := s.network.BootstrapKadFromPeers(r.Context())
 	s.ed2kNetworkResult(w, result, err)
 }
 

@@ -26,6 +26,13 @@ type PeerInfo struct {
 	ModVersion           int
 	StrModVersion        string
 	SourceFlag           int
+	// State/queue/progress make the peer list useful in the Web console: eMule
+	// shows the same columns (state, queue position, remote progress) in its
+	// download client list.
+	State           string
+	QueueRank       int
+	RemoteQueueRank int
+	Progress        float64
 	// UserHash is the remote peer's eD2k user hash learned from a cleartext
 	// Hello/HelloAnswer. Invalid means not learned yet. It is what makes
 	// ED-01 "both sides see each other" observable without pcap parsing.

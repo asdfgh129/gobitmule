@@ -77,9 +77,13 @@ export const rpc = {
     connectServer: (address: string) =>
       http.post<ED2KServersStatus>('/api/v1/ed2k/servers/connect', { address }),
     disconnectServers: () => http.post<ED2KServersStatus>('/api/v1/ed2k/servers/disconnect'),
+    updateServersFromPeers: () =>
+      http.post<ED2KServersStatus>('/api/v1/ed2k/servers/update-from-peers'),
     kad: () => http.get<ED2KKadStatus>('/api/v1/ed2k/kad'),
     addKadNode: (address: string) =>
       http.post<ED2KKadStatus>('/api/v1/ed2k/kad/nodes', { address }),
+    bootstrapKadFromPeers: () =>
+      http.post<ED2KKadStatus>('/api/v1/ed2k/kad/bootstrap-from-peers'),
   },
 }
 

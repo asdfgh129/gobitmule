@@ -197,6 +197,9 @@ h1, h2, h3, p { margin: 0; }
 
 /* ---------- tables & progress ---------- */
 .task-table__wrap { overflow-x: auto; }
+.source-table__wrap { margin-top: 10px; }
+.source-table { min-width: 920px; }
+.source-hint { margin: 0 0 8px; font-size: 12px; }
 .task-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .task-table th {
   text-align: left; font-size: 11px; letter-spacing: .5px; text-transform: uppercase;

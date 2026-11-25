@@ -266,6 +266,24 @@ type Capabilities struct {
 	Credentials string `json:"credentials"`
 }
 
+// TaskSource is one eD2k peer attached to a download task. It is optional and
+// only populated for eD2k tasks when the engine is reachable.
+type TaskSource struct {
+	Endpoint        string   `json:"endpoint"`
+	UserHash        string   `json:"userHash,omitempty"`
+	Client          string   `json:"client,omitempty"`
+	Version         string   `json:"version,omitempty"`
+	Sources         []string `json:"sources"`
+	State           string   `json:"state"`
+	QueueRank       int      `json:"queueRank,omitempty"`
+	RemoteQueueRank int      `json:"remoteQueueRank,omitempty"`
+	Progress        float64  `json:"progress"`
+	DownloadSpeed   int64    `json:"downloadSpeed"`
+	UploadSpeed     int64    `json:"uploadSpeed"`
+	FailCount       int      `json:"failCount"`
+	FileName        string   `json:"fileName,omitempty"`
+}
+
 // TaskDetail is the GET /tasks/{id} payload. Fields reserved for the optional
 // L1 aria2 facade (ADR-0019) are present but empty in P0.
 type TaskDetail struct {
@@ -282,6 +300,9 @@ type TaskDetail struct {
 	Trackers       []string `json:"trackers"`
 	SelectedFiles  []int    `json:"selectedFiles"`
 	ChunksVerified int      `json:"chunksVerified"`
+	// Sources is populated by the API layer for eD2k tasks from the live
+	// engine; it stays nil for other engines and when no engine is running.
+	Sources []TaskSource `json:"sources,omitempty"`
 }
 
 // Scope identifies who consumes a Limiter budget.

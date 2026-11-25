@@ -47,6 +47,20 @@ function lastSeen(ms: number): string {
   return new Date(ms).toLocaleString('zh-CN', { hour12: false })
 }
 
+// eMule reads CT_EMULE_UDPPORTS from connected clients and calls
+// CKademlia::Bootstrap(peerIP, kadUDPPort). The engine records those endpoints.
+async function bootstrapFromPeers(): Promise<void> {
+  updating.value = true
+  try {
+    await network.bootstrapKadFromPeers()
+    ui.success(network.kad.message || '已从连接节点引导 KAD')
+  } catch (cause) {
+    ui.error(cause)
+  } finally {
+    updating.value = false
+  }
+}
+
 onMounted(() => {
   void refresh()
   timer = setInterval(() => { if (!document.hidden && !showAdd.value) void refresh() }, 6000)
@@ -65,6 +79,10 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
         <div class="toolbar-actions">
           <button class="btn btn--ghost" :disabled="updating || network.busy" @click="refresh">
             <Icon name="refresh" :size="15" /> 刷新
+          </button>
+          <button class="btn btn--ghost" :disabled="updating || network.busy || !network.kad.available"
+            title="读取已连接客户端的 Kad UDP 端口并加入引导节点" @click="bootstrapFromPeers">
+            <Icon name="link" :size="15" /> 从连接引导
           </button>
           <button class="btn btn--primary" @click="showAdd = !showAdd">
             <Icon :name="showAdd ? 'close' : 'plus'" :size="15" /> {{ showAdd ? '取消' : '添加节点' }}
