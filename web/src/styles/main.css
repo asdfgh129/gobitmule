@@ -211,6 +211,18 @@ h1, h2, h3, p { margin: 0; }
 .source-retry { margin-left: 6px; font-variant-numeric: tabular-nums; }
 .source-speed { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
 .source-speed--active { color: #047857; font-weight: 700; }
+/* Eight columns have to fit without a horizontal scroller, so the source table
+   pays for its extra columns by tightening the shared cell padding. */
+.source-table th, .source-table td { padding: 10px 12px; }
+.source-table th.th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+.source-table th.th-sort:hover { color: var(--text); background: #f3f6fa; }
+.source-progress { margin-bottom: 14px; }
+.source-progress__meta {
+  display: flex; justify-content: space-between; gap: 12px; margin-top: 6px;
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.source-progress-cell { display: flex; align-items: center; gap: 8px; min-width: 132px; }
+.source-progress-cell > :first-child { flex: 1; }
 .kv-grid .kv--wide { grid-column: 1 / -1; }
 .kv-link { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-size: 12px; }
 .task-table { width: 100%; border-collapse: collapse; font-size: 13px; }

@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **源列表抽屉加宽、可排序，并按连接状态返回（2026-11-26）**：
+  - 抽屉宽度原为固定 `560px`，源表 8 列（状态 / 对方拥有 / 下载·上传 / 队列）
+    被裁成横向滚动条。改为按标签页自适应：源列表 `min(1180px, 96vw)`，其余
+    `min(660px, 94vw)`；同时收紧源表单元格内边距（`padding: 10px 12px`），
+    使 8 列在 1180px 内不再需要横向滚动。
+  - 源列表顶部新增任务进度条（已下载 / 总量 · 当前速度 · 预计剩余），不必切回
+    「概览」即可看到整体进度；「对方拥有」列在进度条右侧补百分比数值。
+  - 表头可点击排序：状态 / 对方拥有 / 下载·上传 / 队列，默认按状态（与 eMule
+    客户端列表一致），再次点击同一列反向。前端 `sourceStateRank()` 与服务端
+    `goed2k.sourceStateRank` 保持同一秩表；「队列」把 `remoteQueueRank == 0`
+    （未排队）视为最后，避免无队列信息的源排在最前。
+  - **服务端顺序被重排**：`Client.Status()` 收集完各传输的 peer 后按「传输哈希 +
+    端点字符串」重排，把 `GetPeersInfo()` 已排好的状态序压平成地址序。改为
+    `sort.SliceStable` 仅按传输哈希分组，传输内部保持状态序。实测同一任务下
+    `connecting` 源已排到 `dead` 源之前。
+  - 类型检查与构建：`npm run typecheck`、`npm run build` 通过；`go test ./internal/ed2k/` 通过。
+
 - **Web 控制台源列表对齐 eMule 客户端列表 + 修复速度恒为 0（2026-11-26）**：
   - **任务栏只显示文件名**：任务行原先直接渲染 `input`（ed2k 链接可长达数百字符），
     改为 `taskDisplayName()`：优先用解析出的 `resource.files[0].path` 基名，其次从

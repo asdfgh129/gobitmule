@@ -112,6 +112,27 @@ export function sourceStateLabel(state: string): string {
   return sourceStateLabels[state] || state || '未知'
 }
 
+// Mirrors goed2k.sourceStateRank so the console can order the source list the
+// way an eMule client list reads: sources moving bytes first, then queue and
+// handshake, then idle candidates, then quarantined ones.
+const sourceStateRanks: Record<string, number> = {
+  downloading: 0,
+  requesting: 1,
+  connected: 2,
+  queued: 3,
+  handshaking: 4,
+  connecting: 5,
+  waiting: 6,
+  unconnectable: 7,
+  disconnecting: 8,
+  dead: 9,
+}
+
+export function sourceStateRank(state: string): number {
+  const rank = sourceStateRanks[state]
+  return rank === undefined ? 10 : rank
+}
+
 /** Short countdown used next to a waiting/quarantined source. */
 export function formatCountdown(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return ''

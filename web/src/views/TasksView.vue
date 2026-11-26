@@ -12,7 +12,7 @@ import { useEventsStore } from '@/stores/events'
 import { useSessionStore } from '@/stores/session'
 import {
   formatBytes, formatCountdown, formatEta, formatRate, formatTime,
-  sourceStateLabel, taskDisplayName,
+  sourceStateLabel, sourceStateRank, taskDisplayName,
 } from '@/utils/format'
 import type { InputKind, TaskSource, TaskState } from '@/types/api'
 
@@ -50,11 +50,58 @@ const sourceSummary = computed(() => {
   return summary
 })
 
+// eMule's client list is sorted by state by default; the header click keeps
+// that as the baseline and lets the user fall back to progress/speed/queue.
+const sourceSort = ref<'state' | 'progress' | 'speed' | 'queue'>('state')
+const sourceSortDir = ref<'asc' | 'desc'>('asc')
+
+// Every comparator is written so that ascending means "best first" — the most
+// advanced state, the largest remote progress, the fastest source, the shortest
+// remote queue. Clicking the same header again reverses it.
+const sourceSortValue: Record<string, (source: TaskSource) => number> = {
+  state: (source) => -sourceStateRank(source.state),
+  progress: (source) => source.progress || 0,
+  speed: (source) => source.downloadSpeed || 0,
+  // 0 means "not queued on the remote side", which must sort last, not first.
+  queue: (source) => -(source.remoteQueueRank || Number.MAX_SAFE_INTEGER),
+}
+
 const visibleSources = computed<TaskSource[]>(() => {
   const list = tasks.detail?.sources ?? []
-  if (!onlyConnected.value) return list
-  return list.filter((source) => hasRemoteProgress(source.state))
+  const filtered = onlyConnected.value
+    ? list.filter((source) => hasRemoteProgress(source.state))
+    : list.slice()
+  const value = sourceSortValue[sourceSort.value]
+  const dir = sourceSortDir.value === 'asc' ? 1 : -1
+  return filtered.sort((a, b) => {
+    const cmp = value(b) - value(a)
+    if (cmp !== 0) return cmp * dir
+    // Stable tiebreak so rows do not jump between the 3s polls.
+    const speedDelta = (b.downloadSpeed || 0) - (a.downloadSpeed || 0)
+    if (speedDelta !== 0) return speedDelta
+    return a.endpoint < b.endpoint ? -1 : a.endpoint > b.endpoint ? 1 : 0
+  })
 })
+
+function setSourceSort(key: 'state' | 'progress' | 'speed' | 'queue'): void {
+  if (sourceSort.value === key) {
+    sourceSortDir.value = sourceSortDir.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  sourceSort.value = key
+  sourceSortDir.value = 'asc'
+}
+
+// The source table carries eight columns (state, remote progress, both speeds,
+// queue ranks), which the old 560px drawer clipped into a horizontal scroller.
+// Widen only for that tab so the reading width of the other tabs stays intact.
+const drawerWidth = computed(() =>
+  detailTab.value === 'sources' ? 'min(1180px, 96vw)' : 'min(660px, 94vw)')
+
+function sortIndicator(key: 'state' | 'progress' | 'speed' | 'queue'): string {
+  if (sourceSort.value !== key) return ''
+  return sourceSortDir.value === 'asc' ? ' ▲' : ' ▼'
+}
 
 const sourceTagLabels: Record<string, string> = {
   server: '服务器', kad: 'KAD', resume: '续传', incoming: '入站', unknown: '未知',
@@ -144,10 +191,9 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
       v-if="tasks.detail"
       :title="taskDisplayName(tasks.detail)"
       :subtitle="tasks.detail.id"
-      width="min(560px, 94vw)"
+      :width="drawerWidth"
       @close="closeTask"
-    >
-      <div class="detail-head">
+    >      <div class="detail-head">
         <StateBadge :state="tasks.detail.state" />
         <span class="chip">{{ tasks.detail.inputKind }}</span>
         <span class="chip chip--soft">{{ tasks.detail.resource?.kind || '未解析' }}</span>
@@ -234,6 +280,14 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
       </div>
 
       <div v-else-if="detailTab === 'sources'" class="detail-section">
+        <div class="source-progress">
+          <ProgressBar :done="tasks.detail.bytesDone" :total="tasks.detail.bytesTotal" />
+          <div class="source-progress__meta">
+            <span>{{ formatBytes(tasks.detail.bytesDone) }} / {{ formatBytes(tasks.detail.bytesTotal) }}</span>
+            <span class="mono">{{ formatRate(tasks.detail.speed) }}</span>
+            <span>剩余 {{ formatEta(tasks.detail.eta) }}</span>
+          </div>
+        </div>
         <div class="source-summary">
           <span class="pill">共 {{ sourceSummary.total }} 个源</span>
           <span v-if="sourceSummary.active" class="pill pill--ok">传输中 {{ sourceSummary.active }}</span>
@@ -259,10 +313,18 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                 <th>端点</th>
                 <th>客户端</th>
                 <th>来源</th>
-                <th>状态</th>
-                <th style="min-width: 120px">对方拥有</th>
-                <th>下载 / 上传</th>
-                <th>队列</th>
+                <th class="th-sort" title="按连接状态排序" @click="setSourceSort('state')">
+                  状态{{ sortIndicator('state') }}
+                </th>
+                <th class="th-sort" title="按对方拥有比例排序" @click="setSourceSort('progress')">
+                  对方拥有{{ sortIndicator('progress') }}
+                </th>
+                <th class="th-sort" title="按下载速度排序" @click="setSourceSort('speed')">
+                  下载 / 上传{{ sortIndicator('speed') }}
+                </th>
+                <th class="th-sort" title="按远端排队位置排序" @click="setSourceSort('queue')">
+                  队列{{ sortIndicator('queue') }}
+                </th>
                 <th>失败</th>
               </tr>
             </thead>
@@ -284,12 +346,14 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                   </span>
                 </td>
                 <td>
-                  <ProgressBar
-                    v-if="hasRemoteProgress(source.state)"
-                    :done="Math.round((source.progress || 0) * 100)"
-                    :total="100"
-                    compact
-                  />
+                  <div v-if="hasRemoteProgress(source.state)" class="source-progress-cell">
+                    <ProgressBar
+                      :done="Math.round((source.progress || 0) * 100)"
+                      :total="100"
+                      compact
+                    />
+                    <span class="mono muted-cell">{{ Math.round((source.progress || 0) * 100) }}%</span>
+                  </div>
                   <span v-else class="muted-cell">—</span>
                 </td>
                 <td class="mono source-speed">

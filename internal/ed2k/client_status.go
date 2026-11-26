@@ -94,11 +94,13 @@ func (c *Client) Status() ClientStatus {
 			})
 		}
 	}
-	sort.Slice(peers, func(i, j int) bool {
-		if peers[i].TransferHash.Compare(peers[j].TransferHash) != 0 {
-			return peers[i].TransferHash.Compare(peers[j].TransferHash) < 0
-		}
-		return peers[i].Peer.Endpoint.String() < peers[j].Peer.Endpoint.String()
+	// Group by transfer, but keep the order GetPeersInfo produced inside a
+	// transfer: it already sorts downloading → requesting → connected → queued →
+	// handshake → idle → quarantined. Re-sorting by endpoint here (as this used
+	// to) flattened that ordering, so the Web console and any API consumer saw
+	// sources in alphabetical address order instead of eMule's state order.
+	sort.SliceStable(peers, func(i, j int) bool {
+		return peers[i].TransferHash.Compare(peers[j].TransferHash) < 0
 	})
 	status.Peers = peers
 	return status
