@@ -322,6 +322,10 @@ func Run(ctx context.Context, opts Options) error {
 			ServerMet:   cfg.ED2K.ServerMet,
 			Obfuscation: cfg.ED2K.Obfuscation,
 			Logger:      log,
+			// Engine resume files live next to state.db, not in the download
+			// directory: they are internal bookkeeping (which pieces the engine
+			// already wrote) and must not show up beside the user's files.
+			StateDir: filepath.Join(filepath.Dir(dbPath), "ed2k-resume"),
 		})
 		// The Downloader is the reader seam; Transport implements core.Transport
 		// (Name/Supports/Probe/Run) and owns the scheduler chunk plan.

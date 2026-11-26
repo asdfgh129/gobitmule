@@ -16,6 +16,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **修复进度倒退（重启后从 0 重下）与任务名露出链接片段（2026-11-26）**：
+  - **进度倒退的根因是引擎续传从未落盘**：`defaultEngineFactory` 按 ADR-0002 调了
+    `SetAutoSaveInterval(0)`，而 transport 又从不给引擎配 `stateStore`，于是
+    `ClientState`（各传输的 piece 位图与已下载块）一次都没写过。daemon 重启后
+    `AddTransferWithHandler` 拿到的是空 picker（`atp.ResumeData == nil` 直接进
+    `Downloading`），`.part` 里已有的块全部作废，进度归 0 并从头覆盖——这正是
+    「之前 3%，重启后 0%」的成因。
+    修法：`Goed2kConfig` 新增 `StateDir`，daemon 指向 `state.db` 同级的
+    `ed2k-resume/`（内部记账，不放下载目录）。`open()` 在 `Start()` 之后、
+    `AddLink()` 之前通过可选接口 `statefulEngine` 调 `SetStatePath(<StateDir>/<hash>.json)`
+    + `LoadState("")`：先恢复，再注册链接，`AddLink` 命中已存在的传输并直接续传。
+    配了 `StateDir` 时才开启引擎的 10s 周期保存（把丢失窗口限制在一拍内）；未配
+    时保持 `SetAutoSaveInterval(0)`，即 ADR-0002 的「ud 是唯一状态权威」基线不变——
+    续传文件只承载 `.part` 的块位图，任务状态与 chunk 记账仍在 ud/SQLite。
+    实测：强杀时 23,493,642 字节 → 重启日志 `resumedBytes: 19456000`，任务从
+    23,738,060 继续增长，不再归零。新增
+    `TestOpenLoadsResumeStateBeforeAddLink`、`TestOpenWithoutStateDirSkipsResume`、
+    `TestOpenToleratesResumeLoadFailure`（续传文件损坏时降级为从头下载，不判任务失败）。
+  - **任务列表又显示出 `|file|...`**：`taskDisplayName()` 先 `slice('ed2k://'.length)`
+    再 `split('|')`，切掉协议头后字段整体前移一位，`fields[0] === 'file'` 永不成立，
+    于是落到「原始文本」兜底并截断。改为直接 `split('|')` 取 `fields[1]`（类型）与
+    `fields[2]`（文件名）。
+  - **小进度显示成 0%**：`ProgressBar` 用 `Math.round` 取整，6.5 GB 任务要下到 65 MB
+    才够 1%，此前一直显示 `0%`，看起来像没动。改为 `0 < 进度 < 1%` 时显示 `<1%`。
+  - `open()` 新增一条 `ed2k transfer started` 日志（`file` / `resumedBytes` / `size`）：
+    此前续传与从零开始在线日志上无法区分，是这个 bug 难以定位的原因之一。
+
 - **源列表抽屉加宽、可排序，并按连接状态返回（2026-11-26）**：
   - 抽屉宽度原为固定 `560px`，源表 8 列（状态 / 对方拥有 / 下载·上传 / 队列）
     被裁成横向滚动条。改为按标签页自适应：源列表 `min(1180px, 96vw)`，其余

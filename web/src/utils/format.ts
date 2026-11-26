@@ -74,8 +74,12 @@ export function taskDisplayName(task: {
 
   if (/^ed2k:\/\//i.test(input)) {
     // ed2k://|file|<name>|<size>|<hash>|/  (or |file|...|/p=...|/)
-    const fields = input.slice('ed2k://'.length).split('|')
-    if (fields[0]?.toLowerCase() === 'file' && fields[1]) return safeDecode(fields[1])
+    // Splitting the whole link keeps "ed2k://" as field 0, so the type tag and
+    // the name sit at 1 and 2. Slicing the scheme off first shifted both by one
+    // and silently fell through to the raw-link fallback, which is how task rows
+    // ended up showing "|file|Vixen - ..." instead of the file name.
+    const fields = input.split('|')
+    if (fields[1]?.toLowerCase() === 'file' && fields[2]) return safeDecode(fields[2])
   }
   if (/^magnet:/i.test(input)) {
     const match = /[?&]dn=([^&]+)/i.exec(input)

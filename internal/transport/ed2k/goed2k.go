@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +71,16 @@ func reportEngineProgress(report func(int64), h transferHandle) (int64, bool) {
 	return done, true
 }
 
+// statefulEngine is implemented by the real goed2k engine. The engine owns the
+// .part file and writes blocks itself, so only it can tell a later run which
+// pieces are already on disk. Without this the adapter restarts every transfer
+// from byte 0 after a daemon restart, and the console's progress goes backwards.
+// Kept optional so offline fakes stay tiny.
+type statefulEngine interface {
+	SetStatePath(path string)
+	LoadState(path string) error
+}
+
 // engine is the narrow surface Goed2kDownloader needs from the forked client.
 type engine interface {
 	Start() error
@@ -95,6 +106,8 @@ func (e *realEngine) AddLink(link, out string) (transferHandle, string, error) {
 	h, path, err := e.c.AddLink(link, out)
 	return h, path, err // goed2k.TransferHandle satisfies transferHandle
 }
+func (e *realEngine) SetStatePath(path string)    { e.c.SetStatePath(path) }
+func (e *realEngine) LoadState(path string) error { return e.c.LoadState(path) }
 
 // engineFactory builds an engine per Downloader Open. Production returns a
 // configured *realEngine; tests inject a fake factory (zero network).
@@ -113,6 +126,11 @@ type Goed2kConfig struct {
 	DisableAutoSave bool         // zero AutoSaveInterval (ADR-0002)
 	Obfuscation     bool         // accept eMule basic obfuscation on incoming peers (ED-05)
 	Logger          *slog.Logger // optional: route engine logx into the daemon log
+	// StateDir holds one engine resume file per transfer hash. It carries the
+	// piece bitmap of what the engine already wrote to the .part file, which is
+	// the only thing that survives a restart; ud keeps owning task state and
+	// chunk accounting. Empty disables resume (every run starts from byte 0).
+	StateDir string
 }
 
 // Goed2kDownloader implements Downloader by driving the forked goed2k engine.
@@ -148,7 +166,15 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 		st.Logger = cfg.Logger                 // surface source discovery / KAD failures
 		st.MaxUploadRateKB = 0                 // ud is the unique rate authority (ADR-0002)
 		c := goed2k.NewClient(st)
-		c.SetAutoSaveInterval(0) // no state double-write (ADR-0002)
+		// AutoSave is the engine's periodic state write. It stays off unless the
+		// adapter owns a resume dir: ud must not get a second task-state writer
+		// (ADR-0002), but the piece bitmap of the .part file exists nowhere else,
+		// so a resumable run has to persist it. 10s bounds the loss to one window.
+		if cfg.StateDir != "" {
+			c.SetAutoSaveInterval(10 * time.Second)
+		} else {
+			c.SetAutoSaveInterval(0)
+		}
 		goed2k.RegisterActiveClient(c)
 		return &realEngine{c: c}, nil
 	}
@@ -206,6 +232,20 @@ func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
 		_ = eng.Stop()
 		return nil, 0, core.Err(core.E_TRANSIENT_NETWORK, "goed2k start failed: %v", err)
 	}
+	// Restore the engine's own progress before registering the link. The resume
+	// file only carries the piece bitmap of this transfer; the task state and
+	// the chunk ledger stay in ud (ADR-0002). Loading before AddLink makes
+	// AddLink return the already-restored transfer instead of a fresh one.
+	if d.cfg.StateDir != "" {
+		if se, ok := eng.(statefulEngine); ok {
+			statePath := filepath.Join(d.cfg.StateDir, strings.ToLower(r.Identity.ED2KFileHash)+".json")
+			se.SetStatePath(statePath)
+			if lerr := se.LoadState(""); lerr != nil && d.cfg.Logger != nil {
+				d.cfg.Logger.Warn("ed2k resume state load failed; starting from zero",
+					"path", statePath, "error", lerr)
+			}
+		}
+	}
 	handle, _, err := eng.AddLink(link, d.cfg.OutputDir)
 	if err != nil {
 		_ = eng.Stop()
@@ -213,6 +253,13 @@ func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
 	}
 
 	lastProgress, _ := reportEngineProgress(report, handle)
+	// Say out loud where the transfer starts. Without this line a resume and a
+	// from-scratch run look identical in the log, which is exactly the ambiguity
+	// that made "progress went backwards" hard to pin down.
+	if d.cfg.Logger != nil {
+		d.cfg.Logger.Info("ed2k transfer started", "file", name,
+			"resumedBytes", lastProgress, "size", size)
+	}
 	// Log the first sample even when it is 0: that line distinguishes "engine
 	// started, no bytes yet" from "engine never reached the sampling loop" when
 	// a task looks stuck at 0 bytes.
