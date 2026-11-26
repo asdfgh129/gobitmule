@@ -346,7 +346,7 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                   </span>
                 </td>
                 <td>
-                  <div v-if="hasRemoteProgress(source.state)" class="source-progress-cell">
+                  <div v-if="source.progressKnown" class="source-progress-cell">
                     <ProgressBar
                       :done="Math.round((source.progress || 0) * 100)"
                       :total="100"
@@ -354,7 +354,7 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                     />
                     <span class="mono muted-cell">{{ Math.round((source.progress || 0) * 100) }}%</span>
                   </div>
-                  <span v-else class="muted-cell">—</span>
+                  <span v-else class="muted-cell" title="该源还没有回复 FileStatusRequest">—</span>
                 </td>
                 <td class="mono source-speed">
                   <span :class="{ 'source-speed--active': source.downloadSpeed > 0 }">

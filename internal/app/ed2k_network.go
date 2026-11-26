@@ -460,6 +460,7 @@ func (a *ed2kSearchAdapter) TaskSources(ctx context.Context, hash string) ([]cor
 			QueueRank:       p.QueueRank,
 			RemoteQueueRank: p.RemoteQueueRank,
 			Progress:        p.Progress,
+			ProgressKnown:   p.ProgressKnown,
 			// DownloadSpeed is payload+protocol, which is the only figure the
 			// engine can report honestly: inbound sockets are charged in bulk by
 			// Connection.DoRead before framing, so the payload channel stays 0 on

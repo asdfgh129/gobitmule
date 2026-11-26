@@ -99,6 +99,8 @@ export interface TaskSource {
   queueRank?: number
   remoteQueueRank?: number
   progress: number
+  /** False when the source never answered FileStatusRequest: progress is unknown, not 0. */
+  progressKnown?: boolean
   downloadSpeed: number
   uploadSpeed: number
   failCount: number

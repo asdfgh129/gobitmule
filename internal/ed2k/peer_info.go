@@ -33,6 +33,10 @@ type PeerInfo struct {
 	QueueRank       int
 	RemoteQueueRank int
 	Progress        float64
+	// ProgressKnown separates "the peer reported 0%" from "the peer never told
+	// us". Without it the console had to render an unknown bitmap as an empty
+	// bar, which reads as a fact rather than as missing information.
+	ProgressKnown bool
 	// UserHash is the remote peer's eD2k user hash learned from a cleartext
 	// Hello/HelloAnswer. Invalid means not learned yet. It is what makes
 	// ED-01 "both sides see each other" observable without pcap parsing.

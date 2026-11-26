@@ -19,6 +19,21 @@ func debugPeerf(format string, args ...any) {
 	logx.Debug(formatMessage(format, args...))
 }
 
+// hexPrefix renders at most n leading bytes of a packet body. Used to decode
+// protocol frames whose layout clients disagree about (e.g. the part bitmap in
+// FileStatusAnswer) straight from the debug log.
+func hexPrefix(raw []byte, n int) string {
+	if len(raw) > n {
+		raw = raw[:n]
+	}
+	const digits = "0123456789abcdef"
+	out := make([]byte, 0, len(raw)*2)
+	for _, b := range raw {
+		out = append(out, digits[b>>4], digits[b&0x0f])
+	}
+	return string(out)
+}
+
 const MaxOutgoingBufferSize = 102*2 + 8
 
 const (
@@ -148,9 +163,14 @@ type PeerConnection struct {
 	remoteHash     protocol.Hash
 	transfer       *Transfer
 	remotePieces   protocol.BitField
-	speed          PeerSpeed
-	peerInfo       *Peer
-	failed         bool
+	// remoteStatusAnswered records that the peer answered our FileStatusRequest.
+	// An answer with a zero-length bitmap is NOT "has nothing": a client that
+	// holds the completed file has no part bitmap to send and writes a bare
+	// uint16 0. "I do not have this file" is a separate packet (NoFileStatus).
+	remoteStatusAnswered bool
+	speed                PeerSpeed
+	peerInfo             *Peer
+	failed               bool
 	// Dead-source detection: a stale KAD endpoint accepts TCP, sees our Hello,
 	// then closes without ever answering. Track the dial time and whether a
 	// handshake completed so the policy can quarantine it instead of spending
@@ -1111,6 +1131,9 @@ func (p *PeerConnection) ProcessIncoming() error {
 			p.HandleClientFileStatusRequest(value)
 		case *clientproto.FileStatusAnswer:
 			p.remotePieces = value.BitField
+			p.remoteStatusAnswered = true
+			debugPeerf("peer %s FileStatusAnswer raw=%d bits=%d hex=%s", p.endpoint.String(),
+				len(bodies[i]), value.BitField.Len(), hexPrefix(bodies[i], 48))
 			p.HandleFileStatusAnswer(value)
 		case *clientproto.HashSetRequest:
 			p.HandleClientHashSetRequest(value)
@@ -1198,8 +1221,17 @@ func (p *PeerConnection) GetInfo() PeerInfo {
 	info.StrModVersion = p.remotePeerInfo.ModVersion
 	info.QueueRank = int(p.uploadQueueRank)
 	info.RemoteQueueRank = int(p.remoteQueueRank)
-	if total := p.remotePieces.Len(); total > 0 {
-		info.Progress = float64(p.remotePieces.Count()) / float64(total)
+	switch {
+	case p.remotePieces.Len() > 0:
+		info.Progress = float64(p.remotePieces.Count()) / float64(p.remotePieces.Len())
+		info.ProgressKnown = true
+	case p.remoteStatusAnswered:
+		// Zero-length bitmap: the peer holds the finished file, so it has no
+		// part bitmap to report. Counting that as "0% of the parts" made every
+		// source that was actually uploading look empty (and a source sending
+		// us SendingParts claim 0%).
+		info.Progress = 1
+		info.ProgressKnown = true
 	}
 	switch {
 	case p.IsDisconnecting():

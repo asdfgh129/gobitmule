@@ -16,6 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **修正「对方拥有」被误读成 0%：空位图表示对端持有完整文件（2026-11-26）**：
+  - 现象：源列表里**正在给我们传分片**的源，"对方拥有"显示 0%。同一 TCP 连接既在
+    `<- SendingPart32`，又声称自己 0 块，逻辑上不可能。
+  - 取证：给 `FileStatusAnswer` 加原始 body 打印后看到
+    `raw=18 hex=<16 字节 hash>0000` —— 位图只有一个 `uint16 0`。而同一条连接随后
+    `<- HashSetAnswer parts=671`、`-> StartUpload`、`<- AcceptUpload` 并正常发数据。
+  - 原因：eMule/aMule 对**已完成文件**没有 part 位图，`WritePartStatus` 直接写
+    `uint16 0`；"我没有这个文件"走的是另一个包（`NoFileStatus`）。原实现把
+    `BitField.Len() == 0` 算成 `0/0`，于是每个"完整文件源"都显示 0%。
+  - 修法：`FileStatusAnswer` 到达即置 `remoteStatusAnswered`；`GetInfo()` 改为
+    三态判定——位图非空取比例、位图为空取 1.0（完整）、从未应答则不报值。
+    `PeerInfo` / `core.TaskSource` 新增 `ProgressKnown`，前端只有
+    `progressKnown` 为真才画进度条，否则显示 `—`（此前把"未知"画成了"0%"）。
+  - 实测：`82.66.27.112:59255` 从 `prog=0` 变为 `prog=1 known=true dl≈21KB/s`；
+    尚未应答的源显示 `—` 而不是 0%。
+  - `FileStatusAnswer` 的 debug 日志补充 `bits` 与 body 十六进制前缀（`hexPrefix`）：
+    这类客户端差异只能靠原始字节定位，日志里没有字节就只能猜。
+  - 回归测试：`TestGetInfoTreatsEmptyBitmapAsCompleted`、
+    `TestGetInfoReportsPartialBitmap`、`TestGetInfoLeavesProgressUnknownBeforeAnswer`。
+    注：上游 `monkeyWie/goed2k` 同样把空位图算成 0，属上游语义缺口，本 fork 自行修正。
+
 - **修复进度倒退（重启后从 0 重下）与任务名露出链接片段（2026-11-26）**：
   - **进度倒退的根因是引擎续传从未落盘**：`defaultEngineFactory` 按 ADR-0002 调了
     `SetAutoSaveInterval(0)`，而 transport 又从不给引擎配 `stateStore`，于是

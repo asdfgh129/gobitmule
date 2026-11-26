@@ -287,6 +287,9 @@ type TaskSource struct {
 	// already failed against it.
 	RetryIn     int64 `json:"retryIn,omitempty"`
 	DeadStrikes int   `json:"deadStrikes,omitempty"`
+	// ProgressKnown tells the console whether Progress is a reported value. A
+	// peer that never answered FileStatusRequest must not be drawn as 0%.
+	ProgressKnown bool `json:"progressKnown,omitempty"`
 }
 
 // TaskDetail is the GET /tasks/{id} payload. Fields reserved for the optional
