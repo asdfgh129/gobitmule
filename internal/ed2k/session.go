@@ -571,6 +571,11 @@ func (s *Session) PumpIO() {
 			}
 			continue
 		}
+		if conn.pumpDial() {
+			// A background dial is still running: there is no socket to serve
+			// yet, and blocking here is exactly what used to starve PumpIO.
+			continue
+		}
 		if err := conn.FlushOutgoing(); err != nil {
 			debugPeerf("peer %s flush error: %v", conn.Endpoint().String(), err)
 		}

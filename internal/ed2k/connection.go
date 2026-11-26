@@ -236,44 +236,98 @@ func (c *Connection) enableIncomingObfuscation(localHash protocol.Hash) (bool, e
 	return c.prepareIncoming(localHash, true)
 }
 
-func (c *Connection) Connect(address net.Addr) error {
-	if tcpAddr, ok := address.(*net.TCPAddr); ok {
-		conn, err := net.DialTCP("tcp", nil, tcpAddr)
-		if err != nil {
-			c.Close(IOException)
-			return err
-		}
-		if !c.obfPeerHash.Equal(protocol.Invalid) {
-			wrapped, err := obfuscation.WrapOutgoing(conn, c.obfPeerHash, nil)
-			if err != nil {
-				_ = conn.Close()
-				if c.obfHashTentative {
-					// The inferred hash may not be the peer's real user hash
-					// (KAD ID semantics differ across clients/versions). Retry
-					// once in plaintext rather than dropping a usable source.
-					logx.Debug("tentative outgoing obfuscation failed, falling back to plaintext",
-						"endpoint", tcpAddr.String(), "error", err.Error())
-					clearConn, dialErr := net.DialTCP("tcp", nil, tcpAddr)
-					if dialErr != nil {
-						c.Close(IOException)
-						return dialErr
-					}
-					c.socket = clearConn
-					c.lastReceive = CurrentTime()
-					return nil
-				}
-				c.Close(EncryptionError)
-				return err
+// connectionDialTimeoutMS bounds a single outbound TCP connect. Source
+// candidates are dialed from the session loop, so an unbounded dial to an
+// unreachable source froze PumpIO - and with it every live peer's handshake and
+// download - until the OS SYN retry gave up (~21s per candidate). The bound is
+// deliberately generous because the dial now runs off-loop: a distant holding
+// peer often needs more than 5s to complete the TCP handshake.
+const connectionDialTimeoutMS = int64(15000)
+
+func (c *Connection) dialTimeout() time.Duration {
+	if c.session != nil {
+		if secs := c.session.settings.PeerConnectionTimeout; secs > 0 {
+			if floor := time.Duration(connectionDialTimeoutMS) * time.Millisecond; time.Duration(secs)*time.Second < floor {
+				return floor
 			}
-			c.socket = wrapped
-			c.obfuscated = true
-			c.outgoingObfuscation = true
-		} else {
-			c.socket = conn
+			return time.Duration(secs) * time.Second
 		}
-		c.lastReceive = CurrentTime()
 	}
+	return time.Duration(connectionDialTimeoutMS) * time.Millisecond
+}
+
+func (c *Connection) dialTCP(timeout time.Duration, addr *net.TCPAddr) (net.Conn, error) {
+	if timeout <= 0 {
+		return net.DialTCP("tcp", nil, addr)
+	}
+	return net.DialTimeout("tcp", addr.String(), timeout)
+}
+
+// openSocket dials the peer and negotiates optional obfuscation without
+// touching receiver state, so a caller can run it on another goroutine and
+// publish the result from the session loop.
+func (c *Connection) openSocket(address net.Addr) (net.Conn, bool, error) {
+	tcpAddr, ok := address.(*net.TCPAddr)
+	if !ok {
+		return nil, false, nil
+	}
+	timeout := c.dialTimeout()
+	conn, err := c.dialTCP(timeout, tcpAddr)
+	if err != nil {
+		return nil, false, err
+	}
+	if c.obfPeerHash.Equal(protocol.Invalid) {
+		return conn, false, nil
+	}
+	wrapped, err := obfuscation.WrapOutgoing(conn, c.obfPeerHash, nil)
+	if err != nil {
+		_ = conn.Close()
+		if c.obfHashTentative {
+			// The inferred hash may not be the peer's real user hash
+			// (KAD ID semantics differ across clients/versions). Retry
+			// once in plaintext rather than dropping a usable source.
+			logx.Debug("tentative outgoing obfuscation failed, falling back to plaintext",
+				"endpoint", tcpAddr.String(), "error", err.Error())
+			clearConn, dialErr := c.dialTCP(timeout, tcpAddr)
+			if dialErr != nil {
+				return nil, false, dialErr
+			}
+			return clearConn, false, nil
+		}
+		return nil, false, NewError(EncryptionError)
+	}
+	return wrapped, true, nil
+}
+
+func (c *Connection) Connect(address net.Addr) error {
+	socket, obfuscated, err := c.openSocket(address)
+	if err != nil {
+		c.Close(errorCodeOf(err))
+		return err
+	}
+	if socket == nil {
+		return nil
+	}
+	c.adoptSocket(socket, obfuscated)
 	return nil
+}
+
+// adoptSocket installs a freshly dialed socket. It runs on the session loop so
+// the rest of the peer state stays single-threaded.
+func (c *Connection) adoptSocket(socket net.Conn, obfuscated bool) {
+	c.socket = socket
+	c.obfuscated = obfuscated
+	if obfuscated {
+		c.outgoingObfuscation = true
+	}
+	c.lastReceive = CurrentTime()
+}
+
+func errorCodeOf(err error) BaseErrorCode {
+	if e, ok := err.(*JED2KError); ok {
+		return e.ErrorCode()
+	}
+	return IOException
 }
 
 func (c *Connection) Close(ec BaseErrorCode) {

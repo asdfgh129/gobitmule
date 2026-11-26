@@ -207,7 +207,7 @@ func (t *Transfer) ConnectToPeer(peerInfo *Peer) (*PeerConnection, error) {
 	if t.session != nil {
 		t.session.mu.Unlock()
 	}
-	if err := c.Connect(); err != nil {
+	if err := c.ConnectAsync(); err != nil {
 		return nil, err
 	}
 	peerInfo.Connection = c

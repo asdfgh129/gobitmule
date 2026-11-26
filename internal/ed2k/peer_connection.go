@@ -155,9 +155,16 @@ type PeerConnection struct {
 	// then closes without ever answering. Track the dial time and whether a
 	// handshake completed so the policy can quarantine it instead of spending
 	// a connection slot every backoff cycle.
-	connectStarted    int64
-	helloAnswered     bool
-	transferringData  bool
+	connectStarted   int64
+	helloAnswered    bool
+	transferringData bool
+	// Asynchronous dial state. The dial goroutine only fills dialSocket /
+	// dialObfuscated / dialErr and closes dialDone; the session loop reads them
+	// after observing the close, so the channel close is the happens-before.
+	dialDone          chan struct{}
+	dialSocket        net.Conn
+	dialObfuscated    bool
+	dialErr           error
 	recvReq           data.PeerRequest
 	recvReqCompressed bool
 	recvPos           int
@@ -214,10 +221,46 @@ func (p *PeerConnection) HasEndpoint() bool {
 }
 
 func (p *PeerConnection) Connect() error {
+	if err := p.prepareConnect(); err != nil {
+		return err
+	}
 	addr, err := p.endpoint.ToTCPAddr()
 	if err != nil {
 		return err
 	}
+	if err := p.Connection.Connect(addr); err != nil {
+		return err
+	}
+	p.OnConnect()
+	return nil
+}
+
+// ConnectAsync starts the TCP dial on a background goroutine. The session loop
+// adopts the socket on a later pump tick, so a slow or unreachable source no
+// longer freezes every other peer's handshake and download.
+func (p *PeerConnection) ConnectAsync() error {
+	if err := p.prepareConnect(); err != nil {
+		return err
+	}
+	addr, err := p.endpoint.ToTCPAddr()
+	if err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	p.dialDone = done
+	go func() {
+		defer close(done)
+		socket, obfuscated, err := p.openSocket(addr)
+		p.dialSocket = socket
+		p.dialObfuscated = obfuscated
+		p.dialErr = err
+	}()
+	return nil
+}
+
+// prepareConnect resets per-connection handshake state and arms outgoing
+// obfuscation from the candidate's user hash before any dial happens.
+func (p *PeerConnection) prepareConnect() error {
 	// ED-05: arm outgoing obfuscation from the source candidate's user hash
 	// before dialing. The hash may come from a KAD source entry or from an
 	// earlier cleartext Hello on a previous connection. Unknown hashes leave
@@ -229,13 +272,45 @@ func (p *PeerConnection) Connect() error {
 		debugPeerf("peer %s outgoing obfuscation armed with source user hash %s",
 			p.endpoint.String(), p.peerInfo.UserHash.String())
 	}
-	if err := p.Connection.Connect(addr); err != nil {
-		return err
-	}
 	p.connectStarted = CurrentTime()
 	p.helloAnswered = false
-	p.OnConnect()
 	return nil
+}
+
+// Dialing reports whether an asynchronous dial is still in flight.
+func (p *PeerConnection) Dialing() bool {
+	return p.dialDone != nil
+}
+
+// pumpDial publishes a finished asynchronous dial. It returns true while the
+// dial is still running so the pump can skip socket I/O for this peer.
+func (p *PeerConnection) pumpDial() bool {
+	if p.dialDone == nil {
+		return false
+	}
+	select {
+	case <-p.dialDone:
+	default:
+		return true
+	}
+	p.dialDone = nil
+	if p.dialErr != nil {
+		// Connection.Connect closes on dial failure; mirror it here because the
+		// goroutine deliberately leaves the receiver state untouched.
+		debugPeerf("peer %s dial failed: %v", p.endpoint.String(), p.dialErr)
+		p.Close(IOException)
+		return false
+	}
+	if p.IsDisconnecting() || p.dialSocket == nil {
+		if p.dialSocket != nil {
+			_ = p.dialSocket.Close()
+		}
+		return false
+	}
+	p.adoptSocket(p.dialSocket, p.dialObfuscated)
+	p.dialSocket = nil
+	p.OnConnect()
+	return false
 }
 
 // learnRemoteHash stores the user hash revealed by a cleartext Hello. The
@@ -312,6 +387,11 @@ func (p *PeerConnection) SecondTick(tickIntervalMS int64) {
 		return
 	}
 	p.Connection.SecondTick(tickIntervalMS)
+	if p.Dialing() {
+		// The dial has its own bound; the receive timeout must not close a
+		// connection that has not been handed a socket yet.
+		return
+	}
 	now := CurrentTime()
 	if now-p.lastReceive > int64(p.session.settings.PeerConnectionTimeout)*1000 {
 		p.Close(ConnectionTimeout)
@@ -1252,6 +1332,9 @@ func (p *PeerConnection) ReceiveCompressedData(header protocol.PacketHeader, off
 		beginOffset = int64(pb.Block.Range(p.transfer.Size()).Left) + pb.Received
 	}
 	endOffset := beginOffset + int64(header.SizePacket()) - int64(payloadSize)
+	debugPeerf("peer %s compressed part offset=%d wire_len=%d payload=%d received=%d req=%d..%d",
+		p.endpoint.String(), offset, compressedLength, payloadSize,
+		pb.Received, beginOffset, endOffset)
 	if req, err := data.MakePeerRequest(beginOffset, endOffset); err == nil {
 		p.ReceiveData(req, true)
 	}
@@ -1289,10 +1372,29 @@ func (p *PeerConnection) ReceivePendingData() {
 	}
 	p.session.Credits().AddDownloaded(p.remoteHash, int64(len(payload)))
 	offset := int(p.recvReq.InBlockOffset()) + p.recvPos
-	copy(pb.Buffer[offset:], payload)
+	if offset < 0 || offset+len(payload) > len(pb.Buffer) {
+		// Overlapping or out-of-range fragment: the buffer cannot absorb it,
+		// so release the block instead of corrupting the piece.
+		debugPeerf("peer %s fragment out of range offset=%d len=%d buffer=%d",
+			p.endpoint.String(), offset, len(payload), len(pb.Buffer))
+		p.transferringData = false
+		p.Close(IOException)
+		p.continueBufferedIncoming()
+		return
+	}
+	copy(pb.Buffer[offset:offset+len(payload)], payload)
 	pb.Received += int64(len(payload))
 	p.recvPos += len(payload)
 	if p.recvPos < int(p.recvReq.Length) {
+		return
+	}
+	// A SendingPart frame carries at most 10240 bytes (eMule MAX_FRAGMENT_SIZE),
+	// so finishing one frame only completes the block when the block itself is
+	// small enough. Keep the block pending and wait for the remaining fragments
+	// instead of treating the fragment end as a damaged block.
+	if !p.recvReqCompressed && pb.Received < pb.DataSize {
+		p.transferringData = false
+		p.continueBufferedIncoming()
 		return
 	}
 	if p.CompleteBlock(pb) {
@@ -1357,6 +1459,8 @@ func (p *PeerConnection) CompleteBlock(pb *PendingBlock) bool {
 		return false
 	}
 	if pb.Received < pb.DataSize {
+		debugPeerf("peer %s block commit incomplete: received=%d want=%d buffer=%d compressed=%t",
+			p.endpoint.String(), pb.Received, pb.DataSize, len(pb.Buffer), p.recvReqCompressed)
 		return false
 	}
 	if p.recvReqCompressed {

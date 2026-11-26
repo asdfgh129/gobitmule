@@ -16,6 +16,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **修复下载长期卡在 0%：块内分片被误判为整块 + 会话循环被同步拨号冻结（2026-11-26）**：
+  - **分片≠块**：eMule 每个 `SendingPart` 帧最多携带 `MAX_FRAGMENT_SIZE = 10240` 字节，
+    而 `ReceivePendingData` 把「本帧收完」当成「块收完」——`recvPos == recvReq.Length`
+    后立刻 `CompleteBlock`，此时 `pb.Received=10240 < pb.DataSize=194560`，被判为坏块并
+    `Close(IOException)`（日志 `disconnect code=11`），块永远进不了写盘队列。改为：
+    明文分片收完但块未满时保留 pending 块并继续收取后续分片；压缩帧（`CompressedPart`）
+    仍保持「收完即整块」语义，损坏时照旧断连释放块。同时补越界分片防护（不写坏 piece）。
+  - **并发饥饿**：`Transfer.ConnectToPeer` 用**无超时**的 `net.DialTCP` 同步拨号，且整条
+    调用链跑在 `Session.SecondTick` 同一 goroutine（`PumpIO` 之后）。一个不可达源即可冻结
+    整个会话循环（Windows 下 SYN 重试 ~21s），其间所有活跃 peer 的握手/收包全部停摆，
+    对端超时 RST——这正是「37 次 Hello 只换到 1 个 HelloAnswer」的成因。改为
+    `ConnectAsync()`：拨号在后台 goroutine 完成，`PumpIO` 每拍 `pumpDial()` 收口并
+    `adoptSocket`，拨号期间跳过该连接的 socket IO；`Connection.openSocket()` 不触碰接收端
+    状态，结果经 channel close 建立 happens-before。
+  - 拨号加下界 `connectionDialTimeoutMS = 15s`（`openSocket` 用 `net.DialTimeout`）：
+    异步化之后放宽超时不再有循环代价，避免 5s 把跨洲源误杀成 `i/o timeout`。
+  - 回归测试（离线、确定性）：`TestEngineDownloadsControlledFile` 用真实 TCP + 同一套
+    eD2k 编解码的受控 uploader 跑完 Hello→FileAnswer→FileStatusAnswer→StartUpload→
+    AcceptUpload→RequestParts→SendingPart 全链路，断言 3 个块全部入写盘队列且字节精确；
+    对照实验：还原旧行为后同一用例 0/3 块完成（复现线上 `bytesDone=0`）。
+    `TestReceivePendingDataAccumulatesFragments`（19 个 10240 分片→1 次写盘）、
+    `TestCompressedPartCompletesBlockAcrossReads`（25KB 压缩帧跨 16KB 读重组）、
+    `TestConnectAsyncAdoptsSocketOnPump`、`TestConnectAsyncFailureClosesOnPump`、
+    `TestDialTimeoutIsBounded`。
+
 - **新端口下 Web 控制台显示 eMule 风格 HighID / KAD 可达绿色标记（2026-11-26）**：
   - Web server/KAD 页原来展示的是搜索引擎专用实例（`port+1`）的状态，而真正占用
     用户配置 TCP/UDP 端口的是每个下载任务拉起的下载引擎。新增
