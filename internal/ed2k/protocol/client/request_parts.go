@@ -7,7 +7,12 @@ import (
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
-const partsInRequest = 3
+// PartsInRequest is how many ranges one RequestParts packet carries. The engine
+// must not append more than this per packet: the offsets live in fixed arrays,
+// so a larger window has to be split across several packets.
+const PartsInRequest = 3
+
+const partsInRequest = PartsInRequest
 
 type RequestParts32 struct {
 	Hash        protocol.Hash

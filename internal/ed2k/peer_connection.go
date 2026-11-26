@@ -1407,43 +1407,73 @@ func (p *PeerConnection) GetDownloading(block data.PieceBlock) *PendingBlock {
 }
 
 func (p *PeerConnection) RequestBlocks() {
-	if p.transfer == nil || p.transferringData || len(p.downloadQueue) != 0 {
+	if p.transfer == nil {
 		return
 	}
-	blocks := make([]data.PieceBlock, 0)
-	p.transfer.picker.PickPiecesWithAvailability(&blocks, RequestQueueSize, p.GetPeer(), p.Speed(), &p.remotePieces)
-	use32 := p.transfer.Size() <= math.MaxUint32
-	req32 := &clientproto.RequestParts32{Hash: p.transfer.GetHash()}
-	req64 := &clientproto.RequestParts64{Hash: p.transfer.GetHash()}
-	for len(blocks) > 0 && len(p.downloadQueue) < RequestQueueSize {
-		block := blocks[0]
-		blocks = blocks[1:]
-		p.downloadQueue = append(p.downloadQueue, NewPendingBlock(block, p.transfer.Size()))
-		if use32 {
-			req32.AppendRange(block.Range(p.transfer.Size()))
-		} else {
-			req64.AppendRange(block.Range(p.transfer.Size()))
-		}
+	// Refill incrementally, and while data is still arriving.
+	//
+	// Two old gates made this a strict batch pipeline: "return unless the queue is
+	// empty", and "return while transferringData". Together they meant the peer
+	// finished its three blocks with nothing new queued, and only got a fresh
+	// request after the last byte of the batch had been consumed — a full round
+	// trip of dead air per batch. The second gate was the harder one: the caller
+	// consumes the next buffered fragment before refilling, which flips
+	// transferringData back to true, so the refill never ran.
+	//
+	// Asking for exactly the free slots keeps the picker honest: it reserves every
+	// block it hands out, so over-asking would strand blocks that are neither
+	// requested nor released to another source.
+	missing := RequestQueueSize - len(p.downloadQueue)
+	if missing <= 0 {
+		return
 	}
-	if use32 && req32.CurrentFree > 0 {
-		debugPeerf("peer %s -> RequestParts32 blocks=%d ranges=[%d..%d][%d..%d][%d..%d]",
-			p.endpoint.String(),
-			req32.CurrentFree,
-			req32.BeginOffset[0], req32.EndOffset[0],
-			req32.BeginOffset[1], req32.EndOffset[1],
-			req32.BeginOffset[2], req32.EndOffset[2])
-		p.SendRequestParts32(req32)
-	} else if !use32 && req64.CurrentFree > 0 {
-		debugPeerf("peer %s -> RequestParts64 blocks=%d ranges=[%d..%d][%d..%d][%d..%d]",
-			p.endpoint.String(),
-			req64.CurrentFree,
-			req64.BeginOffset[0], req64.EndOffset[0],
-			req64.BeginOffset[1], req64.EndOffset[1],
-			req64.BeginOffset[2], req64.EndOffset[2])
-		p.SendRequestParts64(req64)
-	} else {
-		debugPeerf("peer %s no blocks to request, closing", p.endpoint.String())
-		p.Close(NoError)
+	blocks := make([]data.PieceBlock, 0, missing)
+	p.transfer.picker.PickPiecesWithAvailability(&blocks, missing, p.GetPeer(), p.Speed(), &p.remotePieces)
+	if len(blocks) == 0 {
+		// Only give up when nothing is left in flight either; closing while two
+		// blocks are still streaming would throw their data away.
+		if len(p.downloadQueue) == 0 {
+			debugPeerf("peer %s no blocks to request, closing", p.endpoint.String())
+			p.Close(NoError)
+		}
+		return
+	}
+	use32 := p.transfer.Size() <= math.MaxUint32
+	for _, block := range blocks {
+		p.downloadQueue = append(p.downloadQueue, NewPendingBlock(block, p.transfer.Size()))
+	}
+	pending := len(p.downloadQueue)
+	for start := 0; start < len(blocks); start += clientproto.PartsInRequest {
+		// One RequestParts packet carries at most PartsInRequest ranges: the
+		// offsets live in fixed arrays, so a window larger than that has to be
+		// split across packets. Appending past the array bound would panic.
+		end := start + clientproto.PartsInRequest
+		if end > len(blocks) {
+			end = len(blocks)
+		}
+		if use32 {
+			req := &clientproto.RequestParts32{Hash: p.transfer.GetHash()}
+			for _, block := range blocks[start:end] {
+				req.AppendRange(block.Range(p.transfer.Size()))
+			}
+			debugPeerf("peer %s -> RequestParts32 blocks=%d first=[%d..%d] last=[%d..%d] pending=%d",
+				p.endpoint.String(), req.CurrentFree,
+				req.BeginOffset[0], req.EndOffset[0],
+				req.BeginOffset[req.CurrentFree-1], req.EndOffset[req.CurrentFree-1],
+				pending)
+			p.SendRequestParts32(req)
+			continue
+		}
+		req := &clientproto.RequestParts64{Hash: p.transfer.GetHash()}
+		for _, block := range blocks[start:end] {
+			req.AppendRange(block.Range(p.transfer.Size()))
+		}
+		debugPeerf("peer %s -> RequestParts64 blocks=%d first=[%d..%d] last=[%d..%d] pending=%d",
+			p.endpoint.String(), req.CurrentFree,
+			req.BeginOffset[0], req.EndOffset[0],
+			req.BeginOffset[req.CurrentFree-1], req.EndOffset[req.CurrentFree-1],
+			pending)
+		p.SendRequestParts64(req)
 	}
 }
 

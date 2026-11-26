@@ -24,6 +24,24 @@ const connectionIODeadlineNS = int64(5 * 1000 * 1000 * 1000)
 // up on the next tick, so replies after 200-400ms are not lost.
 const connectionPollDeadlineNS = int64(50 * 1000 * 1000)
 
+// doReadChunkSize is the per-syscall read size. It is larger than one eD2k
+// fragment (10 KiB) on purpose: a 16 KiB read per tick was what capped every
+// peer at 160 KiB/s.
+const doReadChunkSize = 64 * 1024
+
+// doReadBudget bounds how many bytes one connection may take per PumpIO call.
+// PumpIO runs once per 100ms tick and used to perform a single 16 KiB read,
+// which hard-capped every peer at 160 KiB/s regardless of what the link could
+// carry — a 1.8 MB/s eMule source showed up here as ~100 KB/s. Draining in a
+// loop lifts that ceiling to several MB/s per peer while the budget still bounds
+// how long one fast source can hold the shared tick.
+const doReadBudget = 512 * 1024
+
+// readDrainDeadlineNS keeps follow-up reads of a drain from blocking: bytes
+// already queued in the kernel return immediately, and once nothing is left the
+// tick is handed back instead of waiting for the next fragment to show up.
+const readDrainDeadlineNS = int64(100 * 1000)
+
 // incomingProbeWait bounds how long we wait for the first bytes of an
 // accepted socket before deciding it is a silent eD2k server callback. A
 // server testing our listening port connects and waits for us to send a
@@ -42,6 +60,10 @@ type Connection struct {
 	closeHandled  bool
 	outgoing      []queuedPacket
 	incoming      [][]byte
+	// readBuf is reused across DoRead calls: the drain loop reads up to 512 KiB
+	// per tick, and allocating that much per tick per connection was pure
+	// garbage. DoRead only runs on the session tick goroutine.
+	readBuf       []byte
 	header        protocol.PacketHeader
 	headerBuffer  []byte
 	bodyBuffer    []byte
@@ -77,27 +99,39 @@ func (c *Connection) DoRead() error {
 	if c.socket == nil {
 		return nil
 	}
-	tmp := make([]byte, 16*1024)
-	_ = c.socket.SetReadDeadline(CurrentTimeToDeadline(connectionPollDeadlineNS))
-	n, err := c.socket.Read(tmp)
-	if err != nil {
-		if ne, ok := err.(net.Error); ok && ne.Timeout() {
+	if c.readBuf == nil {
+		c.readBuf = make([]byte, doReadChunkSize)
+	}
+	budget := doReadBudget
+	for first := true; budget > 0; first = false {
+		deadline := connectionPollDeadlineNS
+		if !first {
+			deadline = readDrainDeadlineNS
+		}
+		_ = c.socket.SetReadDeadline(CurrentTimeToDeadline(deadline))
+		n, err := c.socket.Read(c.readBuf)
+		if n > 0 {
+			logx.Debug("socket read", "endpoint", c.Endpoint().String(), "bytes", n)
+			c.lastReceive = CurrentTime()
+			c.stat.ReceiveBytes(int64(n), 0)
+			c.incoming = append(c.incoming, bytes.Clone(c.readBuf[:n]))
+			budget -= n
+		}
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				return nil
+			}
+			if err == io.EOF {
+				c.Close(EndOfStream)
+				return nil
+			}
+			c.Close(IOException)
+			return err
+		}
+		if n == 0 {
 			return nil
 		}
-		if err == io.EOF {
-			c.Close(EndOfStream)
-			return nil
-		}
-		c.Close(IOException)
-		return err
 	}
-	if n == 0 {
-		return nil
-	}
-	logx.Debug("socket read", "endpoint", c.Endpoint().String(), "bytes", n)
-	c.lastReceive = CurrentTime()
-	c.stat.ReceiveBytes(int64(n), 0)
-	c.incoming = append(c.incoming, bytes.Clone(tmp[:n]))
 	return nil
 }
 

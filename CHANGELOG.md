@@ -16,6 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **修复下载吞吐被引擎自身上限压住（对照 eMule 1.8 MB/s 只有 30 KB/s，2026-11-26）**：
+  - 现象：同一个 ubuntu ISO，eMule 显示 1.82 MB/s（4 条源，其中一条 aMule 3.1.0 独占
+    1.77 MB/s），本引擎只有 16–136 KB/s，平均 30–60 KB/s。
+  - 根因一（读路径）：`Connection.DoRead` 每次 `PumpIO` 只做**一次 16 KiB 读**，而
+    `PumpIO` 由 100ms 的 tick 驱动 —— 单连接上行被封死在 160 KiB/s，与本机带宽、
+    对端能力都无关。日志取证：`SendingPart32` 严格每 100ms 一帧 10240 字节。
+    改为**按预算排空**：一次 `DoRead` 循环读到 512 KiB 上限，首读沿用 50ms 轮询超时、
+    后续读用 100µs 短超时（内核已就绪的数据立即返回，读空就把 tick 交还）。
+    读缓冲提到 64 KiB 并在 `Connection` 上复用，避免每 tick 产生垃圾。
+  - 根因二（请求补货）：`RequestBlocks` 有两道闸门——「队列非空就返回」和
+    「`transferringData` 就返回」。二者叠加成了严格批处理：发 3 块 → 等 3 块全收完
+    → 才发下一批，批与批之间空转整整一个 RTT。第二道闸更隐蔽：调用方会先消费下一帧
+    再补货，`transferringData` 已翻回 true，补货永远不执行。改为**按空缺增量补货**、
+    且允许在接收中补货；补货数量严格等于空位数（picker 会预占，多要会造成块悬空）。
+  - `RequestParts` 单包最多 3 个范围（`[3]uint32` 定长数组），窗口一旦调大会直接越界
+    panic。导出 `client.PartsInRequest` 并让请求按包分批发送。
+  - 实测：同一源帧率 1.8 → 3.8 帧/s，请求后不再出现空档（日志时间线确认数据连续）。
+  - **窗口深度不是瓶颈**：把 `RequestQueueSize` 从 3 调到 8 后同一源反而降到
+    14.8 KB/s（3 时为 20.2），说明对端按分片节奏限速，加深窗口只增加浪费。
+    故维持 3（与 eMule 默认一致）。
+  - 回归测试：`TestDoReadDrainsMoreThanOneChunk`（单次 DoRead 必须读到 >16 KiB）、
+    `TestRequestBlocksRefillsBeforeQueueDrains`（窗口未排空前必须补货；用旧闸门跑
+    会得到 `[0 3]` 并失败）、`TestRequestBlocksDoesNotCloseWithPendingWindow`。
+  - 仍存在的结构性差距（已取证，未在本条修复）：本机 28 个已知源里 26 个 TCP 不可达
+    （逐个裸连探测确认），源**全部来自 Kad**（25/25 标 `kad`，无 `server`、无源交换），
+    且 eD2k 服务器登录被对端直接断开（`disconnect code=10` = EndOfStream）。
+    eMule 靠服务器源列表 + 客户端间源交换维持新鲜源池，这两条通路本引擎尚未打通。
+
 - **修正「对方拥有」被误读成 0%：空位图表示对端持有完整文件（2026-11-26）**：
   - 现象：源列表里**正在给我们传分片**的源，"对方拥有"显示 0%。同一 TCP 连接既在
     `<- SendingPart32`，又声称自己 0 块，逻辑上不可能。
