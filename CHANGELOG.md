@@ -16,6 +16,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **新端口下 Web 控制台显示 eMule 风格 HighID / KAD 可达绿色标记（2026-11-26）**：
+  - Web server/KAD 页原来展示的是搜索引擎专用实例（`port+1`）的状态，而真正占用
+    用户配置 TCP/UDP 端口的是每个下载任务拉起的下载引擎。新增
+    `goed2k.ActiveNetworkStatus()` 聚合所有已注册活动下载引擎的 server/KAD 快照，
+    `Servers()` / `Kad()` 优先消费该真值源，避免搜索引擎误报 LowID / firewalled。
+  - 修复 server 行状态富化的值拷贝 bug：`byAddress` 原保存指向循环局部变量 `row`
+    的指针，`append` 又按值拷贝，导致写回的是脱离 slice 的副本，API 中 server 行
+    恒为 `connected:false / clientId:0`。改用切片索引定位（`enrichServerRows`）后，
+    已连接服务器正确返回 `clientId=71042416 (0x043C0570)`。
+  - 修正 KAD firewalled 判定：`net.ListenUDP` 绑定 `0.0.0.0` 在 NAT 下是常态，
+    原逻辑把外部节点回报的公网 IP 与通配 bind IP 比较，必然判为受限。改为
+    `firewalledFromExternalIPsLocked()`：通配 bind 时两个非零点一致即视为可达。
+  - 前端：`ServersView` 连接行按 `clientId >= 0x01000000` 显示绿色 HighID / 橙色
+    LowID 徽标；`KadView` 防火墙状态在可达时显示绿色「可达（开放）」。
+  - 端到端验证（配置 TCP 54662 / UDP 54672）：server 行 `connected:true,
+    clientId:71042416`，KAD `bootstrapped:true, firewalled:false,
+    listenPort:54672, verifiedNodes:142`。回归测试：
+    `TestActiveNetworkSnapshotUsesRegisteredEngine`、`TestEnrichServerRowsWritesBackClientID`、
+    `TestEnrichServerRowsAddsRuntimeOnly`、`TestFirewalledFromExternalIPs*`。
+
 - **修复 peer socket IO 超时单位错误，恢复 HelloAnswer 接收（2026-11-25）**：
   - `connectionIODeadlineNS` 原为 `5*1000*1000`（5 **毫秒**），却直接作为
     `time.Duration`（纳秒）传给 `net.Conn.Set{Read,Write}Deadline`。改为

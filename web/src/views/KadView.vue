@@ -124,7 +124,9 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
         </div>
         <div class="ed-stat">
           <span>防火墙状态</span>
-          <strong>{{ network.kad.firewalled ? '受限（需穿透）' : '开放' }}</strong>
+          <strong :class="!network.kad.firewalled && network.kad.bootstrapped ? 'ed-stat__ok' : 'ed-stat__warn'">
+            {{ !network.kad.available ? '—' : network.kad.firewalled ? '受限（需穿透）' : network.kad.bootstrapped ? '可达（开放）' : '开放（待验证）' }}
+          </strong>
         </div>
         <div class="ed-stat">
           <span>UDP 监听端口</span>

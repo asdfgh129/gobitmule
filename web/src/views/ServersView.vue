@@ -205,6 +205,10 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
                   {{ row.handshakeComplete ? '已连接' : '握手中' }}
                 </span>
                 <span v-else class="chip chip--soft">未连接</span>
+                <span v-if="row.connected" class="chip" :class="row.clientId >= 16777216 ? 'chip--success' : 'chip--warn'"
+                  :title="`服务器分配的 clientId: ${row.clientId}`">
+                  {{ row.clientId >= 16777216 ? 'HighID' : 'LowID' }}
+                </span>
               </td>
               <td><span class="chip chip--soft">{{ row.source }}</span></td>
               <td class="task-table__actions">

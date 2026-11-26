@@ -435,17 +435,5 @@ func (n *kadNodeImpl) processAddresses(addresses []uint32) {
 	if len(n.tracker.externalIPs) < 2 {
 		return
 	}
-	localIP := uint32(0)
-	if n.tracker.conn != nil {
-		if udpAddr, ok := n.tracker.conn.LocalAddr().(*net.UDPAddr); ok {
-			localIP = protocolIP(udpAddr.IP)
-		}
-	}
-	matchCount := 0
-	for _, ip := range n.tracker.externalIPs[:2] {
-		if ip != 0 && ip == localIP {
-			matchCount++
-		}
-	}
-	n.tracker.firewalled = matchCount != 2
+	n.tracker.firewalled = n.tracker.firewalledFromExternalIPsLocked()
 }

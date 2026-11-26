@@ -58,16 +58,29 @@ func (a *ed2kSearchAdapter) Servers(ctx context.Context) (api.ED2KServersStatus,
 	}
 
 	c := a.liveClient()
-	if c != nil {
+	active := goed2k.ActiveNetworkStatus()
+	runtimeServers := active.Servers
+	if active.HasEngine && len(runtimeServers) > 0 {
+		// Prefer the per-task download engine: it owns the configured incoming
+		// TCP port, so its clientID is the one that matters for HighID.
+		status.EngineStarted = true
+		for _, info := range runtimeServers {
+			if info.Connected {
+				status.Connected = info.Identifier
+				break
+			}
+		}
+	} else if c != nil {
 		status.EngineStarted = true
 		status.Connected = c.Session().ConnectedServerID()
+		runtimeServers = c.Session().ServerSnapshot()
 	}
 
 	entries, err := metEntries(cfg.ServerMet)
 	if err != nil {
 		status.Message = fmt.Sprintf("读取 server.met 失败：%v", err)
 	}
-	byAddress := make(map[string]*api.ED2KServerEntry, len(entries))
+	rows := make([]api.ED2KServerEntry, 0, len(entries))
 	for i := range entries {
 		entry := &entries[i]
 		row := api.ED2KServerEntry{
@@ -77,25 +90,38 @@ func (a *ed2kSearchAdapter) Servers(ctx context.Context) (api.ED2KServersStatus,
 		if row.Address == "" {
 			continue
 		}
-		byAddress[row.Address] = &row
-		status.Servers = append(status.Servers, row)
+		rows = append(rows, row)
 	}
-	if c != nil {
-		for _, info := range c.Session().ServerSnapshot() {
-			if row, ok := byAddress[info.Address]; ok {
-				row.Connected = info.Connected
-				row.HandshakeComplete = info.HandshakeComplete
-				row.ClientID = info.ClientID
-				continue
-			}
-			status.Servers = append(status.Servers, api.ED2KServerEntry{
-				Address: info.Address, Name: info.Identifier, Source: "运行时",
-				Connected: info.Connected, HandshakeComplete: info.HandshakeComplete,
-				ClientID: info.ClientID,
-			})
-		}
-	}
+	status.Servers = enrichServerRows(rows, runtimeServers)
 	return status, nil
+}
+
+// enrichServerRows overlays live connection state onto the server.met rows by
+// address. It uses slice indices rather than pointers into loop-local values:
+// taking &row and appending row by value used to mutate a disconnected copy,
+// leaving connected/handshakeComplete/clientId at zero in the API response.
+func enrichServerRows(rows []api.ED2KServerEntry, runtime []goed2k.ServerConnectionInfo) []api.ED2KServerEntry {
+	if len(runtime) == 0 {
+		return rows
+	}
+	byAddress := make(map[string]int, len(rows))
+	for i := range rows {
+		byAddress[rows[i].Address] = i
+	}
+	for _, info := range runtime {
+		if idx, ok := byAddress[info.Address]; ok {
+			rows[idx].Connected = info.Connected
+			rows[idx].HandshakeComplete = info.HandshakeComplete
+			rows[idx].ClientID = info.ClientID
+			continue
+		}
+		rows = append(rows, api.ED2KServerEntry{
+			Address: info.Address, Name: info.Identifier, Source: "运行时",
+			Connected: info.Connected, HandshakeComplete: info.HandshakeComplete,
+			ClientID: info.ClientID,
+		})
+	}
+	return rows
 }
 
 func normalizeServerHostPort(address string) (string, int, error) {
@@ -261,17 +287,29 @@ func (a *ed2kSearchAdapter) Kad(ctx context.Context) (api.ED2KKadStatus, error) 
 		status.Message = "eD2k 引擎未启用，请先在设置 → eMule 中开启"
 		return status, nil
 	}
-	c, err := a.ensureClient()
-	if err != nil {
-		return api.ED2KKadStatus{}, err
+	active := goed2k.ActiveNetworkStatus()
+	var st goed2k.DHTStatus
+	var state *goed2k.ClientDHTState
+	if active.KadStatus != nil {
+		// The per-task engine owns the configured UDP port; its firewalled flag
+		// is the eMule-style green/orange indicator users need to see.
+		status.EngineStarted = true
+		st = *active.KadStatus
+		state = active.KadState
+	} else {
+		c, err := a.ensureClient()
+		if err != nil {
+			return api.ED2KKadStatus{}, err
+		}
+		status.EngineStarted = true
+		tracker := c.GetDHTTracker()
+		if tracker == nil {
+			status.Message = "KAD 尚未初始化，请在设置 → eMule 中配置 nodesDat 后保存"
+			return status, nil
+		}
+		st = tracker.Status()
+		state = tracker.SnapshotState()
 	}
-	status.EngineStarted = true
-	tracker := c.GetDHTTracker()
-	if tracker == nil {
-		status.Message = "KAD 尚未初始化，请在设置 → eMule 中配置 nodesDat 后保存"
-		return status, nil
-	}
-	st := tracker.Status()
 	status.Bootstrapped = st.Bootstrapped
 	status.Firewalled = st.Firewalled
 	status.LiveNodes = st.LiveNodes
@@ -283,7 +321,6 @@ func (a *ed2kSearchAdapter) Kad(ctx context.Context) (api.ED2KKadStatus, error) 
 	status.ListenPort = st.ListenPort
 	status.StoragePoint = st.StoragePoint
 
-	state := tracker.SnapshotState()
 	if state != nil {
 		status.SelfID = state.SelfID.String()
 		routers := make(map[string]bool, len(state.RouterNodes))

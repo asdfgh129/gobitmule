@@ -466,6 +466,31 @@ func (t *DHTTracker) handleFirewalledRequest(addr *net.UDPAddr, req kadproto.Fir
 	})
 }
 
+// firewalledFromExternalIPsLocked interprets the two external IPs reported by
+// independent KAD nodes. A wildcard UDP bind (0.0.0.0) is normal for eMule
+// clients behind NAT, so comparing the reported IPs to the bind address would
+// mark every such client firewalled. In that case require two non-zero, equal
+// reports instead.
+func (t *DHTTracker) firewalledFromExternalIPsLocked() bool {
+	if t == nil || len(t.externalIPs) < 2 {
+		return true
+	}
+	first, second := t.externalIPs[0], t.externalIPs[1]
+	if first == 0 || second == 0 {
+		return true
+	}
+	localIP := uint32(0)
+	if t.conn != nil {
+		if udpAddr, ok := t.conn.LocalAddr().(*net.UDPAddr); ok {
+			localIP = protocolIP(udpAddr.IP)
+		}
+	}
+	if localIP == 0 {
+		return first != second
+	}
+	return first != localIP || second != localIP
+}
+
 func (t *DHTTracker) handleFirewalledResponse(addr *net.UDPAddr, res kadproto.FirewalledRes) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -476,19 +501,7 @@ func (t *DHTTracker) handleFirewalledResponse(addr *net.UDPAddr, res kadproto.Fi
 		t.externalIPs = append(t.externalIPs, res.IP)
 	}
 	if len(t.externalIPs) >= 2 {
-		matchCount := 0
-		localIP := uint32(0)
-		if t.conn != nil {
-			if udpAddr, ok := t.conn.LocalAddr().(*net.UDPAddr); ok {
-				localIP = protocolIP(udpAddr.IP)
-			}
-		}
-		for _, ip := range t.externalIPs[:2] {
-			if ip != 0 && ip == localIP {
-				matchCount++
-			}
-		}
-		t.firewalled = matchCount != 2
+		t.firewalled = t.firewalledFromExternalIPsLocked()
 		t.externalIPs = t.externalIPs[:0]
 	}
 }

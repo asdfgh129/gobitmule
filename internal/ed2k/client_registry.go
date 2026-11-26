@@ -33,6 +33,55 @@ func UnregisterActiveClient(c *Client) {
 	activeClients.Unlock()
 }
 
+// ActiveNetworkSnapshot reports the server/KAD state of the per-task download
+// engines. The Web console's server and KAD pages must reflect the engine that
+// actually owns the configured 4662/4672 (or user-replaced) ports: the
+// long-lived search client deliberately binds port+1 and would otherwise show
+// a permanently firewalled LowID even when the download engine is reachable.
+type ActiveNetworkSnapshot struct {
+	HasEngine bool
+	Servers   []ServerConnectionInfo
+	KadStatus *DHTStatus
+	KadState  *ClientDHTState
+}
+
+func ActiveNetworkStatus() ActiveNetworkSnapshot {
+	activeClients.RLock()
+	clients := make([]*Client, 0, len(activeClients.clients))
+	for c := range activeClients.clients {
+		clients = append(clients, c)
+	}
+	activeClients.RUnlock()
+
+	out := ActiveNetworkSnapshot{}
+	seen := make(map[string]struct{})
+	for _, c := range clients {
+		if c == nil || c.Session() == nil {
+			continue
+		}
+		out.HasEngine = true
+		for _, server := range c.Session().ServerSnapshot() {
+			key := server.Address + "|" + server.Identifier
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out.Servers = append(out.Servers, server)
+		}
+		if tracker := c.GetDHTTracker(); tracker != nil {
+			status := tracker.Status()
+			out.KadStatus = &status
+			if state := tracker.SnapshotState(); state != nil {
+				out.KadState = state
+			}
+		}
+		if len(out.Servers) > 0 && out.KadStatus != nil {
+			break
+		}
+	}
+	return out
+}
+
 // ActivePeerStatuses returns all peers currently attached to any registered
 // engine, deduplicated by transfer hash + endpoint.
 func ActivePeerStatuses() []ClientPeerSnapshot {
