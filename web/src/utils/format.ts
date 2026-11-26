@@ -137,9 +137,20 @@ export function sourceStateRank(state: string): number {
   return rank === undefined ? 10 : rank
 }
 
+/**
+ * Ratio (0..1) as a percentage label. Anything above zero but below 1% prints
+ * "<1%" — a peer holding 3 of 6700 parts does have something we want, and
+ * "0%" would read as "this source is useless".
+ */
+export function formatRatioPercent(ratio: number): string {
+  if (!Number.isFinite(ratio) || ratio <= 0) return '0%'
+  if (ratio >= 1) return '100%'
+  const raw = ratio * 100
+  return raw < 1 ? '<1%' : `${Math.round(raw)}%`
+}
+
 /** Short countdown used next to a waiting/quarantined source. */
-export function formatCountdown(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) return ''
+export function formatCountdown(ms: number): string {  if (!Number.isFinite(ms) || ms <= 0) return ''
   const seconds = Math.ceil(ms / 1000)
   if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)

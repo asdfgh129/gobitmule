@@ -1,6 +1,9 @@
 package protocol
 
-import "bytes"
+import (
+	"bytes"
+	"encoding/hex"
+)
 
 type BitField struct {
 	bytes []byte
@@ -67,6 +70,13 @@ func (b BitField) Bits() []bool {
 
 func (b BitField) Len() int {
 	return b.size
+}
+
+// HexString renders the packed bitmap, most significant bit first — the same
+// order GetBit uses. The Web console draws a peer's piece map from this, so a
+// 6700-part file costs 838 bytes instead of a 6700-element boolean array.
+func (b BitField) HexString() string {
+	return hex.EncodeToString(b.bytes)
 }
 
 func (b *BitField) SetAll() {

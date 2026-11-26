@@ -396,6 +396,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **源列表显示对方持有分块（eMule「已完成」列）与客户端名称/版本（2026-11-26）**：
+  - 需求：对照 eMule 客户端列表——每行要能看出对方**具体拥有哪些块**，以及
+    客户端名称（如 `eMule v0.70a`），而不只是一个百分比和「未知客户端」。
+  - 位图通道：`protocol.BitField` 新增 `HexString()`，把打包位图按 MSB-first 导出为
+    hex。6.5 GB 文件约 6700 块，布尔数组每次轮询要几十 KB，打包后不到 1 KB。
+    `core.TaskSource` 增 `pieceMap` / `pieces`，由 `ed2kSearchAdapter.TaskSources()`
+    从 `PeerInfo.RemotePieces` 透出。
+  - 前端：新增 `web/src/components/PieceMap.vue` + `web/src/utils/pieceMap.ts`。
+    解码与分箱放在纯函数里（6700 块不可能变成 6700 个 DOM 节点，按 96 个箱合并，
+    每箱用覆盖率决定透明度），`PieceMap` 只负责画 SVG。空位图（= 对端已完整持有）
+    画成整条实心，而不是空条。
+  - 客户端标识：根因是 `remotePeerInfo` 只被初始化、**从未赋值**，所以永远是
+    「未知客户端」。实测三个 tag 的语义与直觉不同——
+    `CT_NAME`(0x01) 装的是项目主页（`http://emule-project.net`、
+    `https://amule-org.github.io`）或 mod 品牌（`[GrupoTS]jmiguelfer`）；
+    `CT_VERSION`(0x11) 是 eDonkey **协议**版本（所有 eMule 系都是 60），无法区分构建；
+    真正的客户端版本打包在 `CT_EMULE_VERSION`(0xFB)，mod 名称另有字符串 tag
+    `mod` / `CT_MOD_NAME`(0x55)。
+  - `applyClientTags()` 因此按「mod 名称 > CT_NAME 映射家族 > 原样显示」取名字，
+    版本按 eMule 自己的位域布局（17/10/7 位，字母位 = 'a'..'z'）解码，
+    解不出合理值时留空而不再回退成 `0x11880` 这种原始整数。
+  - 实测：`eMule v0.70a`、`eMule v0.60c`、`aMule v3.1`、`eserver v0.47b`
+    （eServer 正是基于 eMule 0.47 的分支，反向印证解码正确）、
+    `[GrupoTS]jmiguelfer v3.1`。
+  - 回归测试：`TestEmuleVersionString`、`TestClientFamily`、
+    `TestApplyClientTagsFromLiveHello`、`TestApplyClientTagsPrefersModTag`、
+    `TestTruncateRunes`、`TestBitFieldHexString*`。
+  - 注：`CT_EMULE_VERSION` 对某些 mod 是其自己的编号（如 `v2.3a`），前端按原值展示，
+    不做"看起来像 eMule 官方版本"的二次猜测。
+
 - **从已连接节点更新服务器/KAD 节点、任务源列表（2026-11-25）**：
   - 参考 eMule 0.70b：`CUpDownClient::ProcessHelloTypePacket()` 读取 HelloAnswer 尾部的
     ServerPoint；`CT_EMULE_UDPPORTS`(0xF9) 高 16 位是 Kad UDP 端口；

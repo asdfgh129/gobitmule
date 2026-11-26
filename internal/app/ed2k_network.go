@@ -446,10 +446,10 @@ func (a *ed2kSearchAdapter) TaskSources(ctx context.Context, hash string) ([]cor
 			continue
 		}
 		p := snap.Peer
+		// StrModVersion is the decoded CT_EMULE_VERSION ("v0.70a"). Printing the
+		// raw packed integer as a fallback was worse than nothing: "0x11880" in a
+		// table cell reads as a bug, so an undecodable version stays empty.
 		version := strings.TrimSpace(p.StrModVersion)
-		if version == "" && p.ModVersion > 0 {
-			version = fmt.Sprintf("0x%x", p.ModVersion)
-		}
 		out = append(out, core.TaskSource{
 			Endpoint:        p.Endpoint.String(),
 			UserHash:        p.UserHash.String(),
@@ -461,6 +461,8 @@ func (a *ed2kSearchAdapter) TaskSources(ctx context.Context, hash string) ([]cor
 			RemoteQueueRank: p.RemoteQueueRank,
 			Progress:        p.Progress,
 			ProgressKnown:   p.ProgressKnown,
+			PieceMap:        p.RemotePieces.HexString(),
+			Pieces:          p.RemotePieces.Len(),
 			// DownloadSpeed is payload+protocol, which is the only figure the
 			// engine can report honestly: inbound sockets are charged in bulk by
 			// Connection.DoRead before framing, so the payload channel stays 0 on

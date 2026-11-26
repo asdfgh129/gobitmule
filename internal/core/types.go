@@ -290,6 +290,12 @@ type TaskSource struct {
 	// ProgressKnown tells the console whether Progress is a reported value. A
 	// peer that never answered FileStatusRequest must not be drawn as 0%.
 	ProgressKnown bool `json:"progressKnown,omitempty"`
+	// PieceMap is the peer's part bitmap (hex, MSB first, empty when the peer
+	// holds the complete file) and Pieces is how many parts it covers. eMule's
+	// client list draws this bitmap instead of a single percentage, which shows
+	// which parts a source actually has.
+	PieceMap string `json:"pieceMap,omitempty"`
+	Pieces   int    `json:"pieces,omitempty"`
 }
 
 // TaskDetail is the GET /tasks/{id} payload. Fields reserved for the optional

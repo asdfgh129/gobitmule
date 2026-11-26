@@ -8,6 +8,7 @@ import (
 	"net"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/data"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
@@ -872,12 +873,132 @@ func (p *PeerConnection) SendOutOfPartReqsAndAddToWaitingQueue() {
 	}
 }
 
+// applyClientTags fills identity fields from the Hello / HelloAnswer tag list.
+// Before this the fields were never assigned, so every source in the Web console
+// read "未知客户端" even though clients announce themselves.
+//
+// The tag names are misleading. CT_NAME (0x01) is not a friendly client name: it
+// carries the project homepage ("http://emule-project.net",
+// "https://amule-org.github.io") or, for mods, their own brand string
+// ("[GrupoTS]jmiguelfer"). CT_VERSION (0x11) is the eDonkey *protocol* version
+// and sits at 60 on every eMule-family client, so it cannot identify a build.
+// The real client version is packed into CT_EMULE_VERSION (0xFB), and mods
+// repeat their name in the string tag "mod" / CT_MOD_NAME (0x55).
+func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
+	var (
+		clientName   string
+		modName      string
+		protocolVer  uint32
+		emuleVersion uint32
+		hasVersion   bool
+	)
+	for _, tag := range tags {
+		switch {
+		case tag.ID == tagModName && tag.String != "":
+			modName = tag.String
+		case tag.Name == "mod" && tag.String != "":
+			modName = tag.String
+		case tag.ID == tagClientName && tag.String != "":
+			clientName = tag.String
+		case tag.ID == tagClientVersion:
+			protocolVer = tag.UInt32
+		case tag.ID == tagEmuleVersion:
+			emuleVersion, hasVersion = tag.UInt32, true
+		}
+	}
+	p.remotePeerInfo.ModName = clientFamily(modName, clientName)
+	p.remotePeerInfo.Version = int(protocolVer)
+	if hasVersion {
+		p.remotePeerInfo.ModNumber = int(emuleVersion)
+		p.remotePeerInfo.ModVersion = emuleVersionString(emuleVersion)
+	}
+	debugPeerf("peer %s client=%q version=%q proto=%d tags=%d",
+		p.endpoint.String(), p.remotePeerInfo.ModName, p.remotePeerInfo.ModVersion,
+		p.remotePeerInfo.Version, len(tags))
+	if debugTagDump {
+		for _, tag := range tags {
+			debugPeerf("peer %s tag id=0x%02x type=%d name=%q str=%q uint=%d",
+				p.endpoint.String(), tag.ID, tag.Type, tag.Name, tag.String, tag.UInt32)
+		}
+	}
+}
+
+const (
+	tagClientName    = 0x01
+	tagClientVersion = 0x11
+	tagEmuleVersion  = 0xFB
+	tagModName       = 0x55
+)
+
+// debugTagDump prints every Hello tag. It is a lab switch for decoding what a
+// particular client announces, and it is far too chatty for normal use.
+const debugTagDump = false
+
+// clientFamily turns the identity tags into the string eMule's client list shows.
+// A mod that names itself wins; otherwise the CT_NAME homepage identifies the
+// family, and an unrecognised CT_NAME is shown as-is because that is exactly the
+// brand string mods put there.
+func clientFamily(modName, ctName string) string {
+	if name := strings.TrimSpace(modName); name != "" {
+		return truncateRunes(name, 40)
+	}
+	name := strings.TrimSpace(ctName)
+	if name == "" {
+		return ""
+	}
+	lower := strings.ToLower(name)
+	switch {
+	case strings.Contains(lower, "amule"):
+		return "aMule"
+	case strings.Contains(lower, "emule"):
+		return "eMule"
+	case strings.Contains(lower, "eserver"):
+		return "eServer"
+	case strings.Contains(lower, "shareaza"):
+		return "Shareaza"
+	case strings.Contains(lower, "lphant"):
+		return "Lphant"
+	case strings.Contains(lower, "edonkey"):
+		return "eDonkey"
+	}
+	return truncateRunes(name, 40)
+}
+
+// emuleVersionString decodes CT_EMULE_VERSION. The packing is the one eMule
+// itself writes: a client-software id in the top byte, then 7-bit fields at bits
+// 17 / 10 / 7. A plain eMule announces 0x00011880 → 0.70 build 1 → "v0.70a",
+// which is the same label eMule prints. Implausible values decode to "" instead
+// of inventing a version: some mods put their own numbering in there.
+func emuleVersionString(v uint32) string {
+	major := int(v>>17) & 0x7f
+	minor := int(v>>10) & 0x7f
+	build := int(v>>7) & 0x07
+	if major > 20 || minor > 99 {
+		return ""
+	}
+	out := "v" + strconv.Itoa(major) + "." + strconv.Itoa(minor)
+	if build >= 1 && build <= 26 {
+		out += string(rune('a' + build - 1))
+	}
+	return out
+}
+
+// truncateRunes caps a peer-supplied string without splitting a UTF-8 rune.
+func truncateRunes(s string, limit int) string {
+	runes := []rune(s)
+	if len(runes) <= limit {
+		return s
+	}
+	return string(runes[:limit]) + "…"
+}
+
 func (p *PeerConnection) HandleHelloAnswer(value *clientproto.HelloAnswer) {
 	if value == nil {
 		return
 	}
 	p.helloAnswered = true
 	p.clearDeadSourceStrikes()
+	p.applyClientTags(value.Properties)
 	// eMule "Update server list when a client connects": the server address
 	// sits at the tail of HelloAnswer. Record it; the API folds it into the
 	// user's server list on demand.
@@ -924,6 +1045,7 @@ func (p *PeerConnection) HandleClientHello(value *clientproto.Hello) {
 	}
 	p.helloAnswered = true
 	p.clearDeadSourceStrikes()
+	p.applyClientTags(value.Properties)
 	p.learnRemoteHash(value.Hash)
 	p.friendSlot = p.session.IsFriendSlot(value.Hash)
 	if value.Point.Defined() {

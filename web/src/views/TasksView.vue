@@ -5,13 +5,14 @@ import TaskTable from '@/components/TaskTable.vue'
 import Drawer from '@/components/Drawer.vue'
 import StateBadge from '@/components/StateBadge.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
+import PieceMap from '@/components/PieceMap.vue'
 import EventFeed from '@/components/EventFeed.vue'
 import Icon from '@/components/Icon.vue'
 import { useTasksStore } from '@/stores/tasks'
 import { useEventsStore } from '@/stores/events'
 import { useSessionStore } from '@/stores/session'
 import {
-  formatBytes, formatCountdown, formatEta, formatRate, formatTime,
+  formatBytes, formatCountdown, formatEta, formatRatioPercent, formatRate, formatTime,
   sourceStateLabel, sourceStateRank, taskDisplayName,
 } from '@/utils/format'
 import type { InputKind, TaskSource, TaskState } from '@/types/api'
@@ -316,7 +317,7 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                 <th class="th-sort" title="按连接状态排序" @click="setSourceSort('state')">
                   状态{{ sortIndicator('state') }}
                 </th>
-                <th class="th-sort" title="按对方拥有比例排序" @click="setSourceSort('progress')">
+                <th class="th-sort" title="条形图是对方拥有的分块，点击按比例排序" @click="setSourceSort('progress')">
                   对方拥有{{ sortIndicator('progress') }}
                 </th>
                 <th class="th-sort" title="按下载速度排序" @click="setSourceSort('speed')">
@@ -347,12 +348,14 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                 </td>
                 <td>
                   <div v-if="source.progressKnown" class="source-progress-cell">
-                    <ProgressBar
-                      :done="Math.round((source.progress || 0) * 100)"
-                      :total="100"
-                      compact
+                    <PieceMap
+                      :piece-map="source.pieceMap"
+                      :pieces="source.pieces"
+                      :progress-known="!!source.progressKnown"
                     />
-                    <span class="mono muted-cell">{{ Math.round((source.progress || 0) * 100) }}%</span>
+                    <span class="mono muted-cell source-progress-pct">
+                      {{ formatRatioPercent(source.progress || 0) }}
+                    </span>
                   </div>
                   <span v-else class="muted-cell" title="该源还没有回复 FileStatusRequest">—</span>
                 </td>

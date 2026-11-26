@@ -101,6 +101,14 @@ export interface TaskSource {
   progress: number
   /** False when the source never answered FileStatusRequest: progress is unknown, not 0. */
   progressKnown?: boolean
+  /**
+   * The peer's part bitmap as hex, most significant bit first, matching `pieces`.
+   * Empty when the peer holds the finished file: eMule has no bitmap to send for a
+   * complete file, so it answers with a bare `uint16 0` and `progress` is 1.
+   */
+  pieceMap?: string
+  /** Number of parts the bitmap describes (0 for the complete-file case above). */
+  pieces?: number
   downloadSpeed: number
   uploadSpeed: number
   failCount: number
