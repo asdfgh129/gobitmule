@@ -39,6 +39,89 @@ export function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id
 }
 
+function baseName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, '')
+  const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  return cut >= 0 ? trimmed.slice(cut + 1) : trimmed
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+/**
+ * Tasks are identified by their raw link, which is unreadable in a list. eMule
+ * shows the file name only and keeps the link in the property dialog, so the
+ * same rule applies here: the name comes from the resolved file, then from the
+ * link structure (ed2k/magnet/URL), then from the raw text as a last resort.
+ */
+export function taskDisplayName(task: {
+  input: string
+  inputKind?: string
+  resource?: { files?: Array<{ path: string }> }
+}): string {
+  const resolved = task.resource?.files?.[0]?.path
+  if (resolved) {
+    const name = baseName(resolved)
+    if (name) return name
+  }
+  const input = (task.input ?? '').trim()
+  if (!input) return '未命名任务'
+
+  if (/^ed2k:\/\//i.test(input)) {
+    // ed2k://|file|<name>|<size>|<hash>|/  (or |file|...|/p=...|/)
+    const fields = input.slice('ed2k://'.length).split('|')
+    if (fields[0]?.toLowerCase() === 'file' && fields[1]) return safeDecode(fields[1])
+  }
+  if (/^magnet:/i.test(input)) {
+    const match = /[?&]dn=([^&]+)/i.exec(input)
+    if (match?.[1]) return safeDecode(match[1]).replace(/\+/g, ' ')
+  }
+  if (/^https?:\/\//i.test(input)) {
+    try {
+      const name = baseName(new URL(input).pathname)
+      if (name) return safeDecode(name)
+    } catch {
+      /* fall through to the raw text */
+    }
+  }
+  const plain = baseName(input)
+  const name = plain && plain.length < input.length ? plain : input
+  return name.length > 90 ? `${name.slice(0, 87)}…` : name
+}
+
+/** Source states follow the eMule client list wording. */
+const sourceStateLabels: Record<string, string> = {
+  downloading: '下载中',
+  requesting: '请求中',
+  connected: '已连接',
+  queued: '排队中',
+  handshaking: '握手中',
+  connecting: '连接中',
+  waiting: '等待中',
+  unconnectable: '低 ID 源',
+  disconnecting: '断开中',
+  dead: '已失效',
+}
+
+export function sourceStateLabel(state: string): string {
+  return sourceStateLabels[state] || state || '未知'
+}
+
+/** Short countdown used next to a waiting/quarantined source. */
+export function formatCountdown(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return ''
+  const seconds = Math.ceil(ms / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.floor(minutes / 60)}h`
+}
+
 export function eventLabel(type: EventType): string {
   const labels: Record<EventType, string> = {
     'task.created': '任务创建',

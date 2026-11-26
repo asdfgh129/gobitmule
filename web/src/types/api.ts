@@ -103,6 +103,10 @@ export interface TaskSource {
   uploadSpeed: number
   failCount: number
   fileName?: string
+  /** ms until the next connect attempt (waiting / quarantined sources). */
+  retryIn?: number
+  /** Failed handshakes already recorded against this endpoint. */
+  deadStrikes?: number
 }
 
 export interface TaskDetail extends Task {

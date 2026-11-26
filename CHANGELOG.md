@@ -16,6 +16,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **Web 控制台源列表对齐 eMule 客户端列表 + 修复速度恒为 0（2026-11-26）**：
+  - **任务栏只显示文件名**：任务行原先直接渲染 `input`（ed2k 链接可长达数百字符），
+    改为 `taskDisplayName()`：优先用解析出的 `resource.files[0].path` 基名，其次从
+    ed2k/magnet/HTTP 链接里解出文件名，最后才退回原始输入；完整链接移到 `title`
+    悬浮提示，抽屉顶部单独保留一行「链接」。
+  - **列出全部已知源而非仅活跃连接**：`Transfer.GetPeersInfo()` 原来只返回
+    `t.connections`（活跃 socket），一个知道上百个源的任务在界面上只显示 1 个源。
+    改为「活跃连接 + `policy.peers` 里尚未连上的源」，后者经 `idleSourceState()`
+    归类为 `dead` / `unconnectable`（LowID 源）/ `waiting`（带 `retryIn` 倒计时）/
+    `connecting`，并按「下载中 → 请求中 → 已连接 → 排队 → 握手 → 连接中 → 等待 →
+    不可用 → 断开 → 失效」排序。`PeerInfo` / `core.TaskSource` 相应新增
+    `RetryIn`、`DeadStrikes`。
+  - **界面可直接读出各源状况**：抽屉源列表顶部新增计数胶囊（共 N 个源 / 传输中 /
+    排队中 / 待连接 / 不可用）与「只看已连接」筛选；表格列改为 端点 / 客户端 /
+    来源 / 状态（等待与失效带倒计时）/ 对方拥有（进度条）/ 下载↓上传↑ / 队列 /
+    失败。新增 `sourceStateLabel()` 与 `formatCountdown()` 承担文案。
+  - **任务速度恒 0（原因一，调度器侧）**：eD2k 引擎自己持有 `.part` 文件，字节不经
+    `chunkWriter.WriteChunk`，只通过 `ReportProgress` 上报累计字节；而速率计数器
+    `speedCounter` 仅由 `WriteChunk`/`onWrite` 喂数，于是 `bytesDone` 每 12s 稳定
+    增长、`speed` 却始终为 0。改为 `ReportProgress` 按**增量**喂计数器：首次上报
+    只作基线（可能含上次运行的续传字节），进度回退（分片重下）重置基线而不计负值；
+    引擎上报过进度后，后续 `WriteChunk` 不再重复计速（那是本地回读，不是网络流量）。
+  - **任务速度恒 0（原因二，采样粒度）**：`reportEngineProgress` 采样
+    `TotalDone`（已提交字节），而一个 190 KiB 块要几秒到几十秒才提交一次，
+    计数器实际每块才前进一次，速度表现为「一秒尖峰 + 长时间 0」。改为采样
+    `TotalReceived`（含未满块的在途字节），粒度与 `SendingPart` 分片一致，也就是
+    eMule 显示的「已下载」。
+  - **源速度恒 0**：入站 socket 字节由 `Connection.DoRead` 在拆帧前整包计入
+    `downloadProtocol`，`downloadPayload` 在接收方向恒为 0，而 API 层取的是
+    `PayloadDownloadSpeed`。改取 `DownloadSpeed`（协议+负载合计）。
+  - 回归测试：`TestEngineProgressFeedsSpeedCounter`（基线/无变化/回退/再下载的增量
+    语义）、`TestEnginePathDoesNotDoubleCreditChunkWrites`、
+    `TestChunkWritesStillCreditSpeedWithoutEngine`、
+    `TestGetPeersInfoIncludesIdleSources`、`TestIdleSourceStatePrecedence`。
+  - 实测（6518974464 字节任务，21 个已知源）：`speed` 从恒 0 变为连续
+    11–19 KB/s，`done` 每 5 秒前进约 90 KB，源列表同时给出
+    `dead 19 / downloading 1` 与各源 `dl`、倒计时。
+
 - **修复下载长期卡在 0%：块内分片被误判为整块 + 会话循环被同步拨号冻结（2026-11-26）**：
   - **分片≠块**：eMule 每个 `SendingPart` 帧最多携带 `MAX_FRAGMENT_SIZE = 10240` 字节，
     而 `ReceivePendingData` 把「本帧收完」当成「块收完」——`recvPos == recvReq.Length`

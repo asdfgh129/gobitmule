@@ -3,6 +3,7 @@ package goed2k
 import (
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/data"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/disk"
@@ -303,14 +304,51 @@ func (t *Transfer) ResumeData() *protocol.TransferResumeData {
 
 func (t *Transfer) GetPeersInfo() []PeerInfo {
 	t.peersInfo = t.peersInfo[:0]
+	now := CurrentTime()
+	seen := make(map[string]struct{}, len(t.connections)+len(t.policy.peers))
 	for _, c := range t.connections {
 		if c == nil {
 			continue
 		}
-		t.peersInfo = append(t.peersInfo, c.GetInfo())
+		info := c.GetInfo()
+		seen[info.Endpoint.String()] = struct{}{}
+		t.peersInfo = append(t.peersInfo, info)
 	}
+	// eMule lists every known source with its state instead of hiding the ones
+	// that are not connected right now. Showing only live sockets made a task
+	// with 100 known sources look like it had a single source.
+	for _, p := range t.policy.peers {
+		key := p.Endpoint.String()
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		state, retryIn := idleSourceState(now, p)
+		t.peersInfo = append(t.peersInfo, PeerInfo{
+			Endpoint:    p.Endpoint,
+			SourceFlag:  p.SourceFlag,
+			FailCount:   p.FailCount,
+			UserHash:    p.UserHash,
+			State:       state,
+			RetryIn:     retryIn,
+			DeadStrikes: p.DeadStrikes,
+		})
+	}
+	sort.SliceStable(t.peersInfo, func(i, j int) bool {
+		ri, rj := sourceStateRank(t.peersInfo[i].State), sourceStateRank(t.peersInfo[j].State)
+		if ri != rj {
+			return ri < rj
+		}
+		si, sj := t.peersInfo[i].DownloadSpeed, t.peersInfo[j].DownloadSpeed
+		if si != sj {
+			return si > sj
+		}
+		return t.peersInfo[i].Endpoint.String() < t.peersInfo[j].Endpoint.String()
+	})
 	out := make([]PeerInfo, len(t.peersInfo))
 	copy(out, t.peersInfo)
+	debugPeerf("peersinfo %s live=%d known=%d out=%d", t.hash.String(),
+		len(t.connections), len(t.policy.peers), len(out))
 	return out
 }
 

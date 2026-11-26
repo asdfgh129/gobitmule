@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TaskTable from '@/components/TaskTable.vue'
 import Drawer from '@/components/Drawer.vue'
@@ -10,8 +10,11 @@ import Icon from '@/components/Icon.vue'
 import { useTasksStore } from '@/stores/tasks'
 import { useEventsStore } from '@/stores/events'
 import { useSessionStore } from '@/stores/session'
-import { formatBytes, formatEta, formatRate, formatTime } from '@/utils/format'
-import type { InputKind, TaskState } from '@/types/api'
+import {
+  formatBytes, formatCountdown, formatEta, formatRate, formatTime,
+  sourceStateLabel, taskDisplayName,
+} from '@/utils/format'
+import type { InputKind, TaskSource, TaskState } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,19 +22,45 @@ const tasks = useTasksStore()
 const events = useEventsStore()
 const session = useSessionStore()
 const detailTab = ref<'overview' | 'files' | 'sources' | 'events'>('overview')
+const onlyConnected = ref(false)
 let sourceTimer: ReturnType<typeof setInterval> | null = null
 
-const sourceStateLabels: Record<string, string> = {
-  disconnecting: '断开中', downloading: '下载中', queued: '排队中',
-  handshaking: '握手中', requesting: '请求中', connected: '已连接',
-}
-function sourceLabel(value: string): string {
-  return sourceStateLabels[value] || value || '未知'
-}
 function sourceChip(state: string): string {
   if (state === 'downloading') return 'chip--success'
-  if (state === 'queued' || state === 'handshaking' || state === 'disconnecting') return 'chip--warn'
-  return 'chip--soft'
+  if (state === 'requesting' || state === 'connected' || state === 'queued') return 'chip--active'
+  if (state === 'dead') return 'chip--danger'
+  if (state === 'unconnectable') return 'chip--soft'
+  return 'chip--warn'
+}
+
+/** States that own a live socket, so the remote bitfield is meaningful. */
+function hasRemoteProgress(state: string): boolean {
+  return ['downloading', 'requesting', 'connected', 'queued', 'handshaking', 'disconnecting'].includes(state)
+}
+
+const sourceSummary = computed(() => {
+  const list = tasks.detail?.sources ?? []
+  const summary = { total: list.length, active: 0, queued: 0, pending: 0, unavailable: 0 }
+  for (const source of list) {
+    if (source.state === 'downloading' || source.state === 'requesting') summary.active += 1
+    else if (source.state === 'queued') summary.queued += 1
+    else if (source.state === 'dead' || source.state === 'unconnectable') summary.unavailable += 1
+    else summary.pending += 1
+  }
+  return summary
+})
+
+const visibleSources = computed<TaskSource[]>(() => {
+  const list = tasks.detail?.sources ?? []
+  if (!onlyConnected.value) return list
+  return list.filter((source) => hasRemoteProgress(source.state))
+})
+
+const sourceTagLabels: Record<string, string> = {
+  server: '服务器', kad: 'KAD', resume: '续传', incoming: '入站', unknown: '未知',
+}
+function sourceTagLabel(tag: string): string {
+  return sourceTagLabels[tag] || tag
 }
 
 const states: Array<TaskState | ''> = [
@@ -113,7 +142,7 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
 
     <Drawer
       v-if="tasks.detail"
-      :title="tasks.detail.input"
+      :title="taskDisplayName(tasks.detail)"
       :subtitle="tasks.detail.id"
       width="min(560px, 94vw)"
       @close="closeTask"
@@ -153,6 +182,10 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
           <div class="kv"><span>后处理</span><strong>{{ tasks.detail.options.postProcess || 'none' }}</strong></div>
           <div v-if="tasks.detail.peers?.length" class="kv"><span>Peer</span><strong>{{ tasks.detail.peers.length }}</strong></div>
           <div v-if="tasks.detail.trackers?.length" class="kv"><span>Tracker</span><strong>{{ tasks.detail.trackers.length }}</strong></div>
+          <div class="kv kv--wide">
+            <span>链接</span>
+            <strong class="mono kv-link" :title="tasks.detail.input">{{ tasks.detail.input }}</strong>
+          </div>
         </div>
         <div v-if="tasks.detail.errorMessage" class="notice notice--danger">
           <Icon name="alert" :size="16" />
@@ -201,11 +234,24 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
       </div>
 
       <div v-else-if="detailTab === 'sources'" class="detail-section">
-        <h3 class="subhead">已连接的源</h3>
-        <p class="muted source-hint">每 3 秒自动刷新；状态、速度与队列位置来自 eD2k 下载引擎。</p>
-        <p v-if="!tasks.detail.sources?.length" class="muted">
-          当前没有已握手的下载源。任务开始下载后，这里会列出每个源的状态、速度和远端进度。
+        <div class="source-summary">
+          <span class="pill">共 {{ sourceSummary.total }} 个源</span>
+          <span v-if="sourceSummary.active" class="pill pill--ok">传输中 {{ sourceSummary.active }}</span>
+          <span v-if="sourceSummary.queued" class="pill pill--warn">排队中 {{ sourceSummary.queued }}</span>
+          <span v-if="sourceSummary.pending" class="pill">待连接 {{ sourceSummary.pending }}</span>
+          <span v-if="sourceSummary.unavailable" class="pill pill--bad">不可用 {{ sourceSummary.unavailable }}</span>
+          <label class="source-filter">
+            <input v-model="onlyConnected" type="checkbox" />
+            只看已连接
+          </label>
+        </div>
+        <p class="muted source-hint">
+          每 3 秒刷新。「等待中」= 已排入下轮重连，「已失效」= 握手失败被隔离。
         </p>
+        <p v-if="!tasks.detail.sources?.length" class="muted">
+          当前还没有已知源。服务器 / KAD 返回源后会立即出现在这里。
+        </p>
+        <p v-else-if="!visibleSources.length" class="muted">没有符合筛选条件的源。</p>
         <div v-else class="task-table__wrap source-table__wrap">
           <table class="task-table ed-table source-table">
             <thead>
@@ -214,26 +260,44 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                 <th>客户端</th>
                 <th>来源</th>
                 <th>状态</th>
+                <th style="min-width: 120px">对方拥有</th>
+                <th>下载 / 上传</th>
                 <th>队列</th>
-                <th>进度</th>
-                <th>下载速度</th>
-                <th>上传速度</th>
                 <th>失败</th>
-                <th>文件</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(source, i) in tasks.detail.sources" :key="`${source.endpoint}-${i}`">
+              <tr v-for="(source, i) in visibleSources" :key="`${source.endpoint}-${i}`">
                 <td class="mono">{{ source.endpoint }}</td>
                 <td>
                   {{ source.client || '未知客户端' }}
                   <span v-if="source.version" class="muted-cell">{{ source.version }}</span>
                 </td>
                 <td>
-                  <span v-for="tag in source.sources" :key="tag" class="chip chip--soft">{{ sourceLabel(tag) }}</span>
+                  <span v-for="tag in source.sources" :key="tag" class="chip chip--soft">{{ sourceTagLabel(tag) }}</span>
                   <span v-if="!source.sources?.length" class="muted-cell">—</span>
                 </td>
-                <td><span class="chip" :class="sourceChip(source.state)">{{ sourceLabel(source.state) }}</span></td>
+                <td>
+                  <span class="chip" :class="sourceChip(source.state)">{{ sourceStateLabel(source.state) }}</span>
+                  <span v-if="formatCountdown(source.retryIn || 0)" class="muted-cell source-retry">
+                    {{ formatCountdown(source.retryIn || 0) }}
+                  </span>
+                </td>
+                <td>
+                  <ProgressBar
+                    v-if="hasRemoteProgress(source.state)"
+                    :done="Math.round((source.progress || 0) * 100)"
+                    :total="100"
+                    compact
+                  />
+                  <span v-else class="muted-cell">—</span>
+                </td>
+                <td class="mono source-speed">
+                  <span :class="{ 'source-speed--active': source.downloadSpeed > 0 }">
+                    ↓ {{ formatRate(source.downloadSpeed) }}
+                  </span>
+                  <span class="muted-cell">↑ {{ formatRate(source.uploadSpeed) }}</span>
+                </td>
                 <td class="mono">
                   <template v-if="source.queueRank || source.remoteQueueRank">
                     <span v-if="source.queueRank">本地 {{ source.queueRank }}</span>
@@ -241,11 +305,10 @@ const sidecars = () => Object.keys(session.health?.sidecars ?? {})
                   </template>
                   <span v-else class="muted-cell">—</span>
                 </td>
-                <td>{{ Math.round((source.progress || 0) * 100) }}%</td>
-                <td class="mono">{{ formatRate(source.downloadSpeed) }}</td>
-                <td class="mono">{{ formatRate(source.uploadSpeed) }}</td>
-                <td>{{ source.failCount || 0 }}</td>
-                <td class="muted-cell" :title="source.fileName">{{ source.fileName || '—' }}</td>
+                <td>
+                  <span v-if="source.failCount" class="muted-cell">{{ source.failCount }}</span>
+                  <span v-else class="muted-cell">—</span>
+                </td>
               </tr>
             </tbody>
           </table>

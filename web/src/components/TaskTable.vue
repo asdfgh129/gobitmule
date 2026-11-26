@@ -3,7 +3,7 @@ import StateBadge from './StateBadge.vue'
 import ProgressBar from './ProgressBar.vue'
 import EmptyState from './EmptyState.vue'
 import Icon from './Icon.vue'
-import { formatBytes, shortId } from '@/utils/format'
+import { taskDisplayName, formatBytes, shortId } from '@/utils/format'
 import type { Task } from '@/types/api'
 
 withDefaults(defineProps<{
@@ -48,7 +48,9 @@ const emit = defineEmits<{
           @click="emit('open', task.id)"
         >
           <td>
-            <div class="task-name" :title="task.input">{{ task.input }}</div>
+            <div class="task-name" :title="task.input">
+              {{ taskDisplayName(task) }}
+            </div>
             <div class="task-id">{{ shortId(task.id) }}</div>
           </td>
           <td v-if="!compact"><span class="chip chip--soft">{{ task.inputKind }}</span></td>

@@ -282,6 +282,11 @@ type TaskSource struct {
 	UploadSpeed     int64    `json:"uploadSpeed"`
 	FailCount       int      `json:"failCount"`
 	FileName        string   `json:"fileName,omitempty"`
+	// RetryIn (ms) explains a source that is waiting or quarantined instead of
+	// silently disappearing from the list; DeadStrikes is how many handshakes
+	// already failed against it.
+	RetryIn     int64 `json:"retryIn,omitempty"`
+	DeadStrikes int   `json:"deadStrikes,omitempty"`
 }
 
 // TaskDetail is the GET /tasks/{id} payload. Fields reserved for the optional

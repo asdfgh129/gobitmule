@@ -42,6 +42,13 @@ type statusHandle interface {
 
 // reportEngineProgress samples the engine's byte counter and forwards it. It
 // returns the sampled value so callers can log changes without a second call.
+//
+// The sample is TotalReceived (committed bytes plus the partially received
+// block), not TotalDone. A 190 KiB block only commits every few seconds — tens
+// of seconds on a slow swarm — so sampling TotalDone makes the counter advance
+// once per block and the Web console's speed alternate between one spike and
+// zero. TotalReceived moves on every SendingPart fragment, which is the same
+// granularity eMule shows as 已下载.
 func reportEngineProgress(report func(int64), h transferHandle) (int64, bool) {
 	if h == nil {
 		return 0, false
@@ -50,7 +57,13 @@ func reportEngineProgress(report func(int64), h transferHandle) (int64, bool) {
 	if !ok {
 		return 0, false
 	}
-	done := sh.GetStatus().TotalDone
+	status := sh.GetStatus()
+	done := status.TotalReceived
+	if done < status.TotalDone {
+		// Defensive: a resume load can briefly report committed bytes before the
+		// inflight counters are rebuilt.
+		done = status.TotalDone
+	}
 	if report != nil {
 		report(done)
 	}

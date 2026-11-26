@@ -145,6 +145,8 @@ h1, h2, h3, p { margin: 0; }
 .chip--soft { background: #f5f6f9; border: 1px solid #edf0f4; color: #70798b; }
 .chip--success { background: #ecfdf5; color: #047857; }
 .chip--warn { background: #fffbeb; color: #b45309; }
+.chip--active { background: #eff6ff; color: #1d4ed8; }
+.chip--danger { background: #fef2f2; color: #b91c1c; }
 .badge {
   display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px;
   font-size: 11px; font-weight: 700; white-space: nowrap;
@@ -200,6 +202,17 @@ h1, h2, h3, p { margin: 0; }
 .source-table__wrap { margin-top: 10px; }
 .source-table { min-width: 920px; }
 .source-hint { margin: 0 0 8px; font-size: 12px; }
+/* eMule-style source overview: a count per state above the client list. */
+.source-summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.source-filter {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
+}
+.source-retry { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.source-speed { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.source-speed--active { color: #047857; font-weight: 700; }
+.kv-grid .kv--wide { grid-column: 1 / -1; }
+.kv-link { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-size: 12px; }
 .task-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .task-table th {
   text-align: left; font-size: 11px; letter-spacing: .5px; text-transform: uppercase;

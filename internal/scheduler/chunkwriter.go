@@ -50,6 +50,18 @@ type chunkWriter struct {
 	progressBase int64
 	taskTotal    int64
 
+	// Engine progress accounting. An engine that owns the .part file (the forked
+	// goed2k downloader) never routes its bytes through WriteChunk; it only
+	// reports a running byte total. The rate counter still has to see those
+	// bytes, otherwise a task that steadily downloads keeps reporting speed 0.
+	// engineSeeded drops the first report as a baseline (it may include bytes
+	// resumed from a previous run), and engineCredited suppresses the later
+	// WriteChunk credit: once the engine's Open returns, the scheduler re-reads
+	// the finished file, and those bytes are local copies, not network traffic.
+	engineSeeded   bool
+	engineDone     int64
+	engineCredited bool
+
 	// Batch state (ADR-0015 ③). pending holds chunk completions that the .part
 	// file already has but SQLite does not yet know about.
 	pending      []store.ChunkDone
@@ -189,13 +201,14 @@ func (w *chunkWriter) WriteChunk(ctx context.Context, c core.Chunk, p []byte) er
 	})
 	w.pendingBytes += c.Length
 	due := w.pendingBytes >= w.flushBytes
+	creditWrite := !w.engineCredited
 	w.mu.Unlock()
 	if due {
 		if ferr := w.flushPending(ctx); ferr != nil {
 			return ferr
 		}
 	}
-	if w.onWrite != nil {
+	if w.onWrite != nil && creditWrite {
 		w.onWrite(c.Length)
 	}
 	w.publishProgress(ctx)
@@ -275,11 +288,25 @@ func (w *chunkWriter) ReportProgress(done int64) {
 		taskTotal = total
 	}
 	cb := w.onEngineProgress
+	// Credit the delta, not the running total: callers report cumulative bytes
+	// for this file. A restore can move the total backwards, which must never
+	// become negative traffic.
+	delta := int64(0)
+	if w.engineSeeded && done > w.engineDone {
+		delta = done - w.engineDone
+	}
+	w.engineSeeded = true
+	w.engineDone = done
+	w.engineCredited = true
 	due := time.Since(w.lastLiveEvent) >= 500*time.Millisecond
 	if due {
 		w.lastLiveEvent = time.Now()
 	}
 	w.mu.Unlock()
+
+	if delta > 0 && w.onWrite != nil {
+		w.onWrite(delta)
+	}
 
 	if cb != nil {
 		cb(done)

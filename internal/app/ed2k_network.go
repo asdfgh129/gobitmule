@@ -460,10 +460,17 @@ func (a *ed2kSearchAdapter) TaskSources(ctx context.Context, hash string) ([]cor
 			QueueRank:       p.QueueRank,
 			RemoteQueueRank: p.RemoteQueueRank,
 			Progress:        p.Progress,
-			DownloadSpeed:   int64(p.PayloadDownloadSpeed),
-			UploadSpeed:     int64(p.PayloadUploadSpeed),
-			FailCount:       p.FailCount,
-			FileName:        snap.FileName,
+			// DownloadSpeed is payload+protocol, which is the only figure the
+			// engine can report honestly: inbound sockets are charged in bulk by
+			// Connection.DoRead before framing, so the payload channel stays 0 on
+			// the receive side. Reporting PayloadDownloadSpeed here made every
+			// source read 0 B/s while bytes were plainly arriving.
+			DownloadSpeed: int64(p.DownloadSpeed),
+			UploadSpeed:   int64(p.PayloadUploadSpeed),
+			FailCount:     p.FailCount,
+			FileName:      snap.FileName,
+			RetryIn:       p.RetryIn,
+			DeadStrikes:   p.DeadStrikes,
 		})
 	}
 	return out, nil
