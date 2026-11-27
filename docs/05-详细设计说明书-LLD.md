@@ -99,6 +99,25 @@ HTTP Range 性能基准），三者与 `internal/interop/` 同属**测试 / 证�
 由 `cmd/udinteropx` 显式开启以消除第三方引擎 MSE 首试竞态，`udd` 默认配置不变。
 `clientConfig` 因此多一个 `plainHandshake bool` 参数（`Run` / `Probe` 两处调用点同步），
 不影响 `core.Resource` / `ChunkWriter` / 状态机契约，也不改变 ADR-0004 的产品边界。
+**续包（2026-11-27）**：上段「仍未创建 `transport/{ed2k,hlsdash}`」已过期——
+`internal/transport/{ed2k,hls,dash}` 均已落地，其中 `internal/ed2k` 是 fork 的 eD2k 引擎实现，
+`internal/transport/ed2k` 是它到 `core.Transport` 的适配层（reader adapter + `Goed2kDownloader`）。
+本轮为对齐 eMule 线协议新增/重写以下模块（详见 `16` §3.1）：
+
+| 模块 | 职责 |
+|---|---|
+| `internal/ed2k/protocol/server/server_ident.go` | `OP_SERVERIDENT`（`0x41`）解析，取出 `ST_UDPFLAGS/UDPKEY/UDPKEYIP`（新增协议包，2026-11-27） |
+| `internal/ed2k/protocol/server/udp.go` | Server UDP 源请求/搜索结果编解码 + server-key RC4 信封；严格头解析、支持重复子包头 |
+| `internal/ed2k/protocol/client/callback.go` | `OP_CALLBACK`（`0x99`）低 ID 回调转发报文 |
+| `internal/ed2k/protocol/client/secure_ident.go` | `OP_PUBLICKEY` / `OP_SECIDENTSTATE` / `OP_SIGNATURE` 线格式（签名不重复带公钥） |
+| `internal/ed2k/protocol/client/message.go` | `OP_MESSAGE`（`0x4E`），`MaxClientMessageLen = 450` |
+| `internal/ed2k/protocol/client/aich.go` | `OP_AICHREQUEST` / `OP_AICHANSWER`，含 16 字节拒绝应答 |
+| `internal/ed2k/protocol/kad/packets.go` | `KADEMLIA_CALLBACK_REQ`（`0x52`，34 字节）/ `FIND_BUDDY_REQ`（`0x51`）/ `FIND_BUDDY_RES`（`0x5A`） |
+| `internal/ed2k/secure_ident.go` | 会话级持久 RSA 1024 身份与双向挑战状态机 |
+| `internal/ed2k/server_udp.go` | Server UDP 套接字（绑定 `ed2k.udpPort`，逐包取 key） |
+| `internal/ed2k/friend_list.go` / `collection.go` / `ipfilter.go` / `preview.go` / `search_rating.go` | 好友持久化、Collection 读写、P2P IP 过滤、part 级预览、搜索结果评分 |
+| `internal/scheduler/bandwidth_schedule.go` | 分时限速窗口（`Limiter.ApplyAt`，30s 评估） |
+
 
 ## 2. 核心接口（Go）
 

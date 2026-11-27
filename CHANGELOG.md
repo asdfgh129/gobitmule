@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `TestUDPGlobGetSourcesLegacy`、`TestCallbackReqWireFormat`、`TestCallbackRoundTrip`、
     `TestSecureIdentSignatureWireFormat`、`TestIPFilterLevelBoundaryAndUnspecified`、
     `TestAICHAnswerShortRefusal`。
+  - 文档：对照矩阵写入 `docs/16` §3.1（16 项 = 8 项线协议偏差 + 8 项设计差异 + 结论）；
+    用例补至 `docs/12` §3.2（ED-09..ED-13 与自动化覆盖边界）；模块清单写入 `docs/05` §1；
+    `/ed2k/servers` 新增字段（`udpFlags`/`name`/统计）记入 `docs/07` §2；
+    `docs/25` §14.5 汇总验证与未闭环项。
 - **补齐 eD2k 服务器登录 / 源交换 / 上传三条结构性短板（2026-11-26）**：
   - **背景**：上一修复清掉了引擎自身的读路径与请求窗口上限，但同一文件仍只有几十 KB/s；
     对照 eMule 1.8 MB/s，剩下的差距来自「服务器源列表拿不到、客户端间不交换源、

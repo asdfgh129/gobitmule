@@ -179,6 +179,31 @@
 > `global.bandwidthSchedule` 也支持热更新：Limiter 在每 30s 的评估点切换窗口，
 > 无需重启（详见 `config.example.yaml` 注释）。
 
+**`GET /ed2k/servers` 条目字段（2026-11-27 补齐）**
+
+`servers[]` 每项的 JSON 形状：
+
+```json
+{
+  "address": "1.2.3.4:4661", "name": "eMule Server", "description": "",
+  "source": "server.met", "connected": true, "handshakeComplete": true,
+  "clientId": 71042416,
+  "lastMessage": "Welcome to ...", "usersCount": 123456, "filesCount": 9876543,
+  "udpFlags": 545
+}
+```
+
+| 字段 | 来源 | 说明 |
+|---|---|---|
+| `lastMessage` | `OP_SERVERMESSAGE`（`0x38`） | 服务器公告/横幅，`omitempty` |
+| `usersCount` / `filesCount` | `OP_SERVERSTATUS`（`0x34`） | 服务器当前用户数 / 文件数，`omitempty` |
+| `udpFlags` | `OP_SERVERIDENT`（`0x41`）的 `ST_UDPFLAGS` | `SRV_UDPFLG_*` 位图；客户端据此决定 UDP 源请求走 `0x94` 还是 `0x9A`、是否启用 server-key RC4 信封。`0` 表示服务器未宣告 |
+| `name` | `server.met` 或 `OP_SERVERIDENT` 的 `ST_NAME` | 服务器未宣告 `ST_NAME` 时保留 `server.met` 中的名称 |
+
+> 以上统计与能力位是**连接期收到的最后值**：它们挂在 `ServerConnection` 对象上，
+> 断开后仍保留（便于页面显示「上次看到的服务器状态」）。判断是否在线必须看
+> `connected` 与 `handshakeComplete`，不要用 `usersCount > 0` 之类推断。
+
 **创建任务示例**
 ```json
 POST /api/v1/tasks

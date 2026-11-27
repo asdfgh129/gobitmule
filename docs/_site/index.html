@@ -4130,7 +4130,65 @@ HTTP Range 性能基准），三者与 <code>internal/interop/</code> 同属<str
 注册链；<code>internal/transport/bt</code> 增加 <code>WithPlainHandshake()</code> <strong>仅实验室选项</strong>，
 由 <code>cmd/udinteropx</code> 显式开启以消除第三方引擎 MSE 首试竞态，<code>udd</code> 默认配置不变。
 <code>clientConfig</code> 因此多一个 <code>plainHandshake bool</code> 参数（<code>Run</code> / <code>Probe</code> 两处调用点同步），
-不影响 <code>core.Resource</code> / <code>ChunkWriter</code> / 状态机契约，也不改变 ADR-0004 的产品边界。</p>
+不影响 <code>core.Resource</code> / <code>ChunkWriter</code> / 状态机契约，也不改变 ADR-0004 的产品边界。
+<strong>续包（2026-11-27）</strong>：上段「仍未创建 <code>transport/{ed2k,hlsdash}</code>」已过期——
+<code>internal/transport/{ed2k,hls,dash}</code> 均已落地，其中 <code>internal/ed2k</code> 是 fork 的 eD2k 引擎实现，
+<code>internal/transport/ed2k</code> 是它到 <code>core.Transport</code> 的适配层（reader adapter + <code>Goed2kDownloader</code>）。
+本轮为对齐 eMule 线协议新增/重写以下模块（详见 <code>16</code> §3.1）：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/ed2k/protocol/server/server_ident.go</code></td>
+<td><code>OP_SERVERIDENT</code>（<code>0x41</code>）解析，取出 <code>ST_UDPFLAGS/UDPKEY/UDPKEYIP</code>（新增协议包，2026-11-27）</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/protocol/server/udp.go</code></td>
+<td>Server UDP 源请求/搜索结果编解码 + server-key RC4 信封；严格头解析、支持重复子包头</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/protocol/client/callback.go</code></td>
+<td><code>OP_CALLBACK</code>（<code>0x99</code>）低 ID 回调转发报文</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/protocol/client/secure_ident.go</code></td>
+<td><code>OP_PUBLICKEY</code> / <code>OP_SECIDENTSTATE</code> / <code>OP_SIGNATURE</code> 线格式（签名不重复带公钥）</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/protocol/client/message.go</code></td>
+<td><code>OP_MESSAGE</code>（<code>0x4E</code>），<code>MaxClientMessageLen = 450</code></td>
+</tr>
+<tr>
+<td><code>internal/ed2k/protocol/client/aich.go</code></td>
+<td><code>OP_AICHREQUEST</code> / <code>OP_AICHANSWER</code>，含 16 字节拒绝应答</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/protocol/kad/packets.go</code></td>
+<td><code>KADEMLIA_CALLBACK_REQ</code>（<code>0x52</code>，34 字节）/ <code>FIND_BUDDY_REQ</code>（<code>0x51</code>）/ <code>FIND_BUDDY_RES</code>（<code>0x5A</code>）</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/secure_ident.go</code></td>
+<td>会话级持久 RSA 1024 身份与双向挑战状态机</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/server_udp.go</code></td>
+<td>Server UDP 套接字（绑定 <code>ed2k.udpPort</code>，逐包取 key）</td>
+</tr>
+<tr>
+<td><code>internal/ed2k/friend_list.go</code> / <code>collection.go</code> / <code>ipfilter.go</code> / <code>preview.go</code> / <code>search_rating.go</code></td>
+<td>好友持久化、Collection 读写、P2P IP 过滤、part 级预览、搜索结果评分</td>
+</tr>
+<tr>
+<td><code>internal/scheduler/bandwidth_schedule.go</code></td>
+<td>分时限速窗口（<code>Limiter.ApplyAt</code>，30s 评估）</td>
+</tr>
+</tbody>
+</table>
 <h2 id="h-doc-05--2-go">2. 核心接口（Go）</h2>
 <pre><code class="language-go">// ---- core ----
 // URLGuard 由 core 定义，实现在 internal/security。core 不得 import
@@ -5110,6 +5168,172 @@ WBS 7 起 <code>bt.clientConfig</code> 固定 <code>NoUpload=true</code> / <code
 ③ 进行中文件 <code>OfferFiles</code> + 引擎上传字节上报 <code>tasks.bytes_uploaded</code>（§13.4），
 使 eMule 队列信用不再只进不出。<strong>边界</strong>：真机尚未收到 AnswerSources2（当前对端
 多为完整文件源），队列优先级收益未做定量门禁；ED 门禁与 P3 发布结论不变。</p>
+<h3 id="h-doc-16--31-emule-2026-11-27">3.1 与 eMule 客户端的能力对照矩阵（2026-11-27 复核）</h3>
+<p>以本机 eMule <code>srchybrid</code> 源码为基线，对本项目已落地的 16 项客户端能力逐项做<strong>字节级</strong>
+复核（报文布局、字段顺序、状态机取值、判定布尔式），而不只对照「功能是否存在」。
+结论分三档：</p>
+<ul>
+<li><strong>一致</strong>：线上字节与状态语义与 eMule 相同，对端可正常解析；</li>
+<li><strong>已修正</strong>：本轮发现偏差且会导致对端丢弃报文或语义错误，已按基线改正；</li>
+<li><strong>设计差异</strong>：协议可通，但资源归属、评分口径、默认开关等策略有意不同。</li>
+</ul>
+<h4 id="h-doc-16--311-8">3.1.1 线协议偏差（8 项，已全部修正）</h4>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>eMule 基准行为</th>
+<th>原实现偏差</th>
+<th>修正后</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SecureIdent 签名报文</td>
+<td><code>OP_SIGNATURE</code> 体为 <code>&lt;len 1&gt;&lt;sig N&gt;[&lt;bySigIPUsed 1&gt;]</code>，<strong>不重复携带公钥</strong>（<code>BaseClient.cpp::ProcessSignaturePacket</code>）</td>
+<td>签名包里又塞了一份公钥，对端按 <code>nSize</code> 判定长度不符直接丢弃</td>
+<td>报文体改为纯签名（+ 可选 IP 类别字节），公钥只在 <code>OP_PUBLICKEY</code> 出现</td>
+</tr>
+<tr>
+<td>SecureIdent 签名内容</td>
+<td>签 <code>&lt;验证方公钥 DER&gt;&lt;验证方挑战 4B&gt;</code>（<code>CClientCreditsList::VerifyIdent</code> 用 <code>m_abyMyPublicKey</code>）</td>
+<td>只签 4 字节挑战</td>
+<td>签名数据改为「对端公钥 + 对端挑战」，双向对称</td>
+</tr>
+<tr>
+<td>SecureIdent 状态机</td>
+<td><code>OP_SECIDENTSTATE</code>：<code>1</code> = 只需签名，<code>2</code> = 需要公钥 + 签名（<code>IS_SIGNATURENEEDED</code> / <code>IS_KEYANDSIGNEEDED</code>）</td>
+<td>1/2 语义写反；且只验对端、从不主动发自己的公钥/签名</td>
+<td>常量纠正，补齐主动发起与双向握手；会话级持久 RSA 1024 身份（重启不换身份）</td>
+</tr>
+<tr>
+<td>Server UDP 能力协商</td>
+<td>登录后由 <code>OP_SERVERIDENT</code>（<code>0x41</code>）下发 <code>ST_UDPFLAGS</code>/<code>ST_UDPKEY</code>/<code>ST_UDPKEYIP</code>，据此决定加密与源请求 opcode（<code>Server.cpp::GetServerKeyUDP</code>）</td>
+<td>完全未实现 <code>0x41</code>，三个 tag 恒为空 → UDP 加密与 <code>OP_GLOBGETSOURCES2</code> 选择失去依据</td>
+<td>新增 <code>protocol/server/server_ident.go</code> 并接入会话；key 仅在 <code>SRV_UDPFLG_UDPOBFUSCATION</code> 置位且 keyIP 与本机公网 IP 一致时安装</td>
+</tr>
+<tr>
+<td>Server UDP 源请求</td>
+<td>有 <code>SRV_UDPFLG_EXT_GETSOURCES2</code> 用 <code>0x94</code>（带 size），否则 <code>0x9A</code>（仅 hash），两者都无则不发</td>
+<td>固定发 <code>0x94</code></td>
+<td>按服务器宣告的能力降级选择</td>
+</tr>
+<tr>
+<td>Server UDP 收包</td>
+<td>每包现取 key（<code>m_dwServerKeyUDP</code> 可变）；每条记录前可重复 <code>&lt;E3 opcode&gt;</code> 子包头</td>
+<td>启动时快照 key → 登录后装 key 永不生效；解析用逐字节滑动搜头，payload 中出现同字节对即错位</td>
+<td>逐包读 key；严格按头部解析并支持重复子包头（<code>0x9B</code> 多记录同包）</td>
+</tr>
+<tr>
+<td>KAD 低 ID 回调</td>
+<td><code>KADEMLIA_CALLBACK_REQ</code>（<code>0x52</code>）= <code>&lt;check 16&gt;&lt;file 16&gt;&lt;TCPPort 2&gt;</code>，共 34 字节；<code>Process_KADEMLIA_CALLBACK_REQ</code> 对更短的包直接抛错</td>
+<td>只发 2 字节端口；且未实现 <code>OP_CALLBACK</code>（<code>0x99</code>）转发</td>
+<td>按 34 字节编码；补 <code>OP_CALLBACK</code> 转发（buddy 经已有 TCP 连接告知被请求方 <code>&lt;check&gt;&lt;file&gt;&lt;ip&gt;&lt;port&gt;</code>）；搜源命中 firewalled 源时向返回者发起回调</td>
+</tr>
+<tr>
+<td>AICH 失败应答</td>
+<td>无法提供恢复数据时回 16 字节裸 hash（无 part/masterhash 字段）</td>
+<td>解析器按完整结构读，字段缺失报错，被当作坏包丢弃</td>
+<td>识别为 <code>Failed</code>，停止对 AICH 的请求并回退整块重下</td>
+</tr>
+<tr>
+<td>IPFilter 等级判定</td>
+<td><code>CIPFilter::IsFiltered</code> 用 <code>level &lt; 过滤等级</code>（<strong>严格小于</strong>），<code>0.0.0.0</code> 不放行判定</td>
+<td>用 <code>&lt;=</code>，等级恰为 127 的条目被误杀</td>
+<td>改为 <code>&lt;</code>；未指定地址直接放行；默认等级 127 与 eMule 一致</td>
+</tr>
+<tr>
+<td>出站压缩块</td>
+<td><code>compress2(..., Z_BEST_COMPRESSION)</code>；分片长度 <code>total/(total/10240)</code> 均分并合并尾片（<code>CreatePackedPackets</code>）</td>
+<td>默认压缩级别 + 固定 10 KiB 切片，尾片可能过小</td>
+<td>改为最高压缩级别与均分片算法；压不小则回退明文</td>
+</tr>
+<tr>
+<td>聊天报文</td>
+<td><code>MAX_CLIENT_MSG_LEN</code>（450 字节）；接收侧校验 <code>length + 2 == size</code></td>
+<td>上限 8192，且不校验长度自洽</td>
+<td>上限 450，长度不自洽即拒绝</td>
+</tr>
+<tr>
+<td>UDP 本地绑定端口</td>
+<td>绑定配置的 eD2k UDP 端口（<code>CClientUDPSocket</code>），对端看到的源端口即该端口</td>
+<td>绑 <code>TCP 端口 + 4</code>，与服务器/对端记录的源端口不一致</td>
+<td>改用 <code>ed2k.udpPort</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="h-doc-16--312-8">3.1.2 协议一致、但存在设计差异（8 项）</h4>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>eMule 行为</th>
+<th>本项目行为</th>
+<th>互通影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A4AF（源自动转移）</td>
+<td>源<strong>单一归属</strong>某个任务，可按优先级回迁；不复制</td>
+<td>源<strong>复制</strong>给所有缺源任务，<code>NoFileStatus</code> 时先转源再断开</td>
+<td>无协议影响；可能对同一源发起重复请求（本端多耗一点连接槽）</td>
+</tr>
+<tr>
+<td>搜索垃圾评分</td>
+<td><code>searchspam.met</code> 规则库，0..100 分，由用户配置阈值</td>
+<td>内置启发式（伪装扩展名 / 异常体积 / 关键词堆砌），0..5 星</td>
+<td>无；评分只在本端展示与排序用，不上线</td>
+</tr>
+<tr>
+<td>KAD 源发布</td>
+<td>定期 republish（约 5 小时）维持曝光</td>
+<td>文件变为可分享时发布一次，登录拿到 High ID 后补发一次</td>
+<td>无；长期在线文件的 KAD 曝光弱于 eMule</td>
+</tr>
+<tr>
+<td>好友与聊天</td>
+<td>接受任意客户端消息 + captcha 防骚扰；好友仅作收藏</td>
+<td>仅接受好友列表内消息；<code>OP_MESSAGE</code> 报文格式与 eMule 相同</td>
+<td>无；策略更严，可能收不到陌生人的求助消息</td>
+</tr>
+<tr>
+<td>UPnP 端口映射</td>
+<td>默认开启</td>
+<td>已接线（<code>ed2k.enableUPnP</code>），默认关闭</td>
+<td>无；未开时 Low ID，源数量偏低但功能正常</td>
+</tr>
+<tr>
+<td>文件预览</td>
+<td>part 级：完成的首个 part 即可预览</td>
+<td>要求「从头连续完成」至少一个完整 part（9.5 MB）</td>
+<td>无；与 eMule part 语义一致</td>
+</tr>
+<tr>
+<td>Collection 集合</td>
+<td>文本 <code>.emulecollection</code> + 二进制 v1/v2（tag 布局 <code>packets.cpp:472</code>）</td>
+<td>两种格式均实现，写文本、读文本 + v1/v2</td>
+<td>无；可被 eMule 直接导入</td>
+</tr>
+<tr>
+<td>分时限速</td>
+<td>eMule 自身无此功能（aMule 有带宽调度）</td>
+<td><code>global.bandwidthSchedule</code> 窗口 + 30s 评估，支持跨夜与工作日/周末</td>
+<td>无；纯本地策略</td>
+</tr>
+</tbody>
+</table>
+<h4 id="h-doc-16--313">3.1.3 复核结论</h4>
+<ol>
+<li><strong>线协议层面 16/16 可互通</strong>：修正后不存在会被对端按长度/字段校验丢弃的报文。</li>
+<li>8 项设计差异均为<strong>本端策略</strong>（归属、评分、开关、周期），不改变线上字节，
+   因此不影响与 eMule / aMule 的连接与传输。</li>
+<li><strong>AICH 仍只做下载侧</strong>：能请求并校验恢复数据，但不生成 hashset 为他人提供恢复数据，
+   因此 MiscOptions 不宣告 <code>AICHVersion</code>——宣告后对端会白跑一次请求却拿不到数据。</li>
+<li>回归覆盖：本轮新增 11 个测试（ServerIdent 能力位、UDP 多子包/内嵌头、34 字节
+   callback、<code>OP_CALLBACK</code> 往返、SecureIdent 签名线格式、IPFilter 边界、AICH 拒绝等），
+   详见 <code>12</code> §3.2 的 ED-09..ED-13 与 <code>25</code> §14.4。</li>
+</ol>
 <h2 id="h-doc-16--4">4. 会话与身份层：必须显式实现的事项</h2>
 <table>
 <thead>
@@ -5729,6 +5953,52 @@ P1 WBS 7 之后仍未接入 <code>bt.clientConfig</code>（固定 <code>NoUpload
 eD2k 下载通道因 Transport 在启动时注册，仍需重启守护进程。
 <code>global.bandwidthSchedule</code> 也支持热更新：Limiter 在每 30s 的评估点切换窗口，
 无需重启（详见 <code>config.example.yaml</code> 注释）。</p>
+</blockquote>
+<p><strong><code>GET /ed2k/servers</code> 条目字段（2026-11-27 补齐）</strong></p>
+<p><code>servers[]</code> 每项的 JSON 形状：</p>
+<pre><code class="language-json">{
+  &quot;address&quot;: &quot;1.2.3.4:4661&quot;, &quot;name&quot;: &quot;eMule Server&quot;, &quot;description&quot;: &quot;&quot;,
+  &quot;source&quot;: &quot;server.met&quot;, &quot;connected&quot;: true, &quot;handshakeComplete&quot;: true,
+  &quot;clientId&quot;: 71042416,
+  &quot;lastMessage&quot;: &quot;Welcome to ...&quot;, &quot;usersCount&quot;: 123456, &quot;filesCount&quot;: 9876543,
+  &quot;udpFlags&quot;: 545
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>来源</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lastMessage</code></td>
+<td><code>OP_SERVERMESSAGE</code>（<code>0x38</code>）</td>
+<td>服务器公告/横幅，<code>omitempty</code></td>
+</tr>
+<tr>
+<td><code>usersCount</code> / <code>filesCount</code></td>
+<td><code>OP_SERVERSTATUS</code>（<code>0x34</code>）</td>
+<td>服务器当前用户数 / 文件数，<code>omitempty</code></td>
+</tr>
+<tr>
+<td><code>udpFlags</code></td>
+<td><code>OP_SERVERIDENT</code>（<code>0x41</code>）的 <code>ST_UDPFLAGS</code></td>
+<td><code>SRV_UDPFLG_*</code> 位图；客户端据此决定 UDP 源请求走 <code>0x94</code> 还是 <code>0x9A</code>、是否启用 server-key RC4 信封。<code>0</code> 表示服务器未宣告</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>server.met</code> 或 <code>OP_SERVERIDENT</code> 的 <code>ST_NAME</code></td>
+<td>服务器未宣告 <code>ST_NAME</code> 时保留 <code>server.met</code> 中的名称</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>以上统计与能力位是<strong>连接期收到的最后值</strong>：它们挂在 <code>ServerConnection</code> 对象上，
+断开后仍保留（便于页面显示「上次看到的服务器状态」）。判断是否在线必须看
+<code>connected</code> 与 <code>handshakeComplete</code>，不要用 <code>usersCount &gt; 0</code> 之类推断。</p>
 </blockquote>
 <p><strong>创建任务示例</strong></p>
 <pre><code class="language-json">POST /api/v1/tasks
@@ -8803,9 +9073,43 @@ seeder / tracker / 下载，且必须重新通过 sha256），重试次数写入
 <td>Source Exchange / Collection 链接</td>
 <td>正常解析与下载</td>
 </tr>
+<tr>
+<td>ED-09</td>
+<td>Server UDP：<code>OP_SERVERIDENT</code>（<code>0x41</code>）能力协商 → <code>0x94</code>/<code>0x9A</code> 源请求 opcode 选择、server-key RC4 信封、每记录重复子包头</td>
+<td>有 <code>EXT_GETSOURCES2</code> 发 <code>0x94</code> 否则 <code>0x9A</code>；加密往返可解、无 key 时明文；多子包同包可解析</td>
+</tr>
+<tr>
+<td>ED-10</td>
+<td>SecureIdent 双向握手：<code>OP_PUBLICKEY</code> → <code>OP_SECIDENTSTATE(1/2)</code> → <code>OP_SIGNATURE</code>（签「对端公钥 + 对端挑战」）</td>
+<td>合法签名置 <code>verified</code>，伪造签名被拒；重启后 RSA 身份与 UserHash 不变</td>
+</tr>
+<tr>
+<td>ED-11</td>
+<td>KAD 低 ID 回调：<code>KADEMLIA_CALLBACK_REQ</code>（<code>0x52</code>，34 字节）+ <code>OP_CALLBACK</code>（<code>0x99</code>）转发</td>
+<td>34 字节往返一致、短包被拒；buddy 可经已有连接转发并触发回拨</td>
+</tr>
+<tr>
+<td>ED-12</td>
+<td>AICH 拒绝应答（16 字节裸 hash）</td>
+<td>判为 <code>Failed</code>，停止 AICH 请求并回退整块重下，不产生坏块</td>
+</tr>
+<tr>
+<td>ED-13</td>
+<td>出站压缩块（最高压缩级别 + 均分片）、聊天 450 字节上限、IPFilter 等级边界</td>
+<td>压缩块可解且尾片合并且不超 10240；<code>&gt;450</code> 字节聊天被拒；等级等于阈值不误杀、<code>0.0.0.0</code> 放行</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
+<p><strong>自动化覆盖（2026-11-27）</strong>：ED-09..ED-13 的<strong>协议层</strong>子集已由纯 Go 单测覆盖，可离线复跑：
+<code>server_ident_test.go</code>、<code>udp_test.go</code>（多子包/内嵌头/双向解密）、<code>callback_test.go</code>、
+<code>buddy_test.go</code>、<code>aich_secure_ident_test.go</code>（<code>TestSecureIdentSignatureWireFormat</code>）、
+<code>compressed_upload_test.go</code>、<code>content_features_test.go</code>（<code>TestIPFilterLevelBoundaryAndUnspecified</code>、
+<code>TestAICHAnswerShortRefusal</code>）。<strong>未单测</strong>：聊天 450 字节上限（<code>protocol/client/message.go</code>
+的 <code>Message.Get/Put</code> 长度与 <code>length + 2 == size</code> 校验，仅代码路径校验，待补往返用例）。
+<strong>仍未执行</strong>：ED-09/10/11 的真机对端验证（需要下发 <code>ST_UDPKEY</code> 的服务器、
+开启 SecIdent 的 eMule 实例、以及一个 firewalled 对端），仍是 P3 门禁的待补项；
+上述单测通过<strong>不得</strong>据此宣称真机互操作通过。</p>
 <p><code>goed2k</code> 是 AI 辅助开发的 v0.1.0 新库，官方明确「尚未与真实 eMule 全版本做大规模互操作回归」。本套件既是测试也是选型验证；ED-01/02/05/06 未通过则 P3 不得发布（风险 R-06）。</p>
 </blockquote>
 <h3 id="h-doc-12--33">3.3 协议/格式一致性</h3>
@@ -16172,6 +16476,18 @@ Server Status/Message）协议/格式一致，但存在<strong>已知设计差�
 <li>KAD 发布：eMule 周期性 republish（约 5 小时），本项目在文件变为可分享时发布一次。</li>
 <li>聊天：本项目只接受好友消息（eMule 接受任意客户端并配 captcha），属更严格的安全策略。</li>
 <li>UPnP：能力已接线，但默认关闭（eMule 默认开启），沿用本项目 opt-in 策略。</li>
+</ul>
+<h3 id="h-doc-25--145">14.5 验证与文档落点</h3>
+<ul>
+<li>回归：<code>go build ./...</code> 通过；<code>go test ./internal/... ./cmd/...</code> 全绿；
+  <code>python tools/check_arch.py</code> 6 项守卫 0 违规；新增 11 个协议层用例。</li>
+<li>本轮复核结论已同步到：</li>
+<li><a href="#/doc-16"><code>16</code> §3.1</a>：16 项能力对照矩阵（8 项线协议偏差 + 8 项设计差异 + 结论）；</li>
+<li><a href="#/doc-12"><code>12</code> §3.2</a>：新增 ED-09..ED-13 用例与自动化覆盖边界；</li>
+<li><a href="#/doc-05"><code>05</code> §1</a>：本轮新增/重写的协议与引擎模块清单；</li>
+<li><a href="#/doc-07"><code>07</code> §2</a>：<code>/ed2k/servers</code> 条目新增 <code>udpFlags</code>/<code>name</code>/统计字段。</li>
+<li>未闭环（不计入通过）：ED-09/10/11 的真机对端验证；AICH 服务端 hashset 生成；
+  KAD 周期 republish；聊天 450 字节上限的往返用例。</li>
 </ul><div class="footnote">GoBitMule 开发文档 · 由 tools/build_docs.py 生成于 2026-11-27 · 源文件 <code>docs/25-goed2k-fork-api-spike.md</code></div></article><article class="doc" id="doc-changelog" data-slug="changelog"><div class="doc-head"><h1>Changelog</h1><div class="doc-meta"></div></div><p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/" target="_blank" rel="noopener noreferrer">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target="_blank" rel="noopener noreferrer">Semantic Versioning</a>.</p>
@@ -16222,6 +16538,10 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
     <code>TestUDPGlobGetSourcesLegacy</code>、<code>TestCallbackReqWireFormat</code>、<code>TestCallbackRoundTrip</code>、
     <code>TestSecureIdentSignatureWireFormat</code>、<code>TestIPFilterLevelBoundaryAndUnspecified</code>、
     <code>TestAICHAnswerShortRefusal</code>。</li>
+<li>文档：对照矩阵写入 <code>docs/16</code> §3.1（16 项 = 8 项线协议偏差 + 8 项设计差异 + 结论）；
+    用例补至 <code>docs/12</code> §3.2（ED-09..ED-13 与自动化覆盖边界）；模块清单写入 <code>docs/05</code> §1；
+    <code>/ed2k/servers</code> 新增字段（<code>udpFlags</code>/<code>name</code>/统计）记入 <code>docs/07</code> §2；
+    <code>docs/25</code> §14.5 汇总验证与未闭环项。</li>
 <li><strong>补齐 eD2k 服务器登录 / 源交换 / 上传三条结构性短板（2026-11-26）</strong>：</li>
 <li><strong>背景</strong>：上一修复清掉了引擎自身的读路径与请求窗口上限，但同一文件仍只有几十 KB/s；
     对照 eMule 1.8 MB/s，剩下的差距来自「服务器源列表拿不到、客户端间不交换源、
