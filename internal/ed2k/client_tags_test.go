@@ -91,3 +91,25 @@ func TestTruncateRunes(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// Go gives << and * the same precedence. Without explicit parentheses the
+// capabilities in CT_EMULE_MISCOPTIONS1 land in the wrong nibble, and peers
+// treat us as a client that cannot speak Unicode or source exchange.
+func TestMiscOptionsBitPositions(t *testing.T) {
+	options := MiscOptions{
+		UnicodeSupport:     1,
+		DataCompVer:        2,
+		SourceExchange1Ver: 3,
+		NoViewSharedFiles:  1,
+	}
+	want := (1 << 28) | (2 << 20) | (3 << 12) | (1 << 2)
+	if got := options.IntValue(); got != want {
+		t.Fatalf("IntValue=%#x, want %#x", got, want)
+	}
+	var decoded MiscOptions
+	decoded.Assign(want)
+	if decoded.UnicodeSupport != 1 || decoded.DataCompVer != 2 ||
+		decoded.SourceExchange1Ver != 3 || decoded.NoViewSharedFiles != 1 {
+		t.Fatalf("Assign(%#x) = %+v", want, decoded)
+	}
+}

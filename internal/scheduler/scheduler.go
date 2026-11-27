@@ -133,6 +133,7 @@ type Scheduler struct {
 	inputs       map[core.TaskID]string
 	speeds       map[core.TaskID]*speedCounter
 	liveProgress map[core.TaskID]int64
+	liveUploaded map[core.TaskID]int64
 	mu           sync.Mutex
 	slots        *slots
 	ctx          context.Context
@@ -156,6 +157,7 @@ func New(opts Options) (*Scheduler, error) {
 		queue: make(chan core.TaskID, 4096), active: make(map[core.TaskID]context.CancelFunc),
 		inputs: make(map[core.TaskID]string), speeds: make(map[core.TaskID]*speedCounter),
 		liveProgress: make(map[core.TaskID]int64),
+		liveUploaded: make(map[core.TaskID]int64),
 		slots:        newSlots(cfg.Global.MaxConcurrentTasks), ctx: ctx, cancel: cancel,
 		started: time.Now(), maxAttempts: 3,
 	}
@@ -420,9 +422,26 @@ func (s *Scheduler) setLiveProgress(id core.TaskID, done int64) {
 	s.mu.Unlock()
 }
 
+// setLiveUploaded mirrors setLiveProgress for bytes the engine uploaded while
+// the task was running. Only eD2k reports this.
+func (s *Scheduler) setLiveUploaded(id core.TaskID, uploaded int64) {
+	if uploaded < 0 {
+		uploaded = 0
+	}
+	s.mu.Lock()
+	if s.liveUploaded == nil {
+		s.liveUploaded = make(map[core.TaskID]int64)
+	}
+	if uploaded > s.liveUploaded[id] {
+		s.liveUploaded[id] = uploaded
+	}
+	s.mu.Unlock()
+}
+
 func (s *Scheduler) clearLiveProgress(id core.TaskID) {
 	s.mu.Lock()
 	delete(s.liveProgress, id)
+	delete(s.liveUploaded, id)
 	s.mu.Unlock()
 }
 
@@ -435,7 +454,11 @@ func (s *Scheduler) applyLiveProgress(t *core.Task) {
 	}
 	s.mu.Lock()
 	live, ok := s.liveProgress[t.ID]
+	uploaded, okUploaded := s.liveUploaded[t.ID]
 	s.mu.Unlock()
+	if okUploaded && uploaded > t.BytesUploaded {
+		t.BytesUploaded = uploaded
+	}
 	if !ok || live <= t.BytesDone {
 		return
 	}
@@ -729,6 +752,7 @@ func (s *Scheduler) runMultiFileTask(ctx context.Context, id core.TaskID,
 		cw.progressBase = fileBase
 		cw.taskTotal = taskTotal
 		cw.onEngineProgress = func(done int64) { s.setLiveProgress(id, fileBase+done) }
+		cw.onEngineUpload = func(uploaded int64) { s.setLiveUploaded(id, uploaded) }
 		sub := &core.Resource{
 			ID:       res.ID,
 			Kind:     res.Kind,
@@ -1024,6 +1048,7 @@ func (s *Scheduler) run(ctx context.Context, id core.TaskID) error {
 		return err
 	}
 	cw.onEngineProgress = func(done int64) { s.setLiveProgress(id, done) }
+	cw.onEngineUpload = func(uploaded int64) { s.setLiveUploaded(id, uploaded) }
 	err = tr.Run(ctx, runRes, cw, budget)
 	syncErr := cw.Sync()
 	closeErr := cw.Close()

@@ -546,6 +546,10 @@ func (s *Session) PumpIO() {
 			}
 			continue
 		}
+		if sc.pumpDial() {
+			// The server dial is still in flight; there is no socket to serve.
+			continue
+		}
 		if err := sc.FlushOutgoing(); err != nil {
 			debugPeerf("server %s flush error: %v", sc.GetIdentifier(), err)
 		}
@@ -698,7 +702,9 @@ func (s *Session) OnServerConnectionClosed(sc *ServerConnection, ec BaseErrorCod
 		delete(s.serverConnections, sc.GetIdentifier())
 		if s.settings.ReconnectToServer && ec.Code() != NoError.Code() {
 			policy := s.ensureServerConnectionPolicy(sc.GetIdentifier())
-			policy.SetServerConnectionFailed(sc.GetIdentifier(), sc.GetAddress(), CurrentTime())
+			policy.SetServerConnectionClosed(sc.GetIdentifier(), sc.GetAddress(), CurrentTime())
+			debugPeerf("server %s closed, retry in %dms",
+				sc.GetIdentifier(), policy.MillisecondsUntilRetry(CurrentTime()))
 		}
 		if s.serverConnection == sc {
 			s.serverConnection = nil
@@ -1103,6 +1109,11 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 	var kick []*Transfer
 	var offerFiles []serverproto.OfferFile
 	s.mu.Lock()
+	if policy := s.serverConnectionPolicy[sc.GetIdentifier()]; policy != nil {
+		// A completed login clears the backoff ramp, so a server that dropped us
+		// repeatedly over a long session still retries fast next time.
+		policy.MarkLoginSucceeded(sc.GetIdentifier(), sc.GetAddress())
+	}
 	if s.serverConnection == nil || !s.serverConnection.IsHandshakeCompleted() {
 		s.serverConnection = sc
 	}
@@ -1115,7 +1126,12 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 		if transfer == nil || transfer.IsPaused() || transfer.IsAborted() {
 			continue
 		}
-		if transfer.IsFinished() {
+		if transfer.CanUpload() {
+			// Offer part files too, not just finished ones. eMule shares what it
+			// has while it downloads ("共享未完成文件"), and that is the only way a
+			// new client ever uploads anything: without an offer no peer learns we
+			// are a source, we never serve a byte, and every queue on the network
+			// scores us as a pure leech.
 			offerFiles = append(offerFiles, serverproto.OfferFile{
 				Hash: transfer.GetHash(),
 				Name: transfer.FileName(),
@@ -1135,6 +1151,9 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 	}
 }
 
+// PublishTransferToServer announces one transfer as a source. eMule re-offers
+// a file whenever it becomes shareable, so peers can start pulling the parts we
+// already hold while the download is still running.
 func (s *Session) PublishTransferToServer(t *Transfer) {
 	if s == nil || t == nil {
 		return
@@ -1143,7 +1162,12 @@ func (s *Session) PublishTransferToServer(t *Transfer) {
 	sc := s.serverConnection
 	clientID := s.clientID
 	s.mu.Unlock()
-	if sc == nil || !sc.IsHandshakeCompleted() || clientID == 0 || t.IsPaused() || t.IsAborted() || !t.IsFinished() {
+	if sc == nil || !sc.IsHandshakeCompleted() || clientID == 0 || t.IsPaused() || t.IsAborted() {
+		return
+	}
+	if !t.CanUpload() {
+		// Nothing to serve yet; offering an empty part file only makes seekers
+		// connect and get OutOfParts.
 		return
 	}
 	packet := serverproto.NewOfferFiles(clientID, s.GetListenPort(), []serverproto.OfferFile{{
@@ -1195,7 +1219,11 @@ func (s *Session) connectConfiguredServers(currentSessionTime int64) {
 		s.serverConnections[identifier] = sc
 		s.promotePrimaryServer(sc)
 		s.mu.Unlock()
-		_ = sc.Connect()
+		// Async on purpose: this runs inside SecondTick, and a blocking dial to a
+		// dead server would stall every transfer for the connect timeout.
+		if err := sc.ConnectAsync(); err != nil {
+			sc.Close(IOException)
+		}
 	}
 }
 

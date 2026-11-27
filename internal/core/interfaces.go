@@ -86,6 +86,14 @@ type ProgressSink interface {
 	ReportProgress(done int64)
 }
 
+// UploadSink is an OPTIONAL ChunkWriter capability for transports that also
+// upload while they download (eD2k shares in-progress files). eMule ranks an
+// upload queue partly on how much a client has shared; showing those bytes is
+// the only way to tell "we upload nothing" from "we upload but never say so".
+type UploadSink interface {
+	ReportUploaded(uploaded int64)
+}
+
 // Budget is a rate budget obtained from the one and only Limiter.
 type Budget interface {
 	Consume(ctx context.Context, n int) error

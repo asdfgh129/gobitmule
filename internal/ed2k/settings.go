@@ -79,7 +79,11 @@ func NewSettings() Settings {
 		CompressionVersion:      0,
 		ServerSearchTimeout:     15,
 		DHTSearchTimeout:        8,
-		ReconnectToServer:       false,
+		// Reconnecting used to be opt-in and nothing ever opted in, so a single
+		// dropped login (server restart, transient port-callback failure) left the
+		// session with no server for the rest of its life. eMule always retries;
+		// the backoff lives in ServerConnectionPolicy.
+		ReconnectToServer:       true,
 		ServerPingTimeout:       0,
 	}
 }

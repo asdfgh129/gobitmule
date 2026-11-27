@@ -77,14 +77,19 @@ type MiscOptions struct {
 	SupportsPreview     int
 }
 
+// CT_EMULE_MISCOPTIONS1 bit positions. Go gives << and * the same precedence,
+// so `x << 4 * 7` used to evaluate as `(x << 4) * 7`: every advertised
+// capability landed in the wrong nibble (the live Hello carried 0x74 where
+// 0x10001004 was intended), and peers saw a client with no Unicode and no
+// source exchange. Parenthesise every shift.
 func (m MiscOptions) IntValue() int {
-	return (m.AICHVersion << ((4 * 7) + 1)) |
-		(m.UnicodeSupport << 4 * 7) |
-		(m.UDPVer << 4 * 6) |
-		(m.DataCompVer << 4 * 5) |
-		(m.SupportSecIdent << 4 * 4) |
-		(m.SourceExchange1Ver << 4 * 3) |
-		(m.ExtendedRequestsVer << 4 * 2) |
+	return (m.AICHVersion << (4*7 + 1)) |
+		(m.UnicodeSupport << (4 * 7)) |
+		(m.UDPVer << (4 * 6)) |
+		(m.DataCompVer << (4 * 5)) |
+		(m.SupportSecIdent << (4 * 4)) |
+		(m.SourceExchange1Ver << (4 * 3)) |
+		(m.ExtendedRequestsVer << (4 * 2)) |
 		(m.AcceptCommentVer << 4) |
 		(m.NoViewSharedFiles << 2) |
 		(m.MultiPacket << 1) |
@@ -93,12 +98,12 @@ func (m MiscOptions) IntValue() int {
 
 func (m *MiscOptions) Assign(value int) {
 	m.AICHVersion = (value >> (4*7 + 1)) & 0x07
-	m.UnicodeSupport = (value >> 4 * 7) & 0x01
-	m.UDPVer = (value >> 4 * 6) & 0x0f
-	m.DataCompVer = (value >> 4 * 5) & 0x0f
-	m.SupportSecIdent = (value >> 4 * 4) & 0x0f
-	m.SourceExchange1Ver = (value >> 4 * 3) & 0x0f
-	m.ExtendedRequestsVer = (value >> 4 * 2) & 0x0f
+	m.UnicodeSupport = (value >> (4 * 7)) & 0x01
+	m.UDPVer = (value >> (4 * 6)) & 0x0f
+	m.DataCompVer = (value >> (4 * 5)) & 0x0f
+	m.SupportSecIdent = (value >> (4 * 4)) & 0x0f
+	m.SourceExchange1Ver = (value >> (4 * 3)) & 0x0f
+	m.ExtendedRequestsVer = (value >> (4 * 2)) & 0x0f
 	m.AcceptCommentVer = (value >> 4) & 0x0f
 	m.NoViewSharedFiles = (value >> 2) & 0x01
 	m.MultiPacket = (value >> 1) & 0x01
@@ -179,6 +184,10 @@ type PeerConnection struct {
 	connectStarted   int64
 	helloAnswered    bool
 	transferringData bool
+	// sourceExchangeAsked records that we already sent RequestSources2 on this
+	// connection. eMule asks once per file query cycle and throttles repeats by
+	// minutes; one request per connection is the useful subset.
+	sourceExchangeAsked bool
 	// Asynchronous dial state. The dial goroutine only fills dialSocket /
 	// dialObfuscated / dialErr and closes dialDone; the session loop reads them
 	// after observing the close, so the channel close is the happens-before.
@@ -545,7 +554,7 @@ func (p *PeerConnection) PrepareHelloAnswer() clientproto.HelloAnswer {
 	mo := MiscOptions{
 		UnicodeSupport:     1,
 		DataCompVer:        p.session.GetCompressionVersion(),
-		SourceExchange1Ver: 0,
+		SourceExchange1Ver: clientproto.SourceExchangeVersion1,
 		NoViewSharedFiles:  1,
 	}
 	var mo2 MiscOptions2
@@ -890,7 +899,11 @@ func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
 		modName      string
 		protocolVer  uint32
 		emuleVersion uint32
+		misc1        uint32
+		misc2        uint32
 		hasVersion   bool
+		hasMisc1     bool
+		hasMisc2     bool
 	)
 	for _, tag := range tags {
 		switch {
@@ -904,6 +917,10 @@ func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
 			protocolVer = tag.UInt32
 		case tag.ID == tagEmuleVersion:
 			emuleVersion, hasVersion = tag.UInt32, true
+		case tag.ID == tagMiscOptions1:
+			misc1, hasMisc1 = tag.UInt32, true
+		case tag.ID == tagMiscOptions2:
+			misc2, hasMisc2 = tag.UInt32, true
 		}
 	}
 	p.remotePeerInfo.ModName = clientFamily(modName, clientName)
@@ -912,9 +929,19 @@ func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
 		p.remotePeerInfo.ModNumber = int(emuleVersion)
 		p.remotePeerInfo.ModVersion = emuleVersionString(emuleVersion)
 	}
-	debugPeerf("peer %s client=%q version=%q proto=%d tags=%d",
+	if hasMisc1 {
+		// CT_EMULE_MISCOPTIONS1 decides whether the peer speaks source exchange
+		// and whether we may send it a pieces bitmap at all.
+		p.remotePeerInfo.Misc1.Assign(int(misc1))
+	}
+	if hasMisc2 {
+		// CT_EMULE_MISCOPTIONS2 bit 10 is the authoritative SX2 capability.
+		p.remotePeerInfo.Misc2.Value = int(misc2)
+	}
+	debugPeerf("peer %s client=%q version=%q proto=%d tags=%d sx1=%d sx2=%t",
 		p.endpoint.String(), p.remotePeerInfo.ModName, p.remotePeerInfo.ModVersion,
-		p.remotePeerInfo.Version, len(tags))
+		p.remotePeerInfo.Version, len(tags), p.remotePeerInfo.Misc1.SourceExchange1Ver,
+		p.remotePeerInfo.Misc2.SupportSourceExt2())
 	if debugTagDump {
 		for _, tag := range tags {
 			debugPeerf("peer %s tag id=0x%02x type=%d name=%q str=%q uint=%d",
@@ -928,6 +955,8 @@ const (
 	tagClientVersion = 0x11
 	tagEmuleVersion  = 0xFB
 	tagModName       = 0x55
+	tagMiscOptions1  = 0xFA
+	tagMiscOptions2  = 0xFE
 )
 
 // debugTagDump prints every Hello tag. It is a lab switch for decoding what a
@@ -1055,6 +1084,14 @@ func (p *PeerConnection) HandleClientHello(value *clientproto.Hello) {
 	answer := p.PrepareHelloAnswer()
 	if raw, err := p.combiner.Pack("client.HelloAnswer", &answer); err == nil {
 		p.QueuePacket(raw)
+		// Flush now instead of on the next pump tick. The eD2k server port
+		// callback gives the client about a second to answer; under load the pump
+		// pass can spend that budget on a few dozen other peers, and a late
+		// answer is scored as a closed port - which drops the whole server
+		// session, not just the probe.
+		if err := p.FlushOutgoing(); err != nil {
+			debugPeerf("peer %s HelloAnswer flush failed: %v", p.endpoint.String(), err)
+		}
 	}
 }
 
@@ -1214,6 +1251,10 @@ func (p *PeerConnection) HandleFileStatusAnswer(value *clientproto.FileStatusAns
 		p.remotePieces.GetBit(0),
 		p.remotePieces.GetBit(1),
 		p.remotePieces.GetBit(2))
+	// The peer has confirmed it holds our file, so this is the moment a source
+	// list is worth a packet. Asking on every connection regardless of the file
+	// would be noise the peer ignores.
+	p.maybeRequestSources()
 	if p.transfer != nil && p.transfer.Size() > 9728000 {
 		p.SendHashSetRequest(p.transfer.GetHash())
 	} else if p.transfer != nil {
@@ -1259,6 +1300,10 @@ func (p *PeerConnection) ProcessIncoming() error {
 			p.HandleFileStatusAnswer(value)
 		case *clientproto.HashSetRequest:
 			p.HandleClientHashSetRequest(value)
+		case *clientproto.RequestSources2:
+			p.HandleRequestSources2(value)
+		case *clientproto.AnswerSources2:
+			p.HandleAnswerSources2(value)
 		case *clientproto.HashSetAnswer:
 			debugPeerf("peer %s <- HashSetAnswer parts=%d", p.endpoint.String(), len(value.Parts))
 			if p.transfer != nil {

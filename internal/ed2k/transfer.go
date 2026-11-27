@@ -38,6 +38,9 @@ type Transfer struct {
 	pendingResumeIO    int
 	uploadPriority     UploadPriority
 	pendingPieceHashes map[int]bool
+	// published records that the transfer was offered to the server as a
+	// source. See publishWhenShareable.
+	published bool
 }
 
 func NewTransfer(s *Session, atp AddTransferParams) (*Transfer, error) {
@@ -696,7 +699,24 @@ func (t *Transfer) ReadRange(begin, end int64) ([]byte, error) {
 	return t.pm.ReadRange(begin, end)
 }
 
+// publishWhenShareable offers the transfer to the server the first time it
+// actually holds a piece. Offering at AddTransfer time is useless (nothing to
+// serve yet), and offering only when the download finishes means a new client
+// never becomes a source, never uploads, and is scored as a leech by every
+// upload queue on the network.
+func (t *Transfer) publishWhenShareable() {
+	if t.published || t.session == nil {
+		return
+	}
+	if !t.CanUpload() {
+		return
+	}
+	t.published = true
+	t.session.PublishTransferToServer(t)
+}
+
 func (t *Transfer) SecondTick(accumulator *Statistics, tickIntervalMS int64) {
+	t.publishWhenShareable()
 	if t.NeedMoreSources() {
 		now := CurrentTime()
 		activeConnections := t.ActiveConnections()

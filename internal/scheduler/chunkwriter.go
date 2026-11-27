@@ -40,6 +40,7 @@ type chunkWriter struct {
 	total            int64
 	onWrite          func(int64)
 	onEngineProgress func(int64)
+	onEngineUpload   func(int64)
 	lastEvent        time.Time
 	lastLiveEvent    time.Time
 
@@ -319,6 +320,20 @@ func (w *chunkWriter) ReportProgress(done int64) {
 		TaskID:  w.taskID,
 		Payload: map[string]any{"bytesDone": base + done, "bytesTotal": taskTotal},
 	})
+}
+
+// ReportUploaded implements core.UploadSink. Only the eD2k engine uploads while
+// it downloads, and it counts payload bytes it served to other peers.
+func (w *chunkWriter) ReportUploaded(uploaded int64) {
+	if uploaded < 0 {
+		uploaded = 0
+	}
+	w.mu.Lock()
+	cb := w.onEngineUpload
+	w.mu.Unlock()
+	if cb != nil {
+		cb(uploaded)
+	}
 }
 
 // Sync persists the buffered completion records, then fsyncs the .part file

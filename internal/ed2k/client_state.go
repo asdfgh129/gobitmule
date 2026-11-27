@@ -286,3 +286,23 @@ func cloneResumeData(src *protocol.TransferResumeData) *protocol.TransferResumeD
 	}
 	return dst
 }
+
+// ReadUserHashFromStateFile returns only the user hash stored in one client
+// state file. An engine that starts before its state is loaded logs in to the
+// server with a throwaway identity, which throws away every credit it earned:
+// peers key upload-queue credit on the user hash. The adapter reads the hash
+// this way so it can restore the identity before the first server login
+// without also replaying the transfers it does not own.
+func ReadUserHashFromStateFile(path string) (protocol.Hash, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return protocol.Invalid, err
+	}
+	var partial struct {
+		UserHash protocol.Hash `json:"user_hash"`
+	}
+	if err := json.Unmarshal(raw, &partial); err != nil {
+		return protocol.Invalid, err
+	}
+	return partial.UserHash, nil
+}

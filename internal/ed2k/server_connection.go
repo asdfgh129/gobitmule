@@ -17,6 +17,13 @@ type ServerConnection struct {
 	tcpFlags           int32
 	auxPort            int32
 	combiner           protocol.PacketCombiner
+
+	// Asynchronous dial state. connectConfiguredServers runs inside SecondTick,
+	// so a blocking dial to a dead server froze every transfer for the whole
+	// connect timeout (15s) on each retry.
+	dialDone   chan struct{}
+	dialSocket net.Conn
+	dialErr    error
 }
 
 func NewServerConnection(identifier string, address *net.TCPAddr, session *Session) *ServerConnection {
@@ -38,6 +45,58 @@ func (s *ServerConnection) Connect() error {
 	}
 	s.SendLoginRequest()
 	return nil
+}
+
+// ConnectAsync dials the server on a background goroutine. The session loop
+// publishes the socket on a later pump tick and sends the login request then,
+// so an unreachable server never blocks the whole engine.
+func (s *ServerConnection) ConnectAsync() error {
+	if s.address == nil {
+		return NewError(InternalError)
+	}
+	done := make(chan struct{})
+	s.dialDone = done
+	addr := s.address
+	go func() {
+		defer close(done)
+		socket, _, err := s.openSocket(addr)
+		s.dialSocket = socket
+		s.dialErr = err
+	}()
+	return nil
+}
+
+// Dialing reports whether an asynchronous dial is still in flight.
+func (s *ServerConnection) Dialing() bool { return s.dialDone != nil }
+
+// pumpDial publishes a finished asynchronous dial and sends the login request.
+// It returns true while the dial is still running.
+func (s *ServerConnection) pumpDial() bool {
+	if s.dialDone == nil {
+		return false
+	}
+	select {
+	case <-s.dialDone:
+	default:
+		return true
+	}
+	s.dialDone = nil
+	if s.dialErr != nil {
+		debugPeerf("server %s dial failed: %v", s.identifier, s.dialErr)
+		s.Close(IOException)
+		return false
+	}
+	if s.IsDisconnecting() || s.dialSocket == nil {
+		if s.dialSocket != nil {
+			_ = s.dialSocket.Close()
+		}
+		return false
+	}
+	s.adoptSocket(s.dialSocket, false)
+	s.dialSocket = nil
+	debugPeerf("server %s connected, sending login", s.identifier)
+	s.SendLoginRequest()
+	return false
 }
 
 func (s *ServerConnection) OnServerIDChange(clientID, tcpFlags, auxPort int32) {
@@ -103,11 +162,17 @@ func (s *ServerConnection) SendSearchMore() {
 }
 
 func (s *ServerConnection) SendLoginRequest() {
-	debugPeerf("server %s -> LoginRequest", s.identifier)
 	packet := serverproto.NewLoginRequest(s.session.GetUserAgent(), s.session.GetListenPort(), s.session.GetClientName())
-	if raw, err := s.combiner.Pack("server.LoginRequest", &packet); err == nil {
-		s.QueuePacket(raw)
+	raw, err := s.combiner.Pack("server.LoginRequest", &packet)
+	if err != nil {
+		debugPeerf("server %s -> LoginRequest pack failed: %v", s.identifier, err)
+		return
 	}
+	// Log the wire bytes: servers reject a malformed login by closing the socket
+	// without an answer, and "disconnect code=10" says nothing about why.
+	debugPeerf("server %s -> LoginRequest bytes=%d hex=%s name=%q port=%d",
+		s.identifier, len(raw), hexPrefix(raw, 64), s.session.GetClientName(), s.session.GetListenPort())
+	s.QueuePacket(raw)
 }
 
 func (s *ServerConnection) SendCallbackRequest(clientID int32) {

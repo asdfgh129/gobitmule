@@ -228,8 +228,14 @@ func (c *Connection) prepareIncoming(localHash protocol.Hash, obfEnabled bool) (
 	if c.socket == nil {
 		return false, nil
 	}
-	endpoint := c.Endpoint().String()
-	prefix, timedOut, err := peekIncomingPrefix(c.socket, 5)
+	// c.Endpoint() is zero on the base Connection, so take the address from the
+	// socket: an accepted socket without a peer address makes every callback
+	// connection anonymous in the log.
+	endpoint := "?"
+	if addr := c.socket.RemoteAddr(); addr != nil {
+		endpoint = addr.String()
+	}
+	prefix, timedOut, err := peekIncomingPrefix(c.socket, 6)
 	if err != nil {
 		return false, err
 	}

@@ -25,6 +25,7 @@ import (
 
 	"github.com/asdfgh129/gobitmule/internal/core"
 	goed2k "github.com/asdfgh129/gobitmule/internal/ed2k"
+	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
 // transferHandle is the narrow view of a completed transfer the adapter needs.
@@ -69,6 +70,25 @@ func reportEngineProgress(report func(int64), h transferHandle) (int64, bool) {
 		report(done)
 	}
 	return done, true
+}
+
+// reportEngineUpload samples the engine's served-to-peers byte counter. It is
+// separate from the download counter on purpose: a task can upload while its
+// download is stalled, and conflating the two hid that entirely.
+func reportEngineUpload(upload func(int64), h transferHandle) (int64, bool) {
+	if upload == nil || h == nil {
+		return 0, false
+	}
+	sh, ok := h.(statusHandle)
+	if !ok {
+		return 0, false
+	}
+	served := sh.GetStatus().Upload
+	if served < 0 {
+		served = 0
+	}
+	upload(served)
+	return served, true
 }
 
 // statefulEngine is implemented by the real goed2k engine. The engine owns the
@@ -149,6 +169,38 @@ func newGoed2kDownloaderWithFactory(cfg Goed2kConfig, f engineFactory) *Goed2kDo
 	return &Goed2kDownloader{cfg: cfg, factory: f}
 }
 
+// restoreUserIdentity gives the engine back the user hash it used last run,
+// before it can reach a server.
+//
+// Every state file in StateDir carries the same identity, so reading any one of
+// them is enough; transfers themselves are recovered by the scheduler, not by
+// this path. Without this the engine generates a fresh hash at construction and
+// logs in with it, so the very first login of every process is an unknown
+// client: the server registers a stranger and every peer's upload queue treats
+// us as someone with no credit.
+func restoreUserIdentity(c *goed2k.Client, cfg Goed2kConfig) {
+	if c == nil || cfg.StateDir == "" {
+		return
+	}
+	paths, err := filepath.Glob(filepath.Join(cfg.StateDir, "*.json"))
+	if err != nil || len(paths) == 0 {
+		return
+	}
+	for _, path := range paths {
+		hash, err := goed2k.ReadUserHashFromStateFile(path)
+		if err != nil || hash.Equal(protocol.Invalid) {
+			continue
+		}
+		if err := c.SetUserHash(hash); err != nil {
+			continue
+		}
+		if cfg.Logger != nil {
+			cfg.Logger.Debug("ed2k identity restored", "userHash", hash.String(), "from", filepath.Base(path))
+		}
+		return
+	}
+}
+
 // defaultEngineFactory constructs a freshly configured goed2k Client.
 // DisableRate/DisableAutoSave default true in NewGoed2kConfig semantics below;
 // the zero value here also means "disable" so ud stays the single authority.
@@ -166,6 +218,7 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 		st.Logger = cfg.Logger                 // surface source discovery / KAD failures
 		st.MaxUploadRateKB = 0                 // ud is the unique rate authority (ADR-0002)
 		c := goed2k.NewClient(st)
+		restoreUserIdentity(c, cfg)
 		// AutoSave is the engine's periodic state write. It stays off unless the
 		// adapter owns a resume dir: ud must not get a second task-state writer
 		// (ADR-0002), but the piece bitmap of the .part file exists nowhere else,
@@ -183,7 +236,7 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 // Open drives the engine to completion and returns a seekable reader over the
 // completed file. It is the only method that touches the network.
 func (d *Goed2kDownloader) Open(ctx context.Context, r *core.Resource) (io.ReadSeekCloser, int64, error) {
-	return d.open(ctx, r, nil)
+	return d.open(ctx, r, nil, nil)
 }
 
 // OpenWithProgress is Open plus a periodic engine byte counter. The eD2k
@@ -192,11 +245,20 @@ func (d *Goed2kDownloader) Open(ctx context.Context, r *core.Resource) (io.ReadS
 // the whole transfer finished.
 func (d *Goed2kDownloader) OpenWithProgress(ctx context.Context, r *core.Resource,
 	report func(done int64)) (io.ReadSeekCloser, int64, error) {
-	return d.open(ctx, r, report)
+	return d.open(ctx, r, report, nil)
+}
+
+// OpenWithProgressAndUpload adds the engine's upload counter. eD2k serves the
+// parts it already holds while it downloads, so a task can be uploading long
+// before it is finished; reporting it is what makes the console's upload column
+// and the queue-priority story visible.
+func (d *Goed2kDownloader) OpenWithProgressAndUpload(ctx context.Context, r *core.Resource,
+	report func(done int64), upload func(uploaded int64)) (io.ReadSeekCloser, int64, error) {
+	return d.open(ctx, r, report, upload)
 }
 
 func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
-	report func(done int64)) (io.ReadSeekCloser, int64, error) {
+	report func(done int64), upload func(uploaded int64)) (io.ReadSeekCloser, int64, error) {
 	if d == nil || d.factory == nil {
 		return nil, 0, core.Err(core.E_CAPABILITY_UNAVAILABLE, "goed2k engine factory is not configured")
 	}
@@ -253,6 +315,7 @@ func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
 	}
 
 	lastProgress, _ := reportEngineProgress(report, handle)
+	lastUploaded, _ := reportEngineUpload(upload, handle)
 	// Say out loud where the transfer starts. Without this line a resume and a
 	// from-scratch run look identical in the log, which is exactly the ambiguity
 	// that made "progress went backwards" hard to pin down.
@@ -273,7 +336,7 @@ func (d *Goed2kDownloader) open(ctx context.Context, r *core.Resource,
 	// signal available before the whole file completes, so it feeds both the
 	// scheduler overlay (report) and the debug log (change-only, 1s cadence).
 	var tickCh <-chan time.Time
-	if report != nil || d.cfg.Logger != nil {
+	if report != nil || upload != nil || d.cfg.Logger != nil {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		tickCh = ticker.C
@@ -291,6 +354,12 @@ waitLoop:
 			}
 			break waitLoop
 		case <-tickCh:
+			if served, ok := reportEngineUpload(upload, handle); ok && served != lastUploaded {
+				lastUploaded = served
+				if d.cfg.Logger != nil {
+					d.cfg.Logger.Debug("ed2k engine upload", "bytesUploaded", served)
+				}
+			}
 			done, ok := reportEngineProgress(report, handle)
 			if ok && (!logged || done != lastProgress) {
 				logged, lastProgress = true, done
@@ -301,6 +370,7 @@ waitLoop:
 		}
 	}
 	reportEngineProgress(report, handle)
+	reportEngineUpload(upload, handle)
 
 	if !handle.IsFinished() {
 		_ = eng.Stop()

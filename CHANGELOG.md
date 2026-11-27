@@ -16,6 +16,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **补齐 eD2k 服务器登录 / 源交换 / 上传三条结构性短板（2026-11-26）**：
+  - **背景**：上一修复清掉了引擎自身的读路径与请求窗口上限，但同一文件仍只有几十 KB/s；
+    对照 eMule 1.8 MB/s，剩下的差距来自「服务器源列表拿不到、客户端间不交换源、
+    本端不上传所以拿不到队列信用」三条结构性通路缺失，而非单连接速率问题。
+  - **服务器登录与 port callback**：
+    - 服务器登录后会回连客户端公告的 TCP 端口做 HighID 探活，实测回连只发
+      6 字节头 `E3 3B 00 00 00 01`（`Hello`，size=59）然后**等客户端先发 Hello**；
+      原实现的 `prepareIncoming` 等完整报文体，双方互等约 1 秒后服务器判定端口不可用，
+      直接断开整个服务器会话。改为读到完整 6 字节前缀即识别为 greeting-needed 入站，
+      调 `OnConnect()` 主动发 Hello；`HandleClientHello` 排入 HelloAnswer 后立刻
+      `FlushOutgoing()`，不再等 100ms tick。
+    - 入站日志此前显示 `0.0.0.0:0`，现用 `socket.RemoteAddr()` 记录真实端点
+      （实测 `176.123.5.89:...`）。
+    - `ReconnectToServer` 默认从 `false` 改为 `true`；`ServerConnectionPolicy` 重写为
+      **永远保留 candidate 并持续重试**（前 5 次线性退避，之后封顶 60s，登录成功清零），
+      只有显式 `RemoveConnectCandidates()` 才关闭重试。此前一次失败会导致长期无服务器。
+    - `ServerConnection` 增加异步拨号（`ConnectAsync` / `pumpDial`），避免 DNS/连接池
+      阻塞 100ms 的 IO pump；`PumpIO` 每次 tick 都 pump。
+    - 守护进程创建 engine 后、连接服务器前，从 `ed2k-resume/*.json` 恢复 `user_hash`
+      （`ReadUserHashFromStateFile`），消除「临时 hash 登录、随后又换成另一个 hash」
+      导致的身份/信用错乱。实测日志：`ed2k identity restored userHash=92019591...`。
+    - 实测修复后登录成功：`<- IdChange clientID=71042416`，随后
+      `-> OfferFiles count=1`、`<- FoundFileSources count=5 / count=7`。
+    - 回归测试：`TestServerConnectionPolicyAlwaysSchedulesARetry`、
+      `TestServerConnectionPolicyRampsThenCaps`、`TestServerConnectionPolicyLoginResetsBackoff`、
+      `TestServerConnectionPolicyIgnoresSuccessForAnotherServer`、
+      `TestServerConnectionPolicyRemoveDisables`。
+  - **客户端间源交换 SX2**：
+    - 新增 `protocol/client/source_exchange.go`，实现 eMule/aMule 现行
+      `OP_REQUESTSOURCES2 = 0x83` / `OP_ANSWERSOURCES2 = 0x84`（旧 `0x81/0x82` 已废弃），
+      `SourceExchangeVersion = 4`。请求布局 `[version:1][reserved:2][hash:16]`；
+      应答条目按 v1/v2/v4 递增携带 `userID / port / serverIP / serverPort`、
+      `userHash`、`cryptOptions`。**高 ID 源的 `userID` 才是可拨号 IP**，
+      `serverIP/serverPort` 只是其所属服务器信息——此前误把后者当地址，已按 aMule
+      `CreateSrcInfoPacket()` 校正。
+    - `PeerConnection` 在 FileStatusAnswer 确认对端持有文件后，若远端声明 SX2 能力
+      （`CT_EMULE_MISCOPTIONS2` bit10，或 `CT_EMULE_MISCOPTIONS1` 的 SourceExchange1Ver）
+      则发一次 `RequestSources2`；应答中的高 ID 源合并进 transfer policy 并保留 user hash，
+      标记来源为 `PeerSourceExchange`（Web 源列表显示 `sx`）。应答构造时排除请求者自身、
+      低 ID 源与重复项，上限 500 条。
+    - **修复 `MiscOptions.IntValue()` 的 Go 运算符优先级错误**：`<<` 与 `*` 同级左结合，
+      原写法 `x << 4 * 7` 实为 `(x << 4) * 7`，能力位全部错位。线上 Hello tag 从
+      `83FA74000000` 修正为 `83FA04100010`（Unicode / SourceExchange / NoViewSharedFiles
+      位正确）。所有移位均加括号，新增 `TestMiscOptionsBitPositions`。
+    - 回归测试：`TestRequestSources2WireLayout`、`TestRequestSources2RoundTrip`、
+      `TestAnswerSources2Version1Layout`、`TestAnswerSources2RoundTripAllVersions`、
+      `TestAnswerSources2RejectsAbsurdCount`、`TestAnswerSources2TruncatedEntry`、
+      `TestHybridUserIDUsesTrailingFourBytes`、`TestMaybeRequestSourcesUsesSX2`、
+      `TestHandleAnswerSources2MergesDialableSources`、
+      `TestHandleAnswerSources2IgnoresAnotherFile`、`TestHandleRequestSources2OffersKnownSources`。
+      线上目前请求未收到应答，取证表明当前对端多为完整文件源（aMule/eMule 对完整文件
+      通常不维护/返回源列表），受控测试已覆盖完整收发闭环。
+  - **真实上传与队列信用**：
+    - 此前只有已完成文件会 `OfferFiles`；进行中文件即使已有可上传块也不被公告，
+      其他客户端无法发现我们是源。改为只要 `CanUpload()` 为真（包括部分文件）就发布，
+      并在 `Transfer.SecondTick()` 中做一次延迟发布（`publishWhenShareable`）。
+    - 引擎 `TransferStatus.Upload` 此前从未上报到 scheduler，`core.Task.BytesUploaded`
+      恒为 0。新增 `core.UploadSink`，`Goed2kDownloader.OpenWithProgressAndUpload()`
+      每秒采样上传字节 → `chunkWriter.ReportUploaded()` → scheduler `liveUploaded`
+      overlay → `Task.BytesUploaded`，Web/任务统计与 API 现在能看到真实上传量。
 - **修复下载吞吐被引擎自身上限压住（对照 eMule 1.8 MB/s 只有 30 KB/s，2026-11-26）**：
   - 现象：同一个 ubuntu ISO，eMule 显示 1.82 MB/s（4 条源，其中一条 aMule 3.1.0 独占
     1.77 MB/s），本引擎只有 16–136 KB/s，平均 30–60 KB/s。

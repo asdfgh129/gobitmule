@@ -48,6 +48,14 @@ type progressDownloader interface {
 	OpenWithProgress(ctx context.Context, r *core.Resource, report func(done int64)) (io.ReadSeekCloser, int64, error)
 }
 
+// uploadProgressDownloader adds the upload counter. An eD2k transfer uploads
+// the parts it already holds while it downloads, and those bytes are the reason
+// a peer ranks us above "never shared anything".
+type uploadProgressDownloader interface {
+	OpenWithProgressAndUpload(ctx context.Context, r *core.Resource,
+		report func(done int64), upload func(uploaded int64)) (io.ReadSeekCloser, int64, error)
+}
+
 // Transport is the eD2k implementation of core.Transport.
 type Transport struct {
 	downloader Downloader
@@ -109,12 +117,18 @@ func (t *Transport) Run(ctx context.Context, r *core.Resource, w core.ChunkWrite
 	if sink, ok := w.(core.ProgressSink); ok {
 		report = sink.ReportProgress
 	}
+	var reportUpload func(int64)
+	if sink, ok := w.(core.UploadSink); ok {
+		reportUpload = sink.ReportUploaded
+	}
 	var (
 		reader  io.ReadSeekCloser
 		size    int64
 		openErr error
 	)
-	if pd, ok := t.downloader.(progressDownloader); ok {
+	if pd, ok := t.downloader.(uploadProgressDownloader); ok {
+		reader, size, openErr = pd.OpenWithProgressAndUpload(ctx, r, report, reportUpload)
+	} else if pd, ok := t.downloader.(progressDownloader); ok {
 		reader, size, openErr = pd.OpenWithProgress(ctx, r, report)
 	} else {
 		reader, size, openErr = t.downloader.Open(ctx, r)
