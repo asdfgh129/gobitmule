@@ -18,6 +18,10 @@ type ED2KServerEntry struct {
 	Connected         bool   `json:"connected"`
 	HandshakeComplete bool   `json:"handshakeComplete"`
 	ClientID          int32  `json:"clientId"`
+	// #16: latest server banner and user/file counts.
+	LastMessage string `json:"lastMessage,omitempty"`
+	UsersCount  int32  `json:"usersCount,omitempty"`
+	FilesCount  int32  `json:"filesCount,omitempty"`
 }
 
 type ED2KServersStatus struct {

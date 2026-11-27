@@ -10,6 +10,10 @@ type ServerConnectionInfo struct {
 	HandshakeComplete bool   `json:"handshakeComplete"`
 	ClientID          int32  `json:"clientId"`
 	LastPing          int64  `json:"lastPing"`
+	// #16: server banner/counts from OP_SERVERMESSAGE / OP_SERVERSTATUS.
+	LastMessage string `json:"lastMessage"`
+	UsersCount  int32  `json:"usersCount"`
+	FilesCount  int32  `json:"filesCount"`
 }
 
 func (c *ServerConnection) info() ServerConnectionInfo {
@@ -23,6 +27,7 @@ func (c *ServerConnection) info() ServerConnectionInfo {
 		info.Address = c.address.String()
 	}
 	info.Connected = c.socket != nil && !c.IsDisconnecting()
+	info.UsersCount, info.FilesCount, info.LastMessage = c.ServerInfo()
 	return info
 }
 

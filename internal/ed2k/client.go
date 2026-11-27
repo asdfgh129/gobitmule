@@ -58,7 +58,7 @@ func NewClient(settings Settings) *Client {
 	if settings.Logger != nil {
 		logx.SetLogger(settings.Logger)
 	}
-	return &Client{
+	client := &Client{
 		session:        NewSession(settings),
 		tickInterval:   100 * time.Millisecond,
 		statusInterval: time.Second,
@@ -66,6 +66,25 @@ func NewClient(settings Settings) *Client {
 		stopCh:         make(chan struct{}),
 		doneCh:         make(chan struct{}),
 	}
+	// #10 / #11: the peer block list and the search spam keywords are plain
+	// files; load them at construction so the first dial and the first search
+	// already honour them. A missing file is not fatal.
+	if settings.IPFilterPath != "" {
+		if n, err := client.session.LoadIPFilter(settings.IPFilterPath); err != nil {
+			logx.Debug("load ipfilter failed", "path", settings.IPFilterPath, "err", err)
+		} else {
+			client.session.IPFilter().SetLevel(settings.IPFilterLevel)
+			logx.Debug("ipfilter loaded", "path", settings.IPFilterPath, "ranges", n, "level", settings.IPFilterLevel)
+		}
+	}
+	if settings.SpamFilterPath != "" {
+		if n, err := client.session.LoadSearchFilterWords(settings.SpamFilterPath); err != nil {
+			logx.Debug("load spam filter failed", "path", settings.SpamFilterPath, "err", err)
+		} else {
+			logx.Debug("spam filter words loaded", "path", settings.SpamFilterPath, "words", n)
+		}
+	}
+	return client
 }
 
 func (c *Client) Session() *Session {
@@ -143,6 +162,72 @@ func (c *Client) AddDHTBootstrapNodes(nodes ...string) error {
 		}
 	}
 	return nil
+}
+
+// #6: friend list and chat API.
+func (c *Client) AddFriend(friend Friend) bool               { return c.session.AddFriend(friend) }
+func (c *Client) RemoveFriend(hash protocol.Hash) bool       { return c.session.RemoveFriend(hash) }
+func (c *Client) Friends() []Friend                          { return c.session.Friends() }
+func (c *Client) SetChatMessageHandler(fn func(protocol.Hash, string)) {
+	c.session.SetChatMessageHandler(fn)
+}
+func (c *Client) SendChatMessage(hash protocol.Hash, text string) bool {
+	return c.session.SendChatMessage(hash, text)
+}
+
+// PreviewTransfer materialises the complete leading parts of a transfer so a
+// local player can open it while the download continues (#8). dir may be empty
+// to use the system temporary directory.
+func (c *Client) PreviewTransfer(hash protocol.Hash, dir string) (PreviewInfo, error) {
+	return c.session.CreatePreview(hash, dir)
+}
+
+// LoadIPFilter loads an eMule ipfilter.dat-style file (#10) and returns the
+// number of ranges. Filtering applies to new outbound dials and incoming peers.
+func (c *Client) LoadIPFilter(path string) (int, error) {
+	return c.session.LoadIPFilter(path)
+}
+
+// IPFilterCount reports how many blocked ranges are active.
+func (c *Client) IPFilterCount() int { return c.session.IPFilter().Count() }
+
+// SetIPFilterLevel sets which range levels are blocked (0..255).
+func (c *Client) SetIPFilterLevel(level int) { c.session.IPFilter().SetLevel(level) }
+
+// LoadSearchSpamWords loads extra spam keywords for search result rating (#11).
+func (c *Client) LoadSearchSpamWords(path string) (int, error) {
+	return c.session.LoadSearchFilterWords(path)
+}
+
+// SetSearchSpamEnabled toggles dropping low rated search results.
+func (c *Client) SetSearchSpamEnabled(enabled bool) {
+	c.session.SearchFilter().SetEnabled(enabled)
+}
+
+// SetSearchSpamRating sets the minimum acceptable rating (0..5).
+func (c *Client) SetSearchSpamRating(rating int) {
+	c.session.SetSearchFilterRating(rating)
+}
+
+// AddCollection parses a .emulecollection file and enqueues every entry into
+// outputDir (#9). Entries that fail to parse are skipped so one broken link
+// does not abort the batch; the returned hashes are the ones that were added.
+func (c *Client) AddCollection(path, outputDir string) ([]protocol.Hash, error) {
+	collection, err := ParseCollectionFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if outputDir == "" {
+		outputDir = os.TempDir()
+	}
+	added := make([]protocol.Hash, 0, len(collection.Files))
+	for _, file := range collection.Files {
+		if _, _, err := c.AddLink(file.Link(), outputDir); err != nil {
+			continue
+		}
+		added = append(added, file.Hash)
+	}
+	return added, nil
 }
 
 func (c *Client) PublishDHTSource(hash protocol.Hash, endpoint protocol.Endpoint, size int64) bool {
@@ -406,7 +491,11 @@ func (c *Client) AddLink(linkValue, outputDir string) (TransferHandle, string, e
 	}
 	targetPath := filepath.Join(outputDir, link.StringValue)
 	handler := disk.NewDesktopFileHandler(targetPath)
-	handle, err := c.session.AddTransferWithHandler(link.Hash, link.NumberValue, handler)
+	// #4: carry the AICH master hash from the link into the engine so a
+	// corrupted piece can be recovered with per-block SHA-1 hashes.
+	atp := NewAddTransferParamsFromHandler(link.Hash, CurrentTimeMillis(), link.NumberValue, handler, false)
+	atp.AICHRoot = link.AICHRoot
+	handle, err := c.session.AddTransferParams(atp)
 	if err == nil {
 		logx.Debug("transfer added", "file", link.StringValue, "hash", link.Hash.String(), "size", link.NumberValue, "path", targetPath)
 		if handle.transfer != nil {

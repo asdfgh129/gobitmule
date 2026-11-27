@@ -38,6 +38,12 @@ type Transfer struct {
 	pendingResumeIO    int
 	uploadPriority     UploadPriority
 	pendingPieceHashes map[int]bool
+	// aichRoot holds the 20-byte SHA-1 master hash (#4) from the ed2k link's
+	// h= field. Empty means no AICH recovery data is available.
+	aichRoot [20]byte
+	hasAICH  bool
+	// aichRecovery holds validated SHA-1 block hashes keyed by part index (#4).
+	aichRecovery map[uint16][]byte
 	// published records that the transfer was offered to the server as a
 	// source. See publishWhenShareable.
 	published bool
@@ -61,6 +67,11 @@ func NewTransfer(s *Session, atp AddTransferParams) (*Transfer, error) {
 		speedMon:           NewSpeedMonitor(30),
 		uploadPriority:     UploadPriorityNormal,
 		pendingPieceHashes: make(map[int]bool),
+	}
+	if len(atp.AICHRoot) == 20 {
+		copy(t.aichRoot[:], atp.AICHRoot)
+		t.hasAICH = true
+		t.aichRecovery = make(map[uint16][]byte)
 	}
 	blocksInLastPiece := int(DivCeil(atp.Size%PieceSize, BlockSize))
 	if blocksInLastPiece == 0 {
@@ -713,6 +724,10 @@ func (t *Transfer) publishWhenShareable() {
 	}
 	t.published = true
 	t.session.PublishTransferToServer(t)
+	// #14: eMule also publishes the source to KAD so peers that discovered the
+	// file hash over KAD (without a server) can find us. Server publication is
+	// independent and stays first: a KAD tracker may not be configured.
+	t.session.PublishTransferToDHT(t)
 }
 
 func (t *Transfer) SecondTick(accumulator *Statistics, tickIntervalMS int64) {
@@ -766,6 +781,12 @@ func (t *Transfer) OnPieceHashCompleted(pieceIndex int, hash protocol.Hash) {
 	delete(t.pendingPieceHashes, pieceIndex)
 	if pieceIndex < len(t.hashSet) && !t.hashSet[pieceIndex].Equal(hash) {
 		debugPeerf("transfer %s piece %d hash mismatch got=%s want=%s", t.hash.String(), pieceIndex, hash.String(), t.hashSet[pieceIndex].String())
+		// #4: ask a peer that announced AICH support for the recovery hashes
+		// of this part, so we can isolate the corrupted 180 KiB block instead
+		// of re-downloading the whole 9.28 MB part.
+		if t.hasAICH {
+			t.RequestAICHRecovery(uint16(pieceIndex))
+		}
 		t.picker.RestorePiece(pieceIndex)
 	} else {
 		debugPeerf("transfer %s piece %d hash ok=%s", t.hash.String(), pieceIndex, hash.String())
@@ -811,6 +832,39 @@ func (t *Transfer) finished() {
 		t.session.PublishTransferToServer(t)
 	}
 	t.needSaveResumeData = true
+}
+
+// RequestAICHRecovery asks one AICH-capable connected peer for the SHA-1
+// recovery hashes of a damaged part (#4). eMule only asks peers that announced
+// AICHVersion>0 in their Hello misc options.
+func (t *Transfer) RequestAICHRecovery(part uint16) bool {
+	if !t.hasAICH || len(t.connections) == 0 {
+		return false
+	}
+	for _, c := range t.connections {
+		if c == nil || c.remotePeerInfo.Misc1.AICHVersion <= 0 || c.DisconnectCode() != NoError {
+			continue
+		}
+		c.SendAICHRequest(part, t.aichRoot)
+		return true
+	}
+	return false
+}
+
+// QueueAICHRecovery stores validated per-part SHA-1 block hashes (#4). A
+// subsequent piece hash mismatch can consult these to pinpoint the bad block.
+func (t *Transfer) QueueAICHRecovery(part uint16, data []byte) {
+	if t.aichRecovery == nil {
+		t.aichRecovery = make(map[uint16][]byte)
+	}
+	t.aichRecovery[part] = append([]byte(nil), data...)
+	t.needSaveResumeData = true
+}
+
+// AICHPartRecovery returns the validated recovery hashes for a part.
+func (t *Transfer) AICHPartRecovery(part uint16) ([]byte, bool) {
+	data, ok := t.aichRecovery[part]
+	return data, ok
 }
 
 func (t *Transfer) AsyncRestoreBlock(block data.PieceBlock) {

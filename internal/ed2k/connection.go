@@ -311,6 +311,10 @@ func (c *Connection) openSocket(address net.Addr) (net.Conn, bool, error) {
 	if !ok {
 		return nil, false, nil
 	}
+	// #10: never dial a peer or server inside a blocked range.
+	if c.session != nil && c.session.IPFilter().IsFilteredAddr(tcpAddr) {
+		return nil, false, fmt.Errorf("ipfilter: blocked %s", tcpAddr.String())
+	}
 	timeout := c.dialTimeout()
 	conn, err := c.dialTCP(timeout, tcpAddr)
 	if err != nil {

@@ -43,6 +43,11 @@ type Session struct {
 	friendSlots            map[string]bool
 	activeSearch           *searchTask
 	nextSearchID           uint32
+	serverUDP              *ServerUDP // #2: server UDP socket (global search / glob sources)
+	friendList             *FriendList // #6: friends and chat identities
+	onChatMessage          func(userHash protocol.Hash, text string)
+	ipFilter               *IPFilter // #10: eMule ipfilter.dat equivalent
+	spamFilter             *SpamFilter // #11: search result rating/spam filter
 }
 
 type diskTask struct {
@@ -73,6 +78,16 @@ func NewSession(st Settings) *Session {
 		incomingConns:          make(chan net.Conn, 32),
 		credits:                NewPeerCreditManager(),
 		friendSlots:            make(map[string]bool),
+	}
+	session.friendList = NewFriendList()
+	session.ipFilter = NewIPFilter()
+	session.spamFilter = NewSpamFilter()
+	session.serverUDP = NewServerUDP()
+	session.serverUDP.onResults = func(hash protocol.Hash, endpoints []protocol.Endpoint) {
+		session.onUDPSources(hash, endpoints)
+	}
+	session.serverUDP.onSearch = func(entries []serverproto.SharedFileEntry) {
+		session.onUDPSearchResults(entries)
 	}
 	session.initUploadQueue()
 	return session
@@ -253,6 +268,97 @@ func (s *Session) GetListenPort() int {
 	return s.settings.ListenPort
 }
 
+// #1: server callback closes the Low-ID hole. A Low-ID peer cannot be dialed
+// directly (its "IP" is a server token), so eMule asks the server to relay a
+// callback request; the server replies with the real IP:port and we dial it.
+// RequestCallbackForLowID records the pending request and sends OP_CALLBACKREQUEST.
+func (s *Session) RequestCallbackForLowID(clientID int32, hash protocol.Hash) bool {
+	if s == nil || clientID == 0 || !IsLowID(clientID) || hash.Equal(protocol.Invalid) {
+		return false
+	}
+	sc := s.serverConnection
+	if sc == nil || !sc.IsHandshakeCompleted() {
+		return false
+	}
+	s.mu.Lock()
+	if s.callbacks == nil {
+		s.callbacks = make(map[int32]protocol.Hash)
+	}
+	s.callbacks[clientID] = hash
+	s.mu.Unlock()
+	sc.SendCallbackRequest(clientID)
+	debugPeerf("server callback requested for low-id=%d file=%s", clientID, hash.String())
+	return true
+}
+
+// HandleCallbackRequest consumes OP_CALLBACKREQUESTED: the server tells us the
+// real IP:port of a Low-ID peer that wants to connect. The callback does not
+// carry a file hash, so eMule hands the endpoint to its client list and lets
+// every download that wants sources try it. We mirror that by offering the
+// endpoint to all active transfers that need more peers.
+func (s *Session) HandleCallbackRequest(point protocol.Endpoint) int {
+	if s == nil || !point.Defined() || IsLowID(point.IP()) {
+		return 0
+	}
+	s.mu.Lock()
+	// A satisfied callback clears its pending entry (by matching IP as the
+	// server may return a hybrid ID rather than the original token).
+	for id := range s.callbacks {
+		if id == point.IP() {
+			delete(s.callbacks, id)
+		}
+	}
+	transfers := make([]*Transfer, 0, len(s.transfers))
+	for _, t := range s.transfers {
+		if t != nil && !t.IsPaused() && !t.IsAborted() {
+			transfers = append(transfers, t)
+		}
+	}
+	s.mu.Unlock()
+	added := 0
+	for _, t := range transfers {
+		if err := t.AddPeer(point, int(PeerServer)); err == nil {
+			added++
+		}
+	}
+	debugPeerf("server callback endpoint=%s offered to %d transfers", point.String(), added)
+	return added
+}
+
+// #3 A4AF ("ask for another file"): when a connected peer reports it does not
+// hold the file we requested, eMule reassigns that source to another download
+// that still needs peers instead of discarding the connection. We mirror the
+// useful subset: offer the endpoint to the other active transfers that need
+// more sources, so a source shared across files is not wasted.
+func (s *Session) A4AFReassign(endpoint protocol.Endpoint, fromHash protocol.Hash) int {
+	if s == nil || !endpoint.Defined() || IsLowID(endpoint.IP()) {
+		return 0
+	}
+	s.mu.Lock()
+	targets := make([]*Transfer, 0, len(s.transfers))
+	for hash, t := range s.transfers {
+		if hash.Equal(fromHash) || t == nil || t.IsPaused() || t.IsAborted() || t.IsFinished() {
+			continue
+		}
+		if !t.NeedMoreSources() {
+			continue
+		}
+		targets = append(targets, t)
+	}
+	s.mu.Unlock()
+	reassigned := 0
+	for _, t := range targets {
+		if err := t.AddPeer(endpoint, int(PeerServer)); err == nil {
+			reassigned++
+		}
+	}
+	if reassigned > 0 {
+		debugPeerf("a4af source %s reassigned to %d transfers (from %s)",
+			endpoint.String(), reassigned, fromHash.String())
+	}
+	return reassigned
+}
+
 // BootstrapKadFromPeer adds a Kad UDP contact learned from a connected peer,
 // mirroring eMule's CKademlia::Bootstrap(peerIP, peerKadPort) on Hello.
 func (s *Session) BootstrapKadFromPeer(address string) bool {
@@ -369,6 +475,172 @@ func (s *Session) SendDHTSourcesRequest(hash protocol.Hash, size int64, transfer
 	})
 }
 
+// onUDPSources feeds OP_GLOBFOUNDSOURCES endpoints into the matching transfer.
+func (s *Session) onUDPSources(hash protocol.Hash, endpoints []protocol.Endpoint) {
+	if s == nil || len(endpoints) == 0 {
+		return
+	}
+	s.mu.Lock()
+	transfer := s.transfers[hash]
+	s.mu.Unlock()
+	if transfer == nil {
+		return
+	}
+	added := 0
+	for _, endpoint := range endpoints {
+		if !endpoint.Defined() || IsLowID(endpoint.IP()) {
+			continue
+		}
+		if err := transfer.AddPeer(endpoint, int(PeerServer)); err == nil {
+			added++
+		}
+	}
+	debugPeerf("server udp sources hash=%s got=%d added=%d", hash.String(), len(endpoints), added)
+}
+
+// onUDPSearchResults feeds OP_GLOBSEARCHRES entries into the active search.
+func (s *Session) onUDPSearchResults(entries []serverproto.SharedFileEntry) {
+	if s == nil || len(entries) == 0 {
+		return
+	}
+	s.searchMu.Lock()
+	task := s.activeSearch
+	s.searchMu.Unlock()
+	if task == nil || task.state != SearchStateRunning {
+		return
+	}
+	params := task.params
+	count := 0
+	for _, entry := range entries {
+		result := makeSearchResultFromServer(entry)
+		if !matchesSearchFilters(result, params) {
+			continue
+		}
+		if !s.applySearchRating(&result) {
+			continue
+		}
+		task.mergeResult(result)
+		count++
+	}
+	debugPeerf("server udp search results got=%d added=%d", len(entries), count)
+}
+
+// serverUDPAddr resolves the connected server's UDP endpoint. eMule uses
+// TCP port + 4 for the server UDP socket.
+func (s *Session) serverUDPAddr() *net.UDPAddr {
+	if s == nil || s.serverConnection == nil {
+		return nil
+	}
+	tcpAddr := s.serverConnection.GetAddress()
+	if tcpAddr == nil {
+		return nil
+	}
+	ip := tcpAddr.IP
+	if ip == nil {
+		return nil
+	}
+	return &net.UDPAddr{IP: ip, Port: tcpAddr.Port + 4}
+}
+
+// SendUDPSourcesRequest sends an OP_GLOBGETSOURCES2 datagram to the connected
+// server. Returns false when no server/socket is available.
+func (s *Session) SendUDPSourcesRequest(hash protocol.Hash, size int64) bool {
+	if s == nil || s.serverUDP == nil {
+		return false
+	}
+	addr := s.serverUDPAddr()
+	if addr == nil {
+		return false
+	}
+	datagram := serverproto.UDPGlobGetSources(hash, size)
+	ok := s.serverUDP.SendTo(addr, datagram)
+	debugPeerf("server udp -> glob sources %s to %s ok=%t", hash.String(), addr.String(), ok)
+	return ok
+}
+
+// SendUDPSearchRequest sends OP_GLOBSEARCHREQ3 to the connected server.
+func (s *Session) SendUDPSearchRequest(req *serverproto.SearchRequest) bool {
+	if s == nil || s.serverUDP == nil || req == nil {
+		return false
+	}
+	addr := s.serverUDPAddr()
+	if addr == nil {
+		return false
+	}
+	datagram, err := serverproto.UDPGlobSearchReq(req)
+	if err != nil {
+		return false
+	}
+	ok := s.serverUDP.SendTo(addr, datagram)
+	debugPeerf("server udp -> glob search %q to %s ok=%t", req.Query, addr.String(), ok)
+	return ok
+}
+
+// #6: friend and chat management surfaced through the session.
+// IPFilter returns the peer block list; it is never nil for a constructed
+// session and starts empty (disabled).
+func (s *Session) IPFilter() *IPFilter {
+	if s.ipFilter == nil {
+		s.ipFilter = NewIPFilter()
+	}
+	return s.ipFilter
+}
+
+// LoadIPFilter replaces the peer block list from an ipfilter.dat style file
+// (#10). It returns the number of ranges loaded.
+func (s *Session) LoadIPFilter(path string) (int, error) {
+	return s.IPFilter().LoadFile(path)
+}
+
+// AddFriend registers a friend so chat messages from that user hash are
+// accepted. It replaces the existing entry with the same hash.
+func (s *Session) AddFriend(friend Friend) bool {
+	if s == nil || s.friendList == nil {
+		return false
+	}
+	return s.friendList.Add(friend)
+}
+
+func (s *Session) RemoveFriend(hash protocol.Hash) bool {
+	if s == nil || s.friendList == nil {
+		return false
+	}
+	return s.friendList.Remove(hash)
+}
+
+func (s *Session) Friends() []Friend {
+	if s == nil || s.friendList == nil {
+		return []Friend{}
+	}
+	return s.friendList.List()
+}
+
+func (s *Session) SetChatMessageHandler(fn func(protocol.Hash, string)) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.onChatMessage = fn
+	s.mu.Unlock()
+}
+
+// SendChatMessage sends a message to the first connected peer with the given
+// user hash. Returns false when the peer is not connected.
+func (s *Session) SendChatMessage(hash protocol.Hash, text string) bool {
+	if s == nil || text == "" {
+		return false
+	}
+	s.mu.Lock()
+	connections := append([]*PeerConnection(nil), s.connections...)
+	s.mu.Unlock()
+	for _, c := range connections {
+		if c != nil && c.remoteHash.Equal(hash) {
+			return c.SendMessage(text)
+		}
+	}
+	return false
+}
+
 func describeKadTags(tags []kadproto.Tag) string {
 	parts := make([]string, 0, len(tags))
 	for _, tag := range tags {
@@ -395,7 +667,10 @@ func (s *Session) RequestSourcesNow(transfer *Transfer) bool {
 	activePeers := transfer.ActiveConnections()
 	knownPeers := transfer.policy.Size()
 	serverSent := s.SendSourcesRequest(transfer.hash, transfer.size)
-	sent := serverSent
+	// #2: the UDP glob source request is an independent path; a TCP failure
+	// does not need to block it, and both may be answered by different servers.
+	udpSent := s.SendUDPSourcesRequest(transfer.hash, transfer.size)
+	sent := serverSent || udpSent
 	dhtSent := s.SendDHTSourcesRequest(transfer.hash, transfer.size, transfer)
 	if dhtSent {
 		sent = true
@@ -469,6 +744,16 @@ func (s *Session) Listen() error {
 		s.mu.Unlock()
 	}
 	s.listener = listener
+	// #2: server UDP at TCP port + 4 (eMule convention). A failure to bind is
+	// non-fatal: TCP search/source discovery still works.
+	if s.serverUDP != nil {
+		s.mu.Lock()
+		udpPort := s.settings.ListenPort + 4
+		s.mu.Unlock()
+		if udpPort >= 0 && udpPort <= 65535 {
+			_ = s.serverUDP.Start(udpPort)
+		}
+	}
 	go func(l *net.TCPListener) {
 		for {
 			conn, err := l.Accept()
@@ -488,6 +773,9 @@ func (s *Session) Listen() error {
 
 func (s *Session) CloseListener() {
 	s.stopUPnPMapping()
+	if s.serverUDP != nil {
+		s.serverUDP.Close()
+	}
 	if s.listener == nil {
 		return
 	}
@@ -605,6 +893,11 @@ func (s *Session) acceptIncomingConnections() {
 		select {
 		case conn := <-s.incomingConns:
 			if conn == nil {
+				continue
+			}
+			if s.IPFilter().IsFilteredAddr(conn.RemoteAddr()) {
+				debugPeerf("incoming %s blocked by ipfilter", conn.RemoteAddr().String())
+				_ = conn.Close()
 				continue
 			}
 			pc := NewIncomingPeerConnection(s, conn)
@@ -801,6 +1094,12 @@ func (s *Session) sendSearchRequest(task *searchTask, params SearchParams) bool 
 		sc.SendSearchRequest(&searchPacket)
 		sent = true
 	}
+	// #2: also broadcast the query over the server UDP socket. eMule uses
+	// OP_GLOBSEARCHREQ3 to reach servers without keeping a TCP session per
+	// search; results arrive via onUDPSearchResults and merge into this task.
+	if s.SendUDPSearchRequest(&searchPacket) {
+		sent = true
+	}
 	if sent {
 		task.mu.Lock()
 		task.serverBusy = true
@@ -847,6 +1146,9 @@ func (s *Session) startDHTSearch(task *searchTask, params SearchParams) bool {
 				if !matchesSearchFilters(result, params) {
 					continue
 				}
+				if !s.applySearchRating(&result) {
+					continue
+				}
 				task.mergeResult(result)
 			}
 		}
@@ -880,6 +1182,9 @@ func (s *Session) OnServerSearchResult(sc *ServerConnection, result *serverproto
 	for _, entry := range result.Results {
 		searchResult := makeSearchResultFromServer(entry)
 		if !matchesSearchFilters(searchResult, params) {
+			continue
+		}
+		if !s.applySearchRating(&searchResult) {
 			continue
 		}
 		task.mergeResult(searchResult)
@@ -1031,6 +1336,16 @@ func (s *Session) diskTaskCount() int {
 
 func (s *Session) SetDHTTracker(tracker *DHTTracker) {
 	s.dhtTracker = tracker
+	if tracker != nil {
+		// #7: advertise our TCP port to buddies and relay buddy callbacks into
+		// the same source-discovery path used by server callbacks.
+		tracker.mu.Lock()
+		tracker.buddyTCPPort = s.settings.ListenPort
+		tracker.onCallback = func(peer protocol.Endpoint) {
+			s.HandleCallbackRequest(peer)
+		}
+		tracker.mu.Unlock()
+	}
 }
 
 func (s *Session) GetDHTTracker() *DHTTracker {
@@ -1108,6 +1423,7 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 	}
 	var kick []*Transfer
 	var offerFiles []serverproto.OfferFile
+	var shareable []*Transfer
 	s.mu.Lock()
 	if policy := s.serverConnectionPolicy[sc.GetIdentifier()]; policy != nil {
 		// A completed login clears the backoff ramp, so a server that dropped us
@@ -1137,6 +1453,7 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 				Name: transfer.FileName(),
 				Size: transfer.Size(),
 			})
+			shareable = append(shareable, transfer)
 			continue
 		}
 		kick = append(kick, transfer)
@@ -1146,9 +1463,45 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 		packet := serverproto.NewOfferFiles(clientID, s.GetListenPort(), offerFiles)
 		sc.SendOfferFiles(&packet)
 	}
+	// #14: re-publish to KAD on every ID change. A login that first arrives as
+	// a low ID cannot publish (its "IP" is a server token); once a high ID is
+	// assigned, these sources become routable and must be announced.
+	for _, transfer := range shareable {
+		s.PublishTransferToDHT(transfer)
+	}
 	for _, transfer := range kick {
 		s.RequestSourcesNow(transfer)
 	}
+}
+
+// PublishTransferToDHT announces our own TCP endpoint as a KAD source for the
+// transfer. eMule publishes to both the server and KAD whenever a file becomes
+// shareable; doing only the server leaves KAD-only peers unable to find us.
+// Publishing needs a routable (high-ID) address: a low ID is a server-assigned
+// number, not an IP, and publishing it would poison the network with a bogus
+// source. When no DHT tracker is configured this is a silent no-op.
+func (s *Session) PublishTransferToDHT(t *Transfer) bool {
+	if s == nil || t == nil || s.dhtTracker == nil || t.IsPaused() || t.IsAborted() || !t.CanUpload() {
+		return false
+	}
+	endpoint, ok := publishableSourceEndpoint(s.GetClientID(), s.GetListenPort())
+	if !ok {
+		return false
+	}
+	ok = s.dhtTracker.PublishSource(t.GetHash(), endpoint, t.Size())
+	debugPeerf("dht publish file=%s endpoint=%s ok=%t", t.GetHash().String(), endpoint.String(), ok)
+	return ok
+}
+
+// publishableSourceEndpoint converts a server ID into the TCP endpoint we may
+// advertise to KAD. Only a high ID is a real IP; low IDs and zero are server
+// tokens and must never be published as source addresses.
+func publishableSourceEndpoint(clientID int32, port int) (protocol.Endpoint, bool) {
+	if clientID == 0 || IsLowID(clientID) || port <= 0 {
+		return protocol.Endpoint{}, false
+	}
+	endpoint := protocol.NewEndpoint(clientID, port)
+	return endpoint, endpoint.Defined()
 }
 
 // PublishTransferToServer announces one transfer as a source. eMule re-offers

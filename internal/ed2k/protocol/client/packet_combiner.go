@@ -27,6 +27,12 @@ const (
 	opCompressedPart64  byte = 0xA1
 	opRequestSources2   byte = 0x83
 	opAnswerSources2    byte = 0x84
+	opAICHRequest       byte = 0x9B
+	opAICHAnswer        byte = 0x9C
+	opPublicKey         byte = 0x85
+	opSignature         byte = 0x86
+	opSecIdentState     byte = 0x87
+	opMessage           byte = 0x4E
 )
 
 func NewPacketCombiner() protocol.PacketCombiner {
@@ -69,5 +75,11 @@ func NewPacketCombiner() protocol.PacketCombiner {
 	pc.Register(protocol.PK(protocol.EMuleProt, opCompressedPart64), "client.CompressedPart64", func() protocol.Serializable { return &CompressedPart64{} })
 	pc.Register(protocol.PK(protocol.EMuleProt, opRequestSources2), "client.RequestSources2", func() protocol.Serializable { return &RequestSources2{} })
 	pc.Register(protocol.PK(protocol.EMuleProt, opAnswerSources2), "client.AnswerSources2", func() protocol.Serializable { return &AnswerSources2{} })
+	pc.Register(protocol.PK(protocol.EMuleProt, opAICHRequest), "client.AICHRequest", func() protocol.Serializable { return &AICHRequest{} })
+	pc.Register(protocol.PK(protocol.EMuleProt, opAICHAnswer), "client.AICHAnswer", func() protocol.Serializable { return &AICHAnswer{} })
+	pc.Register(protocol.PK(protocol.EMuleProt, opPublicKey), "client.PublicKey", func() protocol.Serializable { return &PublicKey{} })
+	pc.Register(protocol.PK(protocol.EMuleProt, opSignature), "client.Signature", func() protocol.Serializable { return &Signature{} })
+	pc.Register(protocol.PK(protocol.EMuleProt, opSecIdentState), "client.SecIdentState", func() protocol.Serializable { return &SecIdentState{} })
+	pc.Register(protocol.PK(protocol.EdonkeyProt, opMessage), "client.Message", func() protocol.Serializable { return &Message{} })
 	return pc
 }

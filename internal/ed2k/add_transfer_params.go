@@ -15,6 +15,9 @@ type AddTransferParams struct {
 	Paused     bool
 	ResumeData *protocol.TransferResumeData
 	Handler    disk.FileHandler
+	// AICHRoot is the 20-byte SHA-1 master hash from an ed2k link's h= field
+	// (#4). Empty when the link carries no AICH hash.
+	AICHRoot []byte
 }
 
 func NewAddTransferParamsFromFile(h protocol.Hash, createTime int64, size int64, file *os.File, paused bool) AddTransferParams {

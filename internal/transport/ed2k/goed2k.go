@@ -145,6 +145,10 @@ type Goed2kConfig struct {
 	DisableRate     bool         // zero the engine's own upload limiter (ADR-0002)
 	DisableAutoSave bool         // zero AutoSaveInterval (ADR-0002)
 	Obfuscation     bool         // accept eMule basic obfuscation on incoming peers (ED-05)
+	EnableUPnP      bool         // #15: map the eD2k TCP/UDP listen ports on the gateway
+	IPFilterPath    string       // #10: ipfilter.dat-style peer block list
+	IPFilterLevel   int          // #10: blocked range level threshold (0..255)
+	SpamFilterPath  string       // #11: search spam keyword file
 	Logger          *slog.Logger // optional: route engine logx into the daemon log
 	// StateDir holds one engine resume file per transfer hash. It carries the
 	// piece bitmap of what the engine already wrote to the .part file, which is
@@ -215,6 +219,10 @@ func defaultEngineFactory(cfg Goed2kConfig) engineFactory {
 		}
 		st.EnableDHT = cfg.NodesDat != ""
 		st.EnableObfuscation = cfg.Obfuscation // ED-05: opt-in via config.ED2K.Obfuscation
+		st.EnableUPnP = cfg.EnableUPnP         // #15: opt-in via config.ED2K.EnableUPnP
+		st.IPFilterPath = cfg.IPFilterPath     // #10: peer block list
+		st.IPFilterLevel = cfg.IPFilterLevel   // #10: 0..255, default 127
+		st.SpamFilterPath = cfg.SpamFilterPath // #11: search spam keywords
 		st.Logger = cfg.Logger                 // surface source discovery / KAD failures
 		st.MaxUploadRateKB = 0                 // ud is the unique rate authority (ADR-0002)
 		c := goed2k.NewClient(st)

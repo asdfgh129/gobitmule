@@ -2,6 +2,7 @@ package goed2k
 
 import (
 	"net"
+	"sync"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
@@ -17,6 +18,15 @@ type ServerConnection struct {
 	tcpFlags           int32
 	auxPort            int32
 	combiner           protocol.PacketCombiner
+
+	// #16: OP_SERVERSTATUS and OP_SERVERMESSAGE used to be dropped after a
+	// debug log, so the console could not display the server's user/file counts
+	// or its welcome/warning banner. The session pump writes these; the REST
+	// snapshot goroutine reads them, hence the mutex.
+	serverInfoMu sync.Mutex
+	usersCount   int32
+	filesCount   int32
+	lastMessage  string
 
 	// Asynchronous dial state. connectConfiguredServers runs inside SecondTick,
 	// so a blocking dial to a dead server froze every transfer for the whole
@@ -212,19 +222,35 @@ func (s *ServerConnection) ProcessIncoming() error {
 			debugPeerf("server %s <- FoundFileSources hash=%s count=%d", s.identifier, value.Hash.String(), len(value.Sources))
 			if transfer := s.session.LookupTransfer(value.Hash); transfer != nil {
 				for _, ep := range value.Sources {
-					if !IsLowID(ep.IP()) {
-						_ = transfer.AddPeer(ep, int(PeerServer))
+					if IsLowID(ep.IP()) {
+						// #1: a low-ID source is unreachable directly; ask the
+						// server to relay a callback instead of dropping it.
+						s.session.RequestCallbackForLowID(ep.IP(), value.Hash)
+						continue
 					}
+					_ = transfer.AddPeer(ep, int(PeerServer))
 				}
 			}
 		case *serverproto.CallbackRequestIncoming:
-			debugPeerf("server %s <- CallbackRequestIncoming", s.identifier)
+			// #1: server relayed a low-ID peer's real endpoint; offer it to the
+			// active transfers instead of only logging it.
+			s.session.HandleCallbackRequest(value.Point)
 		case *serverproto.CallbackRequestFailed:
+			// The peer did not answer the callback; nothing else to do. Its
+			// pending entry is bounded and the next source poll can retry.
 			debugPeerf("server %s <- CallbackRequestFailed", s.identifier)
 		case *serverproto.Status:
-			debugPeerf("server %s <- Status", s.identifier)
+			s.serverInfoMu.Lock()
+			s.usersCount = value.UsersCount
+			s.filesCount = value.FilesCount
+			s.serverInfoMu.Unlock()
+			debugPeerf("server %s <- Status users=%d files=%d", s.identifier, value.UsersCount, value.FilesCount)
 		case *serverproto.Message:
-			debugPeerf("server %s <- Message %q", s.identifier, value.AsString())
+			message := value.AsString()
+			s.serverInfoMu.Lock()
+			s.lastMessage = message
+			s.serverInfoMu.Unlock()
+			debugPeerf("server %s <- Message %q", s.identifier, message)
 		case *serverproto.SearchResult:
 			debugPeerf("server %s <- SearchResult count=%d more=%t", s.identifier, len(value.Results), value.MoreResults)
 			s.session.OnServerSearchResult(s, value)
@@ -255,4 +281,12 @@ func (s *ServerConnection) TCPFlags() int32 {
 
 func (s *ServerConnection) AuxPort() int32 {
 	return s.auxPort
+}
+
+// ServerInfo returns the latest OP_SERVERSTATUS counts and OP_SERVERMESSAGE
+// banner. #16: these used to be logged and discarded.
+func (s *ServerConnection) ServerInfo() (users, files int32, message string) {
+	s.serverInfoMu.Lock()
+	defer s.serverInfoMu.Unlock()
+	return s.usersCount, s.filesCount, s.lastMessage
 }

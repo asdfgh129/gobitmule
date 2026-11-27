@@ -170,11 +170,14 @@
 | GET / POST / DELETE | `/ed2k/servers` | server.met 服务器列表 / 添加 / 按 `?address=` 删除；另见 `/ed2k/servers/connect`、`/ed2k/servers/disconnect`。**2026-11-24 新增** |
 | GET / POST | `/ed2k/kad` · `/ed2k/kad/nodes` | KAD 路由表快照 / 添加引导节点。**2026-11-24 新增** |
 
-> **eD2k 配置热更新（2026-11-24）**：`PATCH /config` 除原有的运行时键外，还接受
+> **eD2k 配置热更新（2026-11-24，2026-11-27 扩项）**：`PATCH /config` 除原有的运行时键外，还接受
 > `ed2k.enabled`、`ed2k.tcpPort`、`ed2k.udpPort`、`ed2k.outputDir`、`ed2k.nodesDat`、
-> `ed2k.serverMet`、`ed2k.obfuscation`、`ed2k.secureIdent`；这些键会只重写
+> `ed2k.serverMet`、`ed2k.obfuscation`、`ed2k.secureIdent`、`ed2k.enableUPnP`、
+> `ed2k.ipFilter`、`ed2k.ipFilterLevel`（0..255）、`ed2k.spamFilter`；这些键会只重写
 > `config.yaml` 的 `ed2k:` 段（保留注释与其他键），搜索与服务器/KAD 页面立即生效，
 > eD2k 下载通道因 Transport 在启动时注册，仍需重启守护进程。
+> `global.bandwidthSchedule` 也支持热更新：Limiter 在每 30s 的评估点切换窗口，
+> 无需重启（详见 `config.example.yaml` 注释）。
 
 **创建任务示例**
 ```json

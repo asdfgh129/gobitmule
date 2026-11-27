@@ -2,6 +2,8 @@ package kad
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
@@ -65,17 +67,62 @@ type PublishResAck struct{}
 
 func (PublishResAck) Pack() ([]byte, error) { return encodePacket(PublishResAckOp, nil), nil }
 
-type CallbackReq struct{}
+// #7: KAD buddy packets carry the sender's TCP listen port (2 bytes little
+// endian). A firewalled node asks another node to be its buddy; the buddy
+// relays a callback (OP_CALLBACK / 0xD4) when a source wants to reach it.
+type CallbackReq struct {
+	TCPPort uint16
+}
 
-func (CallbackReq) Pack() ([]byte, error) { return encodePacket(CallbackReqOp, nil), nil }
+func (c CallbackReq) Pack() ([]byte, error) {
+	return encodePacket(CallbackReqOp, encodeUint16(c.TCPPort)), nil
+}
 
-type FindBuddyReq struct{}
+func (c *CallbackReq) Unpack(payload []byte) error {
+	if len(payload) < 2 {
+		return errors.New("short kad callback request")
+	}
+	c.TCPPort = binary.LittleEndian.Uint16(payload[:2])
+	return nil
+}
 
-func (FindBuddyReq) Pack() ([]byte, error) { return encodePacket(FindBuddyReqOp, nil), nil }
+type FindBuddyReq struct {
+	TCPPort uint16
+}
 
-type FindBuddyRes struct{}
+func (f FindBuddyReq) Pack() ([]byte, error) {
+	return encodePacket(FindBuddyReqOp, encodeUint16(f.TCPPort)), nil
+}
 
-func (FindBuddyRes) Pack() ([]byte, error) { return encodePacket(FindBuddyResOp, nil), nil }
+func (f *FindBuddyReq) Unpack(payload []byte) error {
+	if len(payload) < 2 {
+		return errors.New("short kad find-buddy request")
+	}
+	f.TCPPort = binary.LittleEndian.Uint16(payload[:2])
+	return nil
+}
+
+type FindBuddyRes struct {
+	TCPPort uint16
+}
+
+func (f FindBuddyRes) Pack() ([]byte, error) {
+	return encodePacket(FindBuddyResOp, encodeUint16(f.TCPPort)), nil
+}
+
+func (f *FindBuddyRes) Unpack(payload []byte) error {
+	if len(payload) < 2 {
+		return errors.New("short kad find-buddy response")
+	}
+	f.TCPPort = binary.LittleEndian.Uint16(payload[:2])
+	return nil
+}
+
+func encodeUint16(v uint16) []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, v)
+	return b
+}
 
 type SearchNotesRes struct{}
 

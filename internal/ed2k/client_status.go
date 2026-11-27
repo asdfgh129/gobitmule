@@ -21,6 +21,11 @@ type ServerSnapshot struct {
 	MillisecondsSinceLastReceive int64
 	DownloadRate                 int
 	UploadRate                   int
+	// #16: latest server banner and user/file counts from OP_SERVERMESSAGE /
+	// OP_SERVERSTATUS. Empty/zero until the server sends them.
+	LastMessage string
+	UsersCount  int32
+	FilesCount  int32
 }
 
 func (s ServerSnapshot) IDClass() string {
@@ -205,6 +210,7 @@ func (s *Session) ServerSnapshots() []ServerSnapshot {
 			snapshot.MillisecondsSinceLastReceive = sc.MillisecondsSinceLastReceive()
 			snapshot.DownloadRate = int(stats.DownloadRate())
 			snapshot.UploadRate = int(stats.UploadRate())
+			snapshot.UsersCount, snapshot.FilesCount, snapshot.LastMessage = sc.ServerInfo()
 		}
 		snapshots = append(snapshots, snapshot)
 	}

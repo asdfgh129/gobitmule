@@ -138,8 +138,14 @@ func unpackByOpcode(opcode byte, payload []byte) (any, error) {
 		return nil, errors.New("unsupported kad opcode")
 	}
 	switch p := msg.(type) {
-	case *BootstrapReq, *Ping, *SearchNotesRes, *HelloResAck, *PublishResAck, *CallbackReq, *FindBuddyReq, *FindBuddyRes:
+	case *BootstrapReq, *Ping, *SearchNotesRes, *HelloResAck, *PublishResAck:
 		return msg, nil
+	case *CallbackReq:
+		return msg, p.Unpack(payload)
+	case *FindBuddyReq:
+		return msg, p.Unpack(payload)
+	case *FindBuddyRes:
+		return msg, p.Unpack(payload)
 	case *SearchRes:
 		return msg, p.Unpack(payload)
 	case *SearchSourcesReq:

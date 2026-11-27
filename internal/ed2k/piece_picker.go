@@ -206,6 +206,15 @@ func (p PiecePicker) HavePiece(pieceIndex int) bool {
 	return p.pieceStatus[pieceIndex] == PieceHave
 }
 
+// IsComplete is the bounds-checked form used by preview (#8), where the part
+// count comes from the transfer size rather than a picker index.
+func (p PiecePicker) IsComplete(pieceIndex int) bool {
+	if pieceIndex < 0 || pieceIndex >= len(p.pieceStatus) {
+		return false
+	}
+	return p.pieceStatus[pieceIndex] == PieceHave
+}
+
 func (p PiecePicker) IsPieceFinished(pieceIndex int) bool {
 	if p.pieceStatus[pieceIndex] == PieceNone {
 		return false

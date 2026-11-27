@@ -17,6 +17,9 @@ type PeerCredit struct {
 	PeerHash   protocol.Hash
 	Uploaded   uint64
 	Downloaded uint64
+	// Verified records a successful Secure Ident challenge (#5). Only a
+	// cryptographically authenticated hash may count as trusted credit.
+	Verified bool
 }
 
 type PeerCreditManager struct {
@@ -66,6 +69,22 @@ func (m *PeerCreditManager) AddDownloaded(hash protocol.Hash, bytes int64) {
 	if credit := m.credit(hash); credit != nil {
 		credit.Downloaded += uint64(bytes)
 	}
+}
+
+// MarkVerified records that a peer's hash passed RSA Secure Ident (#5).
+func (m *PeerCreditManager) MarkVerified(hash protocol.Hash) {
+	if credit := m.credit(hash); credit != nil {
+		credit.Verified = true
+	}
+}
+
+// IsVerified reports whether a hash passed Secure Ident.
+func (m *PeerCreditManager) IsVerified(hash protocol.Hash) bool {
+	if m == nil {
+		return false
+	}
+	credit := m.credits[m.key(hash)]
+	return credit != nil && credit.Verified
 }
 
 func (m *PeerCreditManager) ScoreRatio(hash protocol.Hash) float64 {

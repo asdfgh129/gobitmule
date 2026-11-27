@@ -212,6 +212,7 @@ type PeerConnection struct {
 	uploadDone        []RequestedUploadBlock
 	uploadAddNext     bool
 	friendSlot        bool
+	secIdent          secureIdentState // #5 Secure Ident challenge state
 }
 
 func NewPeerConnection(session *Session, point protocol.Endpoint, transfer *Transfer, peerInfo *Peer) *PeerConnection {
@@ -696,6 +697,60 @@ func (p *PeerConnection) SendHashSetAnswer(transfer *Transfer) {
 	}
 }
 
+// SendAICHRequest asks the peer for SHA-1 recovery hashes of one part (#4).
+// SendMessage sends an eMule chat message to this peer (#6).
+func (p *PeerConnection) SendMessage(text string) bool {
+	packet := clientproto.Message{Text: text}
+	raw, err := p.combiner.Pack("client.Message", &packet)
+	if err != nil {
+		return false
+	}
+	p.QueuePacket(raw)
+	return true
+}
+
+func (p *PeerConnection) SendAICHRequest(part uint16, masterHash [20]byte) {
+	if p.transfer == nil {
+		return
+	}
+	packet := clientproto.AICHRequest{
+		Hash:       p.transfer.GetHash(),
+		Part:       part,
+		MasterHash: masterHash,
+	}
+	raw, err := p.combiner.Pack("client.AICHRequest", &packet)
+	if err != nil {
+		return
+	}
+	p.QueuePacket(raw)
+	debugPeerf("peer %s -> AICHRequest part=%d", p.endpoint.String(), part)
+}
+
+// HandleAICHAnswer validates a recovery-data answer (#4). The master hash must
+// match the transfer's AICH root; otherwise the data is a spoof and is dropped.
+func (p *PeerConnection) HandleAICHAnswer(value *clientproto.AICHAnswer) {
+	if value == nil || p.transfer == nil || !p.transfer.hasAICH {
+		return
+	}
+	if value.Hash != p.transfer.GetHash() || value.MasterHash != p.transfer.aichRoot {
+		debugPeerf("peer %s AICH answer rejected: hash/root mismatch", p.endpoint.String())
+		return
+	}
+	if len(value.RecoveryData) == 0 {
+		return
+	}
+	// Recovery data is a stream of SHA-1 block hashes for the requested part.
+	// Validate well-formedness (multiple of 20 bytes) before accepting.
+	if len(value.RecoveryData)%20 != 0 {
+		debugPeerf("peer %s AICH answer rejected: malformed recovery data len=%d",
+			p.endpoint.String(), len(value.RecoveryData))
+		return
+	}
+	debugPeerf("peer %s <- AICHAnswer part=%d blocks=%d", p.endpoint.String(),
+		value.Part, len(value.RecoveryData)/20)
+	p.transfer.QueueAICHRecovery(value.Part, value.RecoveryData)
+}
+
 func (p *PeerConnection) SendStartUpload(hash protocol.Hash) {
 	debugPeerf("peer %s -> StartUpload", p.endpoint.String())
 	packet := clientproto.StartUpload{Hash: hash}
@@ -822,6 +877,72 @@ func (p *PeerConnection) ClearUploadBlockRequests() {
 	p.uploadDone = p.uploadDone[:0]
 }
 
+// SendCompressedPart emits a whole requested block as zlib-compressed
+// CompressedPart32/64 frames, mirroring eMule CUpDownClient::CreatePackedPackets:
+// the payload is compressed once, and only when it actually gets smaller is it
+// fragmented into <=10 KiB frames that all carry the same block start offset
+// and the same compressed length. The receiver (ReceiveCompressedData) keys off
+// those two fields to reassemble and inflate the block. Returning false means
+// nothing was sent and the caller must fall back to plaintext SendingPart.
+func (p *PeerConnection) SendCompressedPart(begin int64, payload []byte) bool {
+	if len(payload) == 0 || p.transfer == nil || p.remotePeerInfo.Misc1.DataCompVer <= 0 {
+		return false
+	}
+	var buf bytes.Buffer
+	zw := zlib.NewWriter(&buf)
+	if _, err := zw.Write(payload); err != nil {
+		_ = zw.Close()
+		return false
+	}
+	if err := zw.Close(); err != nil {
+		return false
+	}
+	compressed := buf.Bytes()
+	// No gain: eMule falls back to standard packets in exactly this case.
+	if len(compressed) >= len(payload) {
+		return false
+	}
+	const maxFragment = 10240
+	total := len(compressed)
+	large := p.transfer.Size() > math.MaxUint32
+	for len(compressed) > 0 {
+		n := len(compressed)
+		if n > maxFragment {
+			n = maxFragment
+		}
+		chunk := compressed[:n]
+		var (
+			raw       []byte
+			protoSize int
+			err       error
+		)
+		if large {
+			packet := clientproto.CompressedPart64{
+				Hash:             p.transfer.GetHash(),
+				BeginOffset:      uint64(begin),
+				CompressedLength: uint32(total),
+			}
+			raw, protoSize, err = p.combiner.PackPayload("client.CompressedPart64", &packet, chunk)
+		} else {
+			packet := clientproto.CompressedPart32{
+				Hash:             p.transfer.GetHash(),
+				BeginOffset:      uint32(begin),
+				CompressedLength: uint32(total),
+			}
+			raw, protoSize, err = p.combiner.PackPayload("client.CompressedPart32", &packet, chunk)
+		}
+		if err != nil {
+			return false
+		}
+		p.QueuePacketWithStats(raw, int64(protoSize), int64(n))
+		p.session.Credits().AddUploaded(p.remoteHash, int64(n))
+		compressed = compressed[n:]
+	}
+	debugPeerf("peer %s compressed upload block begin=%d raw=%d wire=%d",
+		p.endpoint.String(), begin, len(payload), total)
+	return true
+}
+
 func (p *PeerConnection) SendBlockData() {
 	if p.uploadState != UploadStateUploading {
 		return
@@ -849,6 +970,14 @@ func (p *PeerConnection) SendBlockData() {
 	}
 	togo := len(payload)
 	if togo == 0 {
+		return
+	}
+	// #13: negotiate data compression like eMule. A peer that announced
+	// DataCompVer>0 accepts CompressedPart frames; only send them when the
+	// compressed form is genuinely smaller so we never inflate the wire.
+	if p.SendCompressedPart(current.Begin, payload) {
+		current.Transferred = current.End - current.Begin
+		p.uploadDone = append(p.uploadDone, current)
 		return
 	}
 	packetSize := togo
@@ -1350,9 +1479,35 @@ func (p *PeerConnection) ProcessIncoming() error {
 			debugPeerf("peer %s <- CompressedPart64 %d len=%d", p.endpoint.String(), value.BeginOffset, value.CompressedLength)
 			p.ReceiveCompressedData(header, int64(value.BeginOffset), int64(value.CompressedLength), value.BytesCount())
 		case *clientproto.NoFileStatus:
+			// #3: A4AF — the peer does not hold this file but may hold another
+			// one we are downloading; offer it to those transfers before
+			// dropping the connection.
+			if p.transfer != nil {
+				p.session.A4AFReassign(p.endpoint, p.transfer.GetHash())
+			}
 			p.Close(NoTransfer)
 		case *clientproto.OutOfParts:
 			p.Close(OutOfParts)
+		case *clientproto.AICHAnswer:
+			// #4: AICH recovery data for a part whose hash failed.
+			p.HandleAICHAnswer(value)
+		case *clientproto.PublicKey:
+			// #5: incoming Secure Ident public key -> send challenge.
+			p.HandlePublicKey(value)
+		case *clientproto.Signature:
+			// #5: signature over our challenge -> verify against stored key.
+			p.HandleSignature(value)
+		case *clientproto.SecIdentState:
+			p.HandleSecIdentState(value)
+		case *clientproto.Message:
+			// #6: chat is only accepted from a known friend, matching eMule's
+			// friend-only chat policy and avoiding unsolicited message floods.
+			if p.session.friendList != nil && p.session.friendList.IsFriend(p.remoteHash) {
+				debugPeerf("peer %s chat from %s: %q", p.endpoint.String(), p.remoteHash.String(), value.Text)
+				if p.session.onChatMessage != nil {
+					p.session.onChatMessage(p.remoteHash, value.Text)
+				}
+			}
 		}
 	}
 	return nil

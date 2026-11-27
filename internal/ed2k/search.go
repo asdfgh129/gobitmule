@@ -62,6 +62,11 @@ type SearchResult struct {
 	Extension       string
 	FileType        string
 	Source          SearchResultSource
+	// Rating is the spam/quality score 0..5 from SpamFilter.Rate (#11).
+	Rating int
+	// Spam marks a result the filter considers fake; it is only dropped when
+	// the spam filter is enabled.
+	Spam bool
 }
 
 func (r SearchResult) ED2KLink() string {

@@ -321,7 +321,12 @@ func Run(ctx context.Context, opts Options) error {
 			NodesDat:    cfg.ED2K.NodesDat,
 			ServerMet:   cfg.ED2K.ServerMet,
 			Obfuscation: cfg.ED2K.Obfuscation,
-			Logger:      log,
+			EnableUPnP:  cfg.ED2K.EnableUPnP,
+			// #10 / #11: the block list and spam keywords are optional files.
+			IPFilterPath:   cfg.ED2K.IPFilter,
+			IPFilterLevel:  cfg.ED2K.IPFilterLevel,
+			SpamFilterPath: cfg.ED2K.SpamFilter,
+			Logger:         log,
 			// Engine resume files live next to state.db, not in the download
 			// directory: they are internal bookkeeping (which pieces the engine
 			// already wrote) and must not show up beside the user's files.

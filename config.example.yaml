@@ -21,6 +21,20 @@ global:
   maxConnectionsPerTask: 16
   chunkSize: "4MiB"
   diskFlushInterval: "500ms"
+  # 分时限速（#12）：按星期/时段切换全局上下行速率，首个匹配窗口生效；
+  # 未匹配时使用上面的 maxDownloadRate / maxUploadRate。start > end 表示跨夜。
+  # days 支持 mon..sun / daily / weekdays / weekends，留空 = 每天。
+  bandwidthSchedule: []
+  # - days: ["sat", "sun"]
+  #   start: "09:00"
+  #   end: "23:00"
+  #   maxDownloadRate: "20MiB/s"
+  #   maxUploadRate: "5MiB/s"
+  # - days: ["daily"]
+  #   start: "23:00"
+  #   end: "07:00"
+  #   maxDownloadRate: "2MiB/s"
+  #   maxUploadRate: "512KiB/s"
 
 security:
   allowedSchemes: ["http", "https", "ftp", "ftps", "sftp"]
@@ -52,8 +66,16 @@ bt:
 ed2k:
   obfuscation: true
   secureIdent: true
+  # UPnP 端口映射（默认 false，避免 opt-in 时擅自改动用户路由器）。
+  enableUPnP: false
   tcpPort: 4662
   udpPort: 4672
+  # P2P IP 黑名单（#10）：ipfilter.dat 风格文件（"起IP - 止IP , 等级 , 描述"，
+  # 也接受 CIDR 与单 IP）。等级 <= ipFilterLevel 的条目会被拦截（eMule 默认 127）。
+  ipFilter: ""
+  ipFilterLevel: 127
+  # 搜索垃圾关键词表（#11）：每行一个关键词，命中会降低搜索结果评分并可过滤。
+  spamFilter: ""
   # WBS 16 / ADR-0030: forked goed2k 引擎 opt-in（默认 false = 不注册 eD2k Transport，
   # dispatch 行为不变）。true 时需给 outputDir；KAD/server 引导文件可选。
   enabled: false

@@ -756,3 +756,43 @@ ED-04 为 clientID 模拟而非真实 NAT 设备。证据汇总见
   不作为引擎回归结论。
 - 未闭环：真机 AnswerSources2；完整文件源的源交换收益；
   `ed2k-resume/` 中删除任务后的残留 JSON 自动清理。
+
+## 14. 对照 eMule 的 16 项能力补齐（2026-11-27）
+
+### 14.1 口径修正
+
+以本机 eMule `srchybrid` 为基线逐项复核后，原先笼统记为「未实现」的三个口径被拆开：
+LowID callback 是「主动请求与结果处置未闭环」（服务器 6 字节探活的被动应答早已实现）、
+UPnP 是「实现存在但未配置接线」、压缩是「仅出站方向缺失」。
+最终确认 **12 项缺口 + 4 项未接线**，本轮全部落地。
+
+### 14.2 实现与测试映射
+
+| # | 能力 | 实现位置 | 验证 |
+|---|---|---|---|
+| 13 | 出站压缩块 | `peer_connection.go::SendCompressedPart/SendBlockData`（整体 zlib，压不小回退明文） | `compressed_upload_test.go`（往返 + 分片） |
+| 14 | KAD 源自动发布 | `transfer.go::publishWhenShareable` → `Session.PublishTransferToDHT`，`OnServerIDChange` 补发 | `dht_publish_test.go`（低 ID/无 tracker 不发布） |
+| 15 | eD2k UPnP 接线 | `config.ED2KConfig.EnableUPnP` → `Goed2kConfig` → `Settings.EnableUPnP` | 配置/编译链路 |
+| 16 | Server Status/Message | `ServerConnection` 三字段 + `ServerConnectionInfo` + API DTO | `server_info_test.go`（帧注入） |
+| 1 | LowID callback 闭环 | `RequestCallbackForLowID`、`HandleCallbackRequest`、`CallbackRequestIncoming` 分派 | `callback_test.go` |
+| 2 | Server UDP | `protocol/server/udp.go`（0x90/0x94/0x99/0x9B + server-key RC4）、`server_udp.go` | `udp_test.go`（编解码 + 双向解密） |
+| 3 | A4AF | `Session.A4AFReassign`，`NoFileStatus` 时先转源再断开 | `a4af_test.go` |
+| 4 | AICH | `protocol/client/aich.go`、`Transfer.RequestAICHRecovery`、链接 `h=` base32 | `aich_secure_ident_test.go` |
+| 5 | SecureIdent | `protocol/client/secure_ident.go` + `secure_ident.go`（RSA challenge） | 同上 |
+| 6 | 好友与聊天 | `friend_list.go`、`OP_MESSAGE`、`Session.SendChatMessage` | `friend_chat_buddy_test.go` |
+| 7 | KAD buddy/callback | `protocol/kad/packets.go` 携带 TCP 端口、`dht_tracker` 应答与回调 | `friend_chat_buddy_test.go` |
+| 8 | 文件预览 | `preview.go::PreviewReady/CreatePreview` | `content_features_test.go` |
+| 9 | Collection | `collection.go`（文本 + 二进制 v1/v2，tag 解析按 `packets.cpp:472`） | 同上（两种格式） |
+| 10 | P2P IP 过滤器 | `ipfilter.go`（区间/等级/CIDR），接入入站 accept 与 `openSocket` | 同上 |
+| 11 | 搜索垃圾评分 | `search_rating.go`，三处搜索结果入口统一评分 | 同上 |
+| 12 | 分时限速 | `scheduler/bandwidth_schedule.go` + `Limiter.ApplyAt` + 30s 评估 | `bandwidth_schedule_test.go` |
+
+### 14.3 边界
+
+- Server UDP 的 key 目前固定为 0（明文），因为 server 尚未下发 `CT_UDPKEY` tag；
+  这是 eMule 允许的模式（`IsServerCryptLayerUDPEnabled()` 默认关闭），
+  拿到 tag 后只需填入 `ServerUDP.SetUDPKey`。
+- AICH 恢复依赖链接携带 `h=`；缺 h 的历史任务仍回退为「整块重下」。
+- IP 过滤器只作用于 TCP 拨号与入站 accept；KAD 路由表不做裁剪，
+  但 KAD 源最终仍要经过 `openSocket`，因此有效。
+- 预览要求「从头连续完成」至少一个 part（9.5 MB），与 eMule 的 part 级预览一致。

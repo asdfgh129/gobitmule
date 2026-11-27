@@ -38,6 +38,12 @@ type DHTTracker struct {
 	firewalled          bool
 	externalIPs         []uint32
 	storagePoint        *net.UDPAddr
+	// #7: KAD buddy support for firewalled nodes. buddyTCPPort is the port we
+	// advertise when a peer asks us to be its buddy; onCallback relays a buddy
+	// callback request to the session so the peer can be dialed.
+	buddyTCPPort int
+	buddyAddr    *net.UDPAddr
+	onCallback   func(protocol.Endpoint)
 }
 
 func NewDHTTracker(listenPort int, timeout time.Duration) *DHTTracker {
@@ -314,8 +320,32 @@ func (t *DHTTracker) readLoop() {
 			t.node.processFirewalledUDP(addr, *(message.(*kadproto.FirewalledUDP)))
 		case kadproto.SearchNotesReqOp:
 			t.node.processSearchNotesReq(addr, *(message.(*kadproto.SearchNotesReq)))
-		case kadproto.SearchNotesResOp, kadproto.HelloResAckOp, kadproto.PublishResAckOp, kadproto.CallbackReqOp, kadproto.FindBuddyReqOp, kadproto.FindBuddyResOp:
+		case kadproto.SearchNotesResOp, kadproto.HelloResAckOp, kadproto.PublishResAckOp:
 			continue
+		case kadproto.FindBuddyReqOp:
+			// #7: a peer asks us to be its buddy. Reply with our TCP port and
+			// remember its UDP address so we can relay callbacks later.
+			req := message.(*kadproto.FindBuddyReq)
+			t.mu.Lock()
+			t.buddyAddr = addr
+			port := t.buddyTCPPort
+			t.mu.Unlock()
+			_, _ = t.writePacket(addr, kadproto.FindBuddyRes{TCPPort: uint16(port)})
+			logx.Debug("kad find-buddy request", "from", addr.String(), "peerTCP", req.TCPPort, "answeredPort", port)
+		case kadproto.FindBuddyResOp:
+			res := message.(*kadproto.FindBuddyRes)
+			t.mu.Lock()
+			t.buddyAddr = addr
+			t.mu.Unlock()
+			logx.Debug("kad find-buddy response", "from", addr.String(), "peerTCP", res.TCPPort)
+		case kadproto.CallbackReqOp:
+			// #7: our buddy asks us to connect to a peer on its behalf.
+			req := message.(*kadproto.CallbackReq)
+			if t.onCallback != nil && req.TCPPort > 0 && addr != nil {
+				peer := protocol.EndpointFromInet(&net.TCPAddr{IP: addr.IP, Port: int(req.TCPPort)})
+				t.onCallback(peer)
+			}
+			logx.Debug("kad callback request", "from", addr.String(), "peerTCP", req.TCPPort)
 		}
 	}
 }

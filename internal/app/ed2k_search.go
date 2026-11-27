@@ -254,6 +254,8 @@ func snapshotStatus(s goed2k.SearchSnapshot) api.ED2KSearchStatus {
 			FileType:        r.FileType,
 			Source:          toResultSource(r.Source),
 			ED2KLink:        r.ED2KLink(),
+			Rating:          r.Rating,
+			Spam:            r.Spam,
 		})
 	}
 	return api.ED2KSearchStatus{Available: true, Snapshot: api.ED2KSearchSnapshot{

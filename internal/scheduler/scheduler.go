@@ -185,7 +185,32 @@ func New(opts Options) (*Scheduler, error) {
 		defer s.wg.Done()
 		s.dispatch()
 	}()
+	// #12: re-evaluate the bandwidth schedule so a window boundary switches the
+	// caps even when no config change arrives.
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.runBandwidthSchedule()
+	}()
 	return s, nil
+}
+
+// bandwidthScheduleInterval is the granularity of window transitions. Windows
+// are defined in minutes, so half a minute keeps the error negligible.
+const bandwidthScheduleInterval = 30 * time.Second
+
+// runBandwidthSchedule applies the scheduled caps until the scheduler closes.
+func (s *Scheduler) runBandwidthSchedule() {
+	ticker := time.NewTicker(bandwidthScheduleInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case now := <-ticker.C:
+			s.limiter.ApplyAt(s.cfg.Get().Global, now)
+		}
+	}
 }
 
 func (s *Scheduler) dispatch() {

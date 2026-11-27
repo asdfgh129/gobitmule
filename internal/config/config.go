@@ -22,10 +22,23 @@ type GlobalConfig struct {
 	MaxConnectionsPerTask int    `yaml:"maxConnectionsPerTask" json:"maxConnectionsPerTask"`
 	ChunkSize             string `yaml:"chunkSize" json:"chunkSize"`
 	DiskFlushInterval     string `yaml:"diskFlushInterval" json:"diskFlushInterval"`
+	// BandwidthSchedule switches the global caps by day/time (#12). The first
+	// matching window wins; when none matches the two rates above apply.
+	BandwidthSchedule []BandwidthWindow `yaml:"bandwidthSchedule" json:"bandwidthSchedule"`
 }
 
-type SecurityConfig struct {
-	AllowedSchemes       []string `yaml:"allowedSchemes" json:"allowedSchemes"`
+// BandwidthWindow is one scheduled rate override (#12). Days accepts English
+// short/long weekday names, "daily", "weekdays", "weekends" or 0-6; an empty
+// list means every day. Start/End are "HH:MM" and may cross midnight.
+type BandwidthWindow struct {
+	Days            []string `yaml:"days" json:"days"`
+	Start           string   `yaml:"start" json:"start"`
+	End             string   `yaml:"end" json:"end"`
+	MaxDownloadRate string   `yaml:"maxDownloadRate" json:"maxDownloadRate"`
+	MaxUploadRate   string   `yaml:"maxUploadRate" json:"maxUploadRate"`
+}
+
+type SecurityConfig struct {	AllowedSchemes       []string `yaml:"allowedSchemes" json:"allowedSchemes"`
 	AllowedPorts         []int    `yaml:"allowedPorts" json:"allowedPorts"`
 	MaxRedirects         int      `yaml:"maxRedirects" json:"maxRedirects"`
 	MaxMetalinkMirrors   int      `yaml:"maxMetalinkMirrors" json:"maxMetalinkMirrors"`
@@ -55,8 +68,19 @@ type BTConfig struct {
 type ED2KConfig struct {
 	Obfuscation bool `yaml:"obfuscation" json:"obfuscation"`
 	SecureIdent bool `yaml:"secureIdent" json:"secureIdent"`
+	// EnableUPnP asks the forked engine to map the TCP (and, when KAD is on,
+	// UDP) listen port on the gateway. OFF by default so a plain opt-in never
+	// mutates the user's router; #15 wires this through to the engine.
+	EnableUPnP  bool `yaml:"enableUPnP" json:"enableUPnP"`
 	TCPPort     int  `yaml:"tcpPort" json:"tcpPort"`
 	UDPPort     int  `yaml:"udpPort" json:"udpPort"`
+	// IPFilter is an ipfilter.dat-style peer block list (#10); IPFilterLevel
+	// selects which range levels are blocked (eMule default 127).
+	IPFilter      string `yaml:"ipFilter" json:"ipFilter"`
+	IPFilterLevel int    `yaml:"ipFilterLevel" json:"ipFilterLevel"`
+	// SpamFilter is a keyword file that lowers the rating of fake search
+	// results (#11).
+	SpamFilter string `yaml:"spamFilter" json:"spamFilter"`
 	// WBS 16 / ADR-0030: engine opt-in. Enabled=false keeps dispatch byte-
 	// identical (no eD2k Transport registered); true wires the forked goed2k
 	// Downloader with the controlled output dir and KAD/server bootstrap.
@@ -389,7 +413,7 @@ func Defaults() Config {
 			SeedEnabled: true, SeedRatio: 1.0, SeedTimeMinutes: 60,
 			MaxUploadSlots: 8, EnableUPnP: true, ListenPort: 0,
 		},
-		ED2K: ED2KConfig{Obfuscation: true, SecureIdent: true, TCPPort: 4662, UDPPort: 4672},
+		ED2K: ED2KConfig{Obfuscation: true, SecureIdent: true, EnableUPnP: false, TCPPort: 4662, UDPPort: 4672, IPFilterLevel: 127},
 		Plugins: PluginsConfig{
 			VerifySignature: true, Runtime: "goja", ReloadInterval: "30s",
 		},
@@ -533,6 +557,33 @@ func (c Config) Validate() error {
 	}
 	if _, err := ParseSize(c.Global.ChunkSize); err != nil {
 		return fmt.Errorf("global.chunkSize: %w", err)
+	}
+	for i, window := range c.Global.BandwidthSchedule {
+		if !isClock(window.Start) || !isClock(window.End) {
+			return fmt.Errorf("global.bandwidthSchedule[%d]: start/end must be HH:MM", i)
+		}
+		if strings.TrimSpace(window.Start) == strings.TrimSpace(window.End) {
+			return fmt.Errorf("global.bandwidthSchedule[%d]: start and end must differ", i)
+		}
+		for _, field := range []struct {
+			name  string
+			value string
+		}{
+			{"maxDownloadRate", window.MaxDownloadRate},
+			{"maxUploadRate", window.MaxUploadRate},
+		} {
+			if strings.TrimSpace(field.value) == "" {
+				continue
+			}
+			if _, err := ParseRate(field.value); err != nil {
+				return fmt.Errorf("global.bandwidthSchedule[%d].%s: %w", i, field.name, err)
+			}
+		}
+		for _, day := range window.Days {
+			if !isWeekdayName(day) {
+				return fmt.Errorf("global.bandwidthSchedule[%d]: unknown day %q", i, day)
+			}
+		}
 	}
 	if c.Security.MaxRedirects < 0 || c.Security.MaxRedirects > 10 {
 		return errors.New("security.maxRedirects must be within 0..10")
@@ -775,7 +826,7 @@ func (m *Manager) patchLocked(kv map[string]any) (Config, func(Config), error) {
 				return m.cfg, nil, fmt.Errorf("invalid %s", k)
 			}
 			next.Security.BlockPrivateNetworks = b
-		case "ed2k.enabled", "ed2k.obfuscation", "ed2k.secureIdent":
+		case "ed2k.enabled", "ed2k.obfuscation", "ed2k.secureIdent", "ed2k.enableUPnP":
 			b, err := strconv.ParseBool(s)
 			if err != nil {
 				return m.cfg, nil, fmt.Errorf("invalid %s", k)
@@ -785,26 +836,38 @@ func (m *Manager) patchLocked(kv map[string]any) (Config, func(Config), error) {
 				next.ED2K.Enabled = b
 			case "ed2k.obfuscation":
 				next.ED2K.Obfuscation = b
-			default:
+			case "ed2k.secureIdent":
 				next.ED2K.SecureIdent = b
+			default:
+				next.ED2K.EnableUPnP = b
 			}
-		case "ed2k.tcpPort", "ed2k.udpPort":
+		case "ed2k.tcpPort", "ed2k.udpPort", "ed2k.ipFilterLevel":
 			n, err := strconv.Atoi(s)
 			if err != nil || n < 0 || n > 65535 {
 				return m.cfg, nil, fmt.Errorf("invalid %s (must be 0..65535)", k)
 			}
-			if k == "ed2k.tcpPort" {
+			switch k {
+			case "ed2k.tcpPort":
 				next.ED2K.TCPPort = n
-			} else {
+			case "ed2k.udpPort":
 				next.ED2K.UDPPort = n
+			default:
+				if n > 255 {
+					return m.cfg, nil, fmt.Errorf("invalid ed2k.ipFilterLevel (must be 0..255)")
+				}
+				next.ED2K.IPFilterLevel = n
 			}
-		case "ed2k.outputDir", "ed2k.nodesDat", "ed2k.serverMet":
+		case "ed2k.outputDir", "ed2k.nodesDat", "ed2k.serverMet", "ed2k.ipFilter", "ed2k.spamFilter":
 			p := ExpandHome(strings.TrimSpace(s))
 			switch k {
 			case "ed2k.outputDir":
 				next.ED2K.OutputDir = p
 			case "ed2k.nodesDat":
 				next.ED2K.NodesDat = p
+			case "ed2k.ipFilter":
+				next.ED2K.IPFilter = p
+			case "ed2k.spamFilter":
+				next.ED2K.SpamFilter = p
 			default:
 				next.ED2K.ServerMet = p
 			}

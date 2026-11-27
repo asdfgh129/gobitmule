@@ -484,6 +484,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **对照 eMule 补齐 16 项 eD2k 客户端能力（2026-11-27）**：
+  - 需求：以本机 eMule `srchybrid` 为基线逐项复核「eMule 已实现、本项目缺失」的功能，
+    确认 12 项缺口 + 4 项未接线后逐项落地；每项都有源码依据与单测。
+  - **协议/传输**：`OP_COMPRESSEDPART` 出站压缩（`SendBlockData` 整体 zlib，压缩
+    变大时回退明文）；server UDP socket（`ListenPort+4`，GlobalSearch/GetSources
+    编解码与 server-key RC4 混淆，`protocol/server/udp.go` + `server_udp.go`）；
+    LowID callback 双向闭环（低 ID 源触发 `OP_CALLBACKREQUEST`，收到
+    `CallbackRequestIncoming` 后把端点交给需要源的 transfer）。
+  - **下载健壮性**：A4AF（对端报 `NoFileStatus` 时不直接断开，先把端点转给其它
+    需要源的 transfer）；AICH（`OP_AICHREQUEST/ANSWER` 编解码、链接 `h=` base32
+    解析、块校验失败时按 part 请求恢复数据）；SecureIdent（
+    `PublicKey/Signature/SecIdentState` 编解码 + RSA challenge 校验，验证后写入
+    信用记录）。
+  - **KAD / 社交**：KAD buddy 包由空壳改为携带 TCP 端口并真正应答
+    `FindBuddyReq/Res`、`CallbackReq`；好友列表（JSON 持久化）+ `OP_MESSAGE`
+    客户端聊天，只有好友的私聊会被接收。
+  - **内容周边**：文件预览（`Transfer.PreviewReady` / `CreatePreview` 把从头连续
+    完成的 part 物化成可播放前缀）；`.emulecollection` 解析（文本与 eMule
+    二进制 v1/v2 两种格式）；P2P IP 过滤器（`ipfilter.dat` 区间/等级/CIDR，
+    入站与出站拨号同时生效）；搜索垃圾评分（伪装扩展名、异常体积、关键词、
+    关键词堆砌，可按评分过滤）；KAD 源自动发布（可分享即发布，拿到 HighID 后补发）；
+    eD2k UPnP 配置入口；server `Status/Message` 进入快照与 API；分时限速
+    （`global.bandwidthSchedule`，支持跨夜与 weekday/weekend，Limiter 每 30s
+    重新评估，仍是全进程唯一速率权威）。
+  - 可测的决策逻辑都抽成纯函数（`publishableSourceEndpoint`、
+    `EffectiveBandwidth`、`SpamFilter.Rate`），网络相关路径用本地 socket 或
+    帧注入验证，未依赖公网。
 - **源列表显示对方持有分块（eMule「已完成」列）与客户端名称/版本（2026-11-26）**：
   - 需求：对照 eMule 客户端列表——每行要能看出对方**具体拥有哪些块**，以及
     客户端名称（如 `eMule v0.70a`），而不只是一个百分比和「未知客户端」。

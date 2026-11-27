@@ -17,6 +17,12 @@ type Settings struct {
 	EnableDHT   bool
 	EnableUPnP  bool
 	SecureIdent bool
+	// IPFilterPath is an eMule ipfilter.dat-style file (#10); the level
+	// defaults to 127 when the config leaves it at zero. Empty disables it.
+	IPFilterPath  string
+	IPFilterLevel int
+	// SpamFilterPath holds one spam keyword per line for search rating (#11).
+	SpamFilterPath string
 	// EnableObfuscation accepts eMule basic-obfuscation (CryptLayer) on peer
 	// connections and arms outgoing obfuscation when the target user hash is
 	// known (from a KAD source entry or a learned Hello). Incoming sockets

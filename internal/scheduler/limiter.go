@@ -128,10 +128,39 @@ func NewLimiter(cfg config.GlobalConfig) *Limiter {
 	}
 }
 
+// EffectiveBandwidth resolves the rates that apply at now: the first matching
+// schedule window wins, otherwise the global caps do (#12). It lives here
+// because guard 4 forbids any other production file from reading global rate
+// config, and a window's caps are rate config as well.
+func EffectiveBandwidth(cfg config.GlobalConfig, now time.Time) (down, up string) {
+	down, up = cfg.MaxDownloadRate, cfg.MaxUploadRate
+	for _, window := range cfg.BandwidthSchedule {
+		if !windowMatches(window, now) {
+			continue
+		}
+		if window.MaxDownloadRate != "" {
+			down = window.MaxDownloadRate
+		}
+		if window.MaxUploadRate != "" {
+			up = window.MaxUploadRate
+		}
+		return down, up
+	}
+	return down, up
+}
+
 // Apply is the config.Manager onChange hook.
 func (l *Limiter) Apply(cfg config.GlobalConfig) {
-	down, _ := config.ParseRate(cfg.MaxDownloadRate)
-	up, _ := config.ParseRate(cfg.MaxUploadRate)
+	l.ApplyAt(cfg, time.Now())
+}
+
+// ApplyAt installs the rates that are in force at now. Without a matching
+// scheduled window this is exactly Apply; with one, the window's caps win
+// (#12). The ticker in runBandwidthSchedule calls it periodically.
+func (l *Limiter) ApplyAt(cfg config.GlobalConfig, now time.Time) {
+	downStr, upStr := EffectiveBandwidth(cfg, now)
+	down, _ := config.ParseRate(downStr)
+	up, _ := config.ParseRate(upStr)
 	l.mu.Lock()
 	l.rate = core.BytesPerSec(down)
 	l.mu.Unlock()
@@ -144,6 +173,12 @@ func (l *Limiter) SetGlobal(rate core.BytesPerSec) {
 	l.rate = rate
 	l.mu.Unlock()
 	l.globalDown.setRate(rate)
+}
+
+// SetGlobalUp changes the upload cap, mirroring SetGlobal for the download
+// direction (used by the bandwidth schedule).
+func (l *Limiter) SetGlobalUp(rate core.BytesPerSec) {
+	l.globalUp.setRate(rate)
 }
 
 func (l *Limiter) GlobalRate() core.BytesPerSec {

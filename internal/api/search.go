@@ -69,6 +69,10 @@ type ED2KSearchResult struct {
 	FileType        string                 `json:"fileType"`
 	Source          ED2KSearchResultSource `json:"source"`
 	ED2KLink        string                 `json:"ed2kLink"`
+	// Rating is the 0..5 quality score; Spam marks a result the spam filter
+	// considers fake (hidden when filtering is enabled). #11
+	Rating int  `json:"rating"`
+	Spam   bool `json:"spam"`
 }
 
 type ED2KSearchSnapshot struct {

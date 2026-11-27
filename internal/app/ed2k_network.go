@@ -113,12 +113,16 @@ func enrichServerRows(rows []api.ED2KServerEntry, runtime []goed2k.ServerConnect
 			rows[idx].Connected = info.Connected
 			rows[idx].HandshakeComplete = info.HandshakeComplete
 			rows[idx].ClientID = info.ClientID
+			rows[idx].LastMessage = info.LastMessage
+			rows[idx].UsersCount = info.UsersCount
+			rows[idx].FilesCount = info.FilesCount
 			continue
 		}
 		rows = append(rows, api.ED2KServerEntry{
 			Address: info.Address, Name: info.Identifier, Source: "运行时",
 			Connected: info.Connected, HandshakeComplete: info.HandshakeComplete,
-			ClientID: info.ClientID,
+			ClientID: info.ClientID, LastMessage: info.LastMessage,
+			UsersCount: info.UsersCount, FilesCount: info.FilesCount,
 		})
 	}
 	return rows
