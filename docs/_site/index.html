@@ -5334,6 +5334,12 @@ WBS 7 起 <code>bt.clientConfig</code> 固定 <code>NoUpload=true</code> / <code
    callback、<code>OP_CALLBACK</code> 往返、SecureIdent 签名线格式、IPFilter 边界、AICH 拒绝等），
    详见 <code>12</code> §3.2 的 ED-09..ED-13 与 <code>25</code> §14.4。</li>
 </ol>
+<blockquote>
+<p>上述矩阵是<strong>读码比对</strong>结论；同一批代码在真实公网服务器与真实 eMule / aMule 客户端上的
+执行结果见本文 §6.1「eD2k 真实服务器 / 真实客户端互通实测」，其中记录了该项复核
+之后又暴露并修复的 4 处互通缺陷（登录缺 <code>CT_EMULE_UDPPORTS</code>、缺 <code>OP_GETSERVERLIST</code>、
+UDP 搜索缺 tag set、SecureIdent 公钥 1024 位超出 eMule <code>MAXPUBKEYSIZE=80</code>）。</p>
+</blockquote>
 <h2 id="h-doc-16--4">4. 会话与身份层：必须显式实现的事项</h2>
 <table>
 <thead>
@@ -5465,6 +5471,145 @@ NFR-PERF-01 按 ADR-0022 双机 <strong>11.21MB/s</strong>、<code>met=true</cod
 客户端互操作、uTP / MSE / WebSeed 真实链路专项、LSD 与 Super-seeding、eD2k 组、
 AriaNg L1 facade、真千兆链路下的原 80MB/s 口径。
 <strong>2026-11-17 补充</strong>：Transmission 3.00 不再只是「部署但未实测」——用 <code>cmd/udinteropx --peer-matrix transmission</code> 跑完<strong>双向</strong>矩阵（Transmission 做种 → ud 下载；ud 做种 → 全新 Transmission 下载），两向端到端 sha256 一致、<code>bytes_uploaded</code> 覆盖载荷；该证据<strong>不改变</strong> <code>BT-01..BT-14</code> 判据与 14/14 结论，见 <a href="#/doc-21">21</a>。</p>
+<h3 id="h-doc-16--61-ed2k-2026-11-27">6.1 eD2k 真实服务器 / 真实客户端互通实测（2026-11-27）</h3>
+<p>上一节的能力复核是<strong>读码比对</strong>；本节是同一批代码在<strong>真实公网</strong>上的执行结果。
+驱动工具是 <code>cmd/uded2kpeerprobe</code>（本仓库自带，可复跑）：</p>
+<pre><code>go run ./cmd/uded2kpeerprobe -met data/ed2k/server.met -search debian -debug -out run.json
+go run ./cmd/uded2kpeerprobe -server 57.128.161.24:6666 -hash &lt;32hex&gt; -size &lt;n&gt; -debug
+</code></pre>
+<p>它做四件事：登录真实 eD2k 服务器 → 关键词搜索挑文件 → 连接搜索结果里的真实客户端 →
+记录对端客户端名/版本、SecureIdent 是否验证、进度与速率。</p>
+<p><strong>实测目标</strong>：<code>176.123.5.89:4725</code>（eMule Sunrise / Lugdunum，约 5 万用户，<code>udpFlags=0x0</code>）、
+<code>57.128.161.24:6666</code>（Cyberchrist 18.1，<code>udpFlags=0x0000073b</code>，即同时宣告
+<code>EXT_GETSOURCES</code>+<code>EXT_GETFILES</code>+<code>EXT_GETSOURCES2</code>+<code>LARGEFILES</code>+<code>UDPOBFUSCATION</code>）。
+后者是全网少见的能力齐全节点，本轮 UDP 端到端验证即在它上面完成。</p>
+<h4 id="h-doc-16--611-4">6.1.1 实测暴露并修复的 4 处互通缺陷</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>缺陷</th>
+<th>现场证据</th>
+<th>修复</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>登录包缺 <code>CT_EMULE_UDPPORTS(0xF9)</code></td>
+<td>登录 hex 到 <code>…83fb80000201</code> 即结束，服务器看到的 eD2k UDP 端口未知</td>
+<td><code>NewLoginRequest</code> 补 tag，值 <code>udpPort&lt;&lt;16\|udpPort</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>从不发 <code>OP_GETSERVERLIST</code>，服务器因此从不发 <code>OP_SERVERIDENT</code></td>
+<td>抓包只见 <code>IdChange</code>+<code>Status</code>+<code>Message</code>，无 <code>0x41</code>；eMule 源码注明该包仅在收到 <code>OP_GETSERVERLIST</code> 后下发</td>
+<td><code>IdChange</code> 后发一次 <code>OP_GETSERVERLIST</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>UDP 搜索用 <code>0x90</code> 但缺 tag set，且未按服务器能力选 opcode</td>
+<td>eMule <code>CSearchResultsWnd::DoNewED2KSearch</code> 要求 0x90 = <code>&lt;1 tag set&gt;&lt;搜索树&gt;</code></td>
+<td>补 <code>CT_SERVER_UDPSEARCH_FLAGS(0x0E)</code> tag set，并新增 <code>UDPGlobSearchDatagram()</code> 按 <code>EXT_GETFILES</code>/<code>LARGEFILES</code> 选 0x90/0x92/0x98</td>
+</tr>
+<tr>
+<td>4</td>
+<td>SecureIdent 身份是 1024 位（DER 162 字节），eMule <code>MAXPUBKEYSIZE=80</code> 直接丢弃</td>
+<td>对端发来的公钥 78 字节；我们发 162 字节时日志只有 <code>public key stored</code>，永不出现 <code>verified</code></td>
+<td>自实现 384 位 RSA（<code>rsa_ident.go</code>，<code>crypto/rsa</code> 拒绝 &lt;1024 位），公钥 78–80 字节、签名 48 字节</td>
+</tr>
+</tbody>
+</table>
+<p>补充修复（本轮新发现）：搜索结果/源请求可能在 <code>OP_SERVERIDENT</code> 到达<strong>之前</strong>发出，
+此时能力位未知，opcode 静默降级为 legacy 0x98、UDP 查源则直接不发。
+现按 eMule 的持久化做法补齐两层依据：
+① <code>server.met</code> 的 <code>ST_UDPFLAGS(0x92)</code> 读取（<code>ServerMetEntry.UDPFlags()</code>）并在加载时预热会话缓存；
+② 每次 <code>OP_SERVERIDENT</code> 回填缓存（<code>Session.RememberServerCapabilities</code>）；
+③ 连接已解析过 ident 时以实况为准（<code>ServerConnection.HasServerIdent()</code>），避免用过期缓存覆盖
+「这台服务器确实不支持 UDP」的事实。</p>
+<h4 id="h-doc-16--612-disted2k-interopudp-searchpcapngudp-cyberchristpcapng">6.1.2 抓包证据（<code>dist/ed2k-interop/udp-search.pcapng</code>、<code>udp-cyberchrist.pcapng</code>）</h4>
+<p><strong>UDP 搜索请求</strong>（<code>e3 90</code>）：</p>
+<pre><code>e3 90 | 01000000 | 830e 01000000 | 01 0600 &quot;debian&quot;
+头    | tag 数 1 | CT_SERVER_UDPSEARCH_FLAGS=1 | 搜索树
+</code></pre>
+<p><strong>UDP 搜索结果</strong>（服务器回 <code>e3 99</code>，单帧一条记录）：</p>
+<pre><code>e3 99 | 3d54adcd…0d42 | fb8d0600 | 841a | 05000000 | 8201&quot;…Ubuntu Linux Toolbox…&quot; 8302daa84700 …
+头    | 文件 hash     | 客户端ID | 端口 | tag 数 5 | 文件名 / 文件大小 …
+</code></pre>
+<p><strong>UDP 查源请求 / 应答</strong>（<code>e3 94</code> → <code>e3 9b</code>）：</p>
+<pre><code>→ e3 94 | d6da2736…2602 | 97843e14           （hash + 文件大小 339641495）
+← e3 9b | d6da2736…2602 | 02 | 041a0100 3612 | ffc00500 5a88
+                                 ↑ 2 条源      ↑ 4.26.1.0:4662   ↑ 255.192.5.0:34906
+</code></pre>
+<p>两条源都是 LowID（首字节编码后 &lt; <code>0x01000000</code>），客户端按 eMule 同样的
+<code>IsLowID</code> 判据过滤，日志落到 <code>server udp sources got=2 added=0</code>。
+该文件本身是垃圾文件（服务器给的「源」实为随机 LowID），过滤行为正确。</p>
+<h4 id="h-doc-16--613">6.1.3 实测结论</h4>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>结果</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TCP 登录（含 <code>CT_EMULE_UDPPORTS</code>）</td>
+<td>PASS</td>
+<td><code>LoginRequest bytes=63 …83f97d157d15</code>，服务器回 <code>Message</code>/<code>IdChange</code>/<code>Status</code></td>
+</tr>
+<tr>
+<td><code>OP_GETSERVERLIST</code> → <code>OP_SERVERIDENT</code></td>
+<td>PASS</td>
+<td><code>ServerIdent name="Cyberchrist" version="18.1" udpFlags=0x0000073b</code></td>
+</tr>
+<tr>
+<td>UDP 搜索（opcode 选择 + tag set + 结果解析）</td>
+<td>PASS</td>
+<td>请求 <code>opcode=0x90 flags=0x73b</code>，回 10 个 <code>0x99</code>，<code>server udp search results got=1 added=1</code></td>
+</tr>
+<tr>
+<td>UDP 查源（<code>0x94</code> → <code>0x9B</code>）</td>
+<td>PASS</td>
+<td><code>glob sources … flags=0x17fb</code>→<code>opcode=155 bytes=31</code>，解析出 2 条源</td>
+</tr>
+<tr>
+<td>SecureIdent 与真实 eMule 系客户端互验</td>
+<td>PASS</td>
+<td>对端 <code>bambino 60</code> @ <code>93.65.104.85:4862</code>，<code>secure_ident_peers=1</code>，进度 100%</td>
+</tr>
+<tr>
+<td>真实客户端识别</td>
+<td>PASS</td>
+<td><code>eMule v0.50</code>、<code>aMule GIT v3.2</code>、<code>bambino</code> 均正确解析</td>
+</tr>
+<tr>
+<td>384 位身份跨重启保持</td>
+<td>PASS</td>
+<td>两次运行 <code>secure_ident_key.n</code> 的 SHA-1 一致（<code>8d2e84cc1027fb27</code>）</td>
+</tr>
+<tr>
+<td>实际下载</td>
+<td>PASS（小样本）</td>
+<td><code>TotalDone</code> 持续增长，<code>SendingPart32</code> 连续流入</td>
+</tr>
+<tr>
+<td>SX2 over TCP（<code>OP_REQUESTSOURCES2</code>）</td>
+<td>发出未收到应答</td>
+<td><code>c514000000830400...</code>；多数服务器不回 <code>0x84</code></td>
+</tr>
+<tr>
+<td>UDP 加密信封（<code>UDPOBFUSCATION</code>）</td>
+<td><strong>未验证</strong></td>
+<td>本轮遇到的服务器 <code>udpKey=false</code>，没有可测的 key</td>
+</tr>
+</tbody>
+</table>
+<p><strong>仍未闭环（不得宣称）</strong>：<code>SRV_UDPFLG_UDPOBFUSCATION</code> 的 RC4 信封端到端（需找到下发
+<code>ST_UDPKEY</code> 的服务器）；<code>EXT_GETFILES</code> 缺失时的 0x92 分支只有单测覆盖，未在真实服务器上跑到；
+大多数公开服务器 <code>udpFlags=0x0</code>（40 台抽样中仅 1 台宣告能力，见
+<code>dist/ed2k-interop/server-capabilities.txt</code>），这是网络现实而非实现缺陷。</p>
 <h2 id="h-doc-16--7">7. 产品文案口径（法务会签）</h2>
 <blockquote>
 <p><strong>2026-11-17 法务口径（发起人书面裁决，记档于 <a href="#/doc-18"><code>18</code> §6.1</a>）</strong>：
@@ -16501,6 +16646,40 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html" target
 </blockquote>
 <h3 id="h-changelog--fixed">Fixed</h3>
 <ul>
+<li><strong>eD2k 真实服务器 / 真实客户端互通实测，修复 4 处只有联网才会暴露的缺陷（2026-11-27）</strong>：
+  上一条复核是读码比对；本轮用 <code>cmd/uded2kpeerprobe</code> 登录真实公网服务器
+  （<code>176.123.5.89:4725</code> eMule Sunrise、<code>57.128.161.24:6666</code> Cyberchrist 18.1）并与真实
+  eMule / aMule 客户端对连，暴露出以下偏差：</li>
+<li><strong>登录包缺 <code>CT_EMULE_UDPPORTS(0xF9)</code></strong>：服务器无从得知本端 eD2k UDP 端口，
+    发来的 UDP 应答无法与本端绑定端口对应。<code>NewLoginRequest</code> 补该 tag，值 <code>udpPort&lt;&lt;16|udpPort</code>。</li>
+<li><strong>从不发 <code>OP_GETSERVERLIST</code>，服务器因此从不发 <code>OP_SERVERIDENT</code></strong>：能力位与 UDP key 全部落空。
+    现在 <code>OP_IDCHANGE</code> 后补发一次，实测立即收到
+    <code>ServerIdent name="Cyberchrist" version="18.1" udpFlags=0x0000073b</code>。</li>
+<li><strong>UDP 搜索</strong>：<code>0x90</code> 必须是 <code>&lt;1 tag set&gt;&lt;搜索树&gt;</code>，原实现只写搜索树，服务器会把查询首
+    4 字节当 tag 数直接丢弃；同时未按能力选版本。新增 <code>UDPGlobSearchDatagram()</code>，
+    按 <code>EXT_GETFILES</code>+<code>LARGEFILES</code>/<code>EXT_GETFILES</code>/其余 选 <code>0x90</code>/<code>0x92</code>/<code>0x98</code>，
+    并补 <code>CT_SERVER_UDPSEARCH_FLAGS(0x0E)</code> tag set。</li>
+<li><strong>SecureIdent 身份 1024 位被 eMule 直接丢弃</strong>：eMule <code>RSAKEYSIZE=384</code>、
+    <code>MAXPUBKEYSIZE=80</code>，1024 位的 X.509 SPKI 是 162 字节，<code>SetSecureIdent</code> 判超长即弃，
+    对端因此永不回签名。Go 的 <code>crypto/rsa</code> 拒绝 &lt;1024 位，故新增
+    <code>internal/ed2k/rsa_ident.go</code> 自实现 384 位 RSA（PKCS#1 v1.5 + SHA-1），
+    公钥 78–80 字节、签名 48 字节；身份随 <code>client_state</code> 持久化，跨重启稳定。
+    实测对端 <code>bambino 60</code> 完成双向验证（<code>secure_ident_peers=1</code>）。</li>
+<li><strong>能力位时序</strong>：搜索/查源可能在 <code>OP_SERVERIDENT</code> 到达前发出，导致 opcode 降级为 legacy、
+    UDP 查源直接不发。现补 <code>ServerMetEntry.UDPFlags()</code> 读取 <code>server.met</code> 的 <code>ST_UDPFLAGS(0x92)</code>
+    并在加载时预热会话缓存（<code>Session.SeedServerCapabilities</code>），每次 <code>OP_SERVERIDENT</code> 回填
+    （<code>RememberServerCapabilities</code>），并以 <code>ServerConnection.HasServerIdent()</code> 区分
+    「尚未下发」与「确实不支持」。</li>
+<li>实测结果：UDP 搜索请求 <code>opcode=0x90 flags=0x73b</code>、回 10 个 <code>0x99</code> 结果全部解析入库；
+    UDP 查源 <code>0x94</code>（<code>e394&lt;hash&gt;&lt;size&gt;</code>）→ <code>0x9B</code>（2 条源）解析正确并按 <code>IsLowID</code> 过滤；
+    真实客户端识别 <code>eMule v0.50</code> / <code>aMule GIT v3.2</code> / <code>bambino</code>；小样本实际下载有
+    <code>TotalDone</code> 增长。证据与抓包在 <code>dist/ed2k-interop/</code>，结论写入 <code>docs/16</code> §6.1。</li>
+<li>新增回归测试：<code>TestIdentPublicKeyFitsEMuleLimit</code>、<code>TestIdentSignVerifyRoundTrip</code>、
+    <code>TestIdentKeyStateRoundTrip</code>、<code>TestServerMetEntryCarriesUDPFlags</code>、
+    <code>TestGlobSearchOpcodeFollowsServerCapabilities</code>、<code>TestSeedServerCapabilitiesFromServerMet</code>、
+    <code>TestParseUDPFoundSourcesRealServerAnswer</code>（真实服务器回包作为黄金样本）。</li>
+<li><strong>未闭环</strong>：<code>UDPOBFUSCATION</code> 的 RC4 信封端到端（本轮服务器均 <code>udpKey=false</code>）；
+    <code>0x92</code> 分支仅单测覆盖；抽样 40 台公开服务器仅 1 台宣告 UDP 能力。</li>
 <li><strong>对照 eMule 逐项复核 16 项能力，修正 8 处协议/语义不一致（2026-11-27）</strong>：
   上轮补齐的 16 项能力经字节级复核后，发现以下实现与 <code>srchybrid</code> 参考实现不符，均已修正：</li>
 <li><strong>SecureIdent 签名报文与签名内容</strong>：<code>OP_SIGNATURE</code> 只带 <code>&lt;len 1&gt;&lt;sig&gt;[&lt;sigIPused 1&gt;]</code>，
