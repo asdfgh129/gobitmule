@@ -7,10 +7,10 @@ package goed2k
 //	001.000.000.000 - 001.255.255.255 , 000 , description
 //
 // where the middle field is a level 0..255. eMule's CIPFilter::IsFiltered drops
-// an address when its range level is <= the configured filter level (127 by
-// default), so level 000 entries are always blocked and level 255 entries are
-// only blocked when the user maks the filter permissive. CIDR ("10.0.0.0/8")
-// and single addresses are accepted as a convenience for hand written lists.
+// an address when its range level is strictly below the configured filter level
+// (127 by default), so with level 127 entries 000..126 are blocked and 127..255
+// pass. CIDR ("10.0.0.0/8") and single addresses are accepted as a convenience
+// for hand written lists.
 
 import (
 	"bufio"
@@ -153,13 +153,15 @@ func (f *IPFilter) Add(start, end net.IP, level int, label string) error {
 	return nil
 }
 
-// IsFiltered reports whether ip falls in a blocked range.
+// IsFiltered reports whether ip falls in a blocked range. Matching eMule, a
+// range blocks when its level is strictly below the configured level, and the
+// unspecified address 0.0.0.0 is never filtered.
 func (f *IPFilter) IsFiltered(ip net.IP) bool {
 	if f == nil {
 		return false
 	}
 	addr, ok := ipv4ToUint32(ip)
-	if !ok {
+	if !ok || addr == 0 {
 		return false
 	}
 	f.mu.RLock()
@@ -169,7 +171,7 @@ func (f *IPFilter) IsFiltered(ip net.IP) bool {
 	}
 	maxLevel := f.maxLevel
 	for _, r := range f.ranges {
-		if r.level > maxLevel {
+		if r.level >= maxLevel {
 			continue
 		}
 		if addr >= r.start && addr <= r.end {

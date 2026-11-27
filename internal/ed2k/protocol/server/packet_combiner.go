@@ -15,6 +15,7 @@ const (
 	opCallbackFail    byte = 0x36
 	opServerMessage   byte = 0x38
 	opIDChange        byte = 0x40
+	opServerIdent     byte = 0x41
 	opFoundSources    byte = 0x42
 )
 
@@ -33,6 +34,7 @@ func NewPacketCombiner() protocol.PacketCombiner {
 	pc.Register(protocol.PK(protocol.EdonkeyHeader, opCallbackFail), "server.CallbackRequestFailed", func() protocol.Serializable { return &CallbackRequestFailed{} })
 	pc.Register(protocol.PK(protocol.EdonkeyHeader, opServerMessage), "server.Message", func() protocol.Serializable { return &Message{} })
 	pc.Register(protocol.PK(protocol.EdonkeyHeader, opIDChange), "server.IdChange", func() protocol.Serializable { return &IdChange{} })
+	pc.Register(protocol.PK(protocol.EdonkeyHeader, opServerIdent), "server.ServerIdent", func() protocol.Serializable { return &ServerIdent{} })
 	pc.Register(protocol.PK(protocol.EdonkeyHeader, opFoundSources), "server.FoundFileSources", func() protocol.Serializable { return &FoundFileSources{} })
 	return pc
 }

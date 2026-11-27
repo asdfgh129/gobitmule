@@ -42,6 +42,9 @@ type Transfer struct {
 	// h= field. Empty means no AICH recovery data is available.
 	aichRoot [20]byte
 	hasAICH  bool
+	// aichDisabled is set when a peer refuses to serve recovery data; the
+	// transfer then repairs damaged parts by re-downloading them.
+	aichDisabled bool
 	// aichRecovery holds validated SHA-1 block hashes keyed by part index (#4).
 	aichRecovery map[uint16][]byte
 	// published records that the transfer was offered to the server as a
@@ -838,7 +841,7 @@ func (t *Transfer) finished() {
 // recovery hashes of a damaged part (#4). eMule only asks peers that announced
 // AICHVersion>0 in their Hello misc options.
 func (t *Transfer) RequestAICHRecovery(part uint16) bool {
-	if !t.hasAICH || len(t.connections) == 0 {
+	if !t.hasAICH || t.aichDisabled || len(t.connections) == 0 {
 		return false
 	}
 	for _, c := range t.connections {
@@ -849,6 +852,18 @@ func (t *Transfer) RequestAICHRecovery(part uint16) bool {
 		return true
 	}
 	return false
+}
+
+// AbandonAICHRecovery stops asking peers for AICH data after one of them
+// refused with eMule's 16 byte hash-only answer. The damaged part then falls
+// back to a full re-download, which is what eMule does when no peer can serve
+// recovery hashes.
+func (t *Transfer) AbandonAICHRecovery() {
+	if t == nil || t.aichDisabled {
+		return
+	}
+	t.aichDisabled = true
+	debugPeerf("aich recovery abandoned for %s; falling back to full part re-download", t.hash.String())
 }
 
 // QueueAICHRecovery stores validated per-part SHA-1 block hashes (#4). A

@@ -14,6 +14,9 @@ type ServerConnectionInfo struct {
 	LastMessage string `json:"lastMessage"`
 	UsersCount  int32  `json:"usersCount"`
 	FilesCount  int32  `json:"filesCount"`
+	// OP_SERVERIDENT identity and UDP capabilities.
+	Name     string `json:"name,omitempty"`
+	UDPFlags uint32 `json:"udpFlags,omitempty"`
 }
 
 func (c *ServerConnection) info() ServerConnectionInfo {
@@ -22,6 +25,8 @@ func (c *ServerConnection) info() ServerConnectionInfo {
 		HandshakeComplete: c.IsHandshakeCompleted(),
 		ClientID:          c.clientID,
 		LastPing:          c.lastPingTime,
+		Name:              c.ServerName(),
+		UDPFlags:          c.UDPFlags(),
 	}
 	if c.address != nil {
 		info.Address = c.address.String()

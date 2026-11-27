@@ -33,6 +33,7 @@ const (
 	opSignature         byte = 0x86
 	opSecIdentState     byte = 0x87
 	opMessage           byte = 0x4E
+	opCallback          byte = 0x99
 )
 
 func NewPacketCombiner() protocol.PacketCombiner {
@@ -81,5 +82,6 @@ func NewPacketCombiner() protocol.PacketCombiner {
 	pc.Register(protocol.PK(protocol.EMuleProt, opSignature), "client.Signature", func() protocol.Serializable { return &Signature{} })
 	pc.Register(protocol.PK(protocol.EMuleProt, opSecIdentState), "client.SecIdentState", func() protocol.Serializable { return &SecIdentState{} })
 	pc.Register(protocol.PK(protocol.EdonkeyProt, opMessage), "client.Message", func() protocol.Serializable { return &Message{} })
+	pc.Register(protocol.PK(protocol.EMuleProt, opCallback), "client.Callback", func() protocol.Serializable { return &Callback{} })
 	return pc
 }

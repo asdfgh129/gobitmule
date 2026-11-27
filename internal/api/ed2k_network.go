@@ -22,6 +22,8 @@ type ED2KServerEntry struct {
 	LastMessage string `json:"lastMessage,omitempty"`
 	UsersCount  int32  `json:"usersCount,omitempty"`
 	FilesCount  int32  `json:"filesCount,omitempty"`
+	// OP_SERVERIDENT capabilities (SRV_UDPFLG_*).
+	UDPFlags uint32 `json:"udpFlags,omitempty"`
 }
 
 type ED2KServersStatus struct {

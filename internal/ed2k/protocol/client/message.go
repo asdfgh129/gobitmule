@@ -2,7 +2,8 @@ package client
 
 // #6: eMule client-to-client chat (OP_MESSAGE 0x4E). A message is a 2-byte
 // length followed by the text bytes; eMule sends it over the established peer
-// TCP connection between friends.
+// TCP connection between friends. MAX_CLIENT_MSG_LEN (opcodes.h) caps both the
+// sender and the receiver at 450 bytes.
 
 import (
 	"bytes"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
+
+// MaxClientMessageLen mirrors eMule's MAX_CLIENT_MSG_LEN.
+const MaxClientMessageLen = 450
 
 type Message struct {
 	Text string
@@ -20,7 +24,11 @@ func (m *Message) Get(src *bytes.Reader) error {
 	if err != nil {
 		return err
 	}
-	if int(length) > 8192 {
+	// eMule rejects a packet whose declared length does not match its body.
+	if int(length) != src.Len() {
+		return errors.New("chat message length mismatch")
+	}
+	if int(length) > MaxClientMessageLen {
 		return errors.New("chat message too large")
 	}
 	raw := make([]byte, int(length))
@@ -32,7 +40,7 @@ func (m *Message) Get(src *bytes.Reader) error {
 }
 
 func (m Message) Put(dst *bytes.Buffer) error {
-	if len(m.Text) > 8192 {
+	if len(m.Text) > MaxClientMessageLen {
 		return errors.New("chat message too large")
 	}
 	if err := protocol.WriteUInt16(dst, uint16(len(m.Text))); err != nil {

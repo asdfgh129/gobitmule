@@ -43,7 +43,15 @@ type DHTTracker struct {
 	// callback request to the session so the peer can be dialed.
 	buddyTCPPort int
 	buddyAddr    *net.UDPAddr
-	onCallback   func(protocol.Endpoint)
+	// buddyPeerTCP is the TCP address of the node we act as buddy for, learned
+	// from KADEMLIA_FINDBUDDY_REQ. A KADEMLIA_CALLBACK_REQ is forwarded to it
+	// through OP_CALLBACK instead of dialing the requester ourselves.
+	buddyPeerTCP    *net.TCPAddr
+	onCallback      func(protocol.Endpoint)
+	onBuddyCallback func(buddy *net.TCPAddr, check, file [16]byte, requester protocol.Endpoint)
+	// callbackSent throttles KADEMLIA_CALLBACK_REQ per (buddy, file) so a
+	// repeated search answer does not spam the relay.
+	callbackSent map[string]struct{}
 }
 
 func NewDHTTracker(listenPort int, timeout time.Duration) *DHTTracker {
@@ -324,10 +332,11 @@ func (t *DHTTracker) readLoop() {
 			continue
 		case kadproto.FindBuddyReqOp:
 			// #7: a peer asks us to be its buddy. Reply with our TCP port and
-			// remember its UDP address so we can relay callbacks later.
+			// remember its UDP + TCP address so callbacks can be forwarded.
 			req := message.(*kadproto.FindBuddyReq)
 			t.mu.Lock()
 			t.buddyAddr = addr
+			t.buddyPeerTCP = &net.TCPAddr{IP: addr.IP, Port: int(req.TCPPort)}
 			port := t.buddyTCPPort
 			t.mu.Unlock()
 			_, _ = t.writePacket(addr, kadproto.FindBuddyRes{TCPPort: uint16(port)})
@@ -339,13 +348,23 @@ func (t *DHTTracker) readLoop() {
 			t.mu.Unlock()
 			logx.Debug("kad find-buddy response", "from", addr.String(), "peerTCP", res.TCPPort)
 		case kadproto.CallbackReqOp:
-			// #7: our buddy asks us to connect to a peer on its behalf.
+			// #7: somebody wants to reach our buddy. Forward <check><file><ip><port>
+			// over the buddy's TCP connection (eMule Process_KADEMLIA_CALLBACK_REQ);
+			// the requester TCP port rides in the packet, its IP is the UDP source.
 			req := message.(*kadproto.CallbackReq)
-			if t.onCallback != nil && req.TCPPort > 0 && addr != nil {
-				peer := protocol.EndpointFromInet(&net.TCPAddr{IP: addr.IP, Port: int(req.TCPPort)})
-				t.onCallback(peer)
+			t.mu.Lock()
+			buddy := t.buddyPeerTCP
+			onBuddy := t.onBuddyCallback
+			t.mu.Unlock()
+			requester := protocol.EndpointFromInet(&net.TCPAddr{IP: addr.IP, Port: int(req.TCPPort)})
+			if onBuddy != nil && buddy != nil && req.TCPPort > 0 {
+				onBuddy(buddy, req.Check, req.File, requester)
+			} else if t.onCallback != nil && req.TCPPort > 0 && addr != nil {
+				// No buddy relationship yet: keep the legacy behaviour of offering
+				// the requester as a source so the transfer can still progress.
+				t.onCallback(protocol.EndpointFromInet(&net.TCPAddr{IP: addr.IP, Port: int(req.TCPPort)}))
 			}
-			logx.Debug("kad callback request", "from", addr.String(), "peerTCP", req.TCPPort)
+			logx.Debug("kad callback request", "from", addr.String(), "peerTCP", req.TCPPort, "buddy", buddyString(buddy))
 		}
 	}
 }
@@ -1187,4 +1206,55 @@ func (t *DHTTracker) addSourceIPLocked(entry *kadproto.SearchEntry, addr *net.UD
 		}
 	}
 	entry.Tags = append([]kadproto.Tag{{Type: kadproto.TagTypeUint32, ID: kadproto.TagSourceIP, UInt64: uint64(protocolIP(addr.IP))}}, entry.Tags...)
+}
+
+// buddyString renders a buddy TCP address for the debug log.
+func buddyString(addr *net.TCPAddr) string {
+	if addr == nil {
+		return "none"
+	}
+	return addr.String()
+}
+
+// requestLowIDCallbacks implements the FINDSOURCE branch of eMule's
+// CSearch::ProcessResponse: for every firewalled source in a search answer, a
+// KADEMLIA_CALLBACK_REQ goes to the contact that returned it, carrying our TCP
+// port so the buddy can relay it with OP_CALLBACK. The check field is the
+// search target (the file's Kad ID), exactly as eMule writes m_uTarget.
+func (t *DHTTracker) requestLowIDCallbacks(buddy *net.UDPAddr, target protocol.Hash, results []kadproto.SearchEntry) {
+	if t == nil || buddy == nil {
+		return
+	}
+	t.mu.Lock()
+	port := t.buddyTCPPort
+	t.mu.Unlock()
+	if port <= 0 {
+		return
+	}
+	for _, entry := range results {
+		source, ok := entry.SourceEndpoint()
+		if !ok || source.Port() <= 0 || !IsLowID(source.IP()) {
+			continue
+		}
+		file := entry.ID.Hash
+		key := buddy.String() + "|" + file.String()
+		t.mu.Lock()
+		if t.callbackSent == nil {
+			t.callbackSent = make(map[string]struct{})
+		}
+		if _, seen := t.callbackSent[key]; seen {
+			t.mu.Unlock()
+			continue
+		}
+		t.callbackSent[key] = struct{}{}
+		t.mu.Unlock()
+
+		var check, fileID [16]byte
+		copy(check[:], target.Bytes())
+		copy(fileID[:], file.Bytes())
+		packet := kadproto.CallbackReq{Check: check, File: fileID, TCPPort: uint16(port)}
+		if _, err := t.writePacket(buddy, packet); err != nil {
+			logx.Debug("kad callback request failed", "buddy", buddy.String(), "file", file.String(), "err", err.Error())
+		}
+	}
 }

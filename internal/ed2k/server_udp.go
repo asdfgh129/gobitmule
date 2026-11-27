@@ -69,13 +69,13 @@ func (u *ServerUDP) Start(port int) error {
 		return err
 	}
 	u.conn = conn
-	baseKey, onResults, onSearch := u.baseKey, u.onResults, u.onSearch
+	onResults, onSearch := u.onResults, u.onSearch
 	u.mu.Unlock()
-	go u.readLoop(conn, baseKey, onResults, onSearch)
+	go u.readLoop(conn, onResults, onSearch)
 	return nil
 }
 
-func (u *ServerUDP) readLoop(conn *net.UDPConn, baseKey uint32,
+func (u *ServerUDP) readLoop(conn *net.UDPConn,
 	onResults func(protocol.Hash, []protocol.Endpoint),
 	onSearch func([]serverproto.SharedFileEntry)) {
 	buf := make([]byte, 8192)
@@ -95,6 +95,12 @@ func (u *ServerUDP) readLoop(conn *net.UDPConn, baseKey uint32,
 			}
 		}
 		datagram := append([]byte(nil), buf[:n]...)
+		// Read the key per datagram: OP_SERVERIDENT installs it after the
+		// socket is already running, so a startup snapshot would leave every
+		// encrypted answer undecryptable for the whole session.
+		u.mu.Lock()
+		baseKey := u.baseKey
+		u.mu.Unlock()
 		plain, ok := serverproto.DecryptServerDatagram(datagram, baseKey)
 		if !ok {
 			// Plaintext when no key, encrypted when we could decrypt.

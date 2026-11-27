@@ -58,13 +58,25 @@ func (a AICHRequest) Put(dst *bytes.Buffer) error {
 func (a AICHRequest) BytesCount() int { return 16 + 2 + AichHashSize }
 
 type AICHAnswer struct {
-	Hash        protocol.Hash
-	Part        uint16
-	MasterHash  [AichHashSize]byte
+	Hash         protocol.Hash
+	Part         uint16
+	MasterHash   [AichHashSize]byte
 	RecoveryData []byte
+	// Failed marks eMule's short refusal answer: a bare 16 byte file hash with
+	// no part/master hash means "I cannot provide recovery data for this part".
+	Failed bool
 }
 
 func (a *AICHAnswer) Get(src *bytes.Reader) error {
+	if src.Len() == 16 {
+		hash, err := protocol.ReadHash(src)
+		if err != nil {
+			return err
+		}
+		a.Hash = hash
+		a.Failed = true
+		return nil
+	}
 	hash, err := protocol.ReadHash(src)
 	if err != nil {
 		return err

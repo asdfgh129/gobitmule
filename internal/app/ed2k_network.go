@@ -116,6 +116,10 @@ func enrichServerRows(rows []api.ED2KServerEntry, runtime []goed2k.ServerConnect
 			rows[idx].LastMessage = info.LastMessage
 			rows[idx].UsersCount = info.UsersCount
 			rows[idx].FilesCount = info.FilesCount
+			rows[idx].UDPFlags = info.UDPFlags
+			if info.Name != "" {
+				rows[idx].Name = info.Name
+			}
 			continue
 		}
 		rows = append(rows, api.ED2KServerEntry{
@@ -123,6 +127,7 @@ func enrichServerRows(rows []api.ED2KServerEntry, runtime []goed2k.ServerConnect
 			Connected: info.Connected, HandshakeComplete: info.HandshakeComplete,
 			ClientID: info.ClientID, LastMessage: info.LastMessage,
 			UsersCount: info.UsersCount, FilesCount: info.FilesCount,
+			UDPFlags: info.UDPFlags,
 		})
 	}
 	return rows

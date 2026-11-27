@@ -27,6 +27,12 @@ type ServerConnection struct {
 	usersCount   int32
 	filesCount   int32
 	lastMessage  string
+	// OP_SERVERIDENT carries the UDP capability flags and the obfuscation key
+	// used by server datagrams; eMule keeps them on the CServer object.
+	udpFlags  uint32
+	udpKey    uint32
+	udpKeyIP  uint32
+	serverName string
 
 	// Asynchronous dial state. connectConfiguredServers runs inside SecondTick,
 	// so a blocking dial to a dead server froze every transfer for the whole
@@ -239,6 +245,20 @@ func (s *ServerConnection) ProcessIncoming() error {
 			// The peer did not answer the callback; nothing else to do. Its
 			// pending entry is bounded and the next source poll can retry.
 			debugPeerf("server %s <- CallbackRequestFailed", s.identifier)
+		case *serverproto.ServerIdent:
+			s.serverInfoMu.Lock()
+			s.udpFlags = value.UDPFlags
+			s.udpKey = value.UDPKey
+			s.udpKeyIP = value.UDPKeyIP
+			s.serverName = value.Name
+			s.serverInfoMu.Unlock()
+			debugPeerf("server %s <- ServerIdent name=%q version=%q udpFlags=0x%08x udpKey=%t",
+				s.identifier, value.Name, value.Version, value.UDPFlags, value.UDPKey != 0)
+			// eMule enables the server UDP envelope only when the server offers
+			// obfuscation and bound the key to our public IP (CServer::GetServerKeyUDP).
+			if value.UDPKey != 0 && value.SupportsUDPObfuscation() {
+				s.session.SetServerUDPKey(value.UDPKey, value.UDPKeyIP)
+			}
 		case *serverproto.Status:
 			s.serverInfoMu.Lock()
 			s.usersCount = value.UsersCount
@@ -281,6 +301,20 @@ func (s *ServerConnection) TCPFlags() int32 {
 
 func (s *ServerConnection) AuxPort() int32 {
 	return s.auxPort
+}
+
+// UDPFlags reports the SRV_UDPFLG_* capability bits from OP_SERVERIDENT.
+func (s *ServerConnection) UDPFlags() uint32 {
+	s.serverInfoMu.Lock()
+	defer s.serverInfoMu.Unlock()
+	return s.udpFlags
+}
+
+// ServerName reports the name advertised by OP_SERVERIDENT, if any.
+func (s *ServerConnection) ServerName() string {
+	s.serverInfoMu.Lock()
+	defer s.serverInfoMu.Unlock()
+	return s.serverName
 }
 
 // ServerInfo returns the latest OP_SERVERSTATUS counts and OP_SERVERMESSAGE

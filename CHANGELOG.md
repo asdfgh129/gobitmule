@@ -16,6 +16,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **对照 eMule 逐项复核 16 项能力，修正 8 处协议/语义不一致（2026-11-27）**：
+  上轮补齐的 16 项能力经字节级复核后，发现以下实现与 `srchybrid` 参考实现不符，均已修正：
+  - **SecureIdent 签名报文与签名内容**：`OP_SIGNATURE` 只带 `<len 1><sig>[<sigIPused 1>]`，
+    原实现把公钥重复塞进签名包，真实客户端会判为 `nSize` 不匹配直接丢弃；签名数据应为
+    `<验证方公钥><验证方挑战>`（`CClientCreditsList::VerifyIdent` 用 `m_abyMyPublicKey`），
+    而原实现只签 4 字节挑战。同时 `OP_SECIDENTSTATE` 的取值 1/2 语义写反
+    （1 = 只需签名、2 = 需要公钥+签名），且原实现只验证对端、从不发送自己的公钥/签名。
+    现补齐完整双向状态机，会话级持久 RSA 1024 位身份，并在 Hello/ExtHello 后主动发起；
+    MiscOptions1 与 ET_FEATURES 同时宣告 SecIdent v1。
+  - **Server UDP 从未真正启用**：`OP_SERVERIDENT`（0x41）此前完全未实现，因此
+    `ST_UDPFLAGS` / `ST_UDPKEY` / `ST_UDPKEYIP` 拿不到，UDP 加密与
+    `OP_GLOBGETSOURCES2` 选择都失去依据。新增 `protocol/server/server_ident.go` 并接入
+    会话：按 `SRV_UDPFLG_EXT_GETSOURCES2` 选 0x94、否则回退 0x9A，按
+    `SRV_UDPFLG_UDPOBFUSCATION` + keyIP 校验安装 RC4 key。
+  - **Server UDP 收包**：`readLoop` 启动时快照 `baseKey`，登录后安装的 key 永远不生效，
+    改为逐包读取；结果解析原先逐字节滑动搜索 `E3 <opcode>`，payload 内出现该字节对会
+    错位，改为严格按头部解析，并支持 eMule 的「每记录重复一次子包头」形式。
+  - **KAD callback 报文**：`KADEMLIA_CALLBACK_REQ` 实际是 34 字节
+    `<check 16><file 16><TCPPort 2>`，`Process_KADEMLIA_CALLBACK_REQ` 对更短的包直接抛错；
+    原实现只发 2 字节端口。现按 34 字节编码，并补上 `OP_CALLBACK`（0x99）客户端报文：
+    收到 callback 的 buddy 通过已有 TCP 连接把 `<check><file><ip><port>` 转给被请求方；
+    KAD 搜到 firewalled 源时向返回该结果的节点发 CALLBACK_REQ（check = 搜索目标）。
+  - **AICH 失败应答**：eMule 无法提供恢复数据时回 16 字节裸 hash，原解析器会因字段缺失
+    报错并当作坏包；现识别为 `Failed` 并停止对 AICH 的请求、回退整块重下。
+  - **IPFilter 等级比较**：`CIPFilter::IsFiltered` 用 `level < 过滤等级`（严格小于），
+    原实现用 `<=`，导致等级恰好等于 127 的条目被误杀；另外 0.0.0.0 现在始终放行。
+  - **出站压缩块**：改用 zlib 最高压缩级别（eMule `compress2(..., 9)`），分片按
+    `total/(total/10240)` 均分并把尾片合并，与 `CreatePackedPackets` 一致。
+  - **聊天报文**：上限改为 eMule 的 `MAX_CLIENT_MSG_LEN`（450 字节），并校验
+    `length + 2 == size`，超长包不再被静默接受。
+  - **UDP 绑定端口**：服务端数据报的本地源端口改用配置的 eD2k UDP 端口
+    （eMule 绑定 `CClientUDPSocket`），原实现绑 `TCP 端口 + 4`，与对端看到的源端口不一致。
+  - 回归测试：`TestServerIdentDecodesUDPCapabilities`、
+    `TestUDPFoundSourcesMultipleSubpackets`、`TestUDPParserRejectsEmbeddedHeader`、
+    `TestUDPGlobGetSourcesLegacy`、`TestCallbackReqWireFormat`、`TestCallbackRoundTrip`、
+    `TestSecureIdentSignatureWireFormat`、`TestIPFilterLevelBoundaryAndUnspecified`、
+    `TestAICHAnswerShortRefusal`。
 - **补齐 eD2k 服务器登录 / 源交换 / 上传三条结构性短板（2026-11-26）**：
   - **背景**：上一修复清掉了引擎自身的读路径与请求窗口上限，但同一文件仍只有几十 KB/s；
     对照 eMule 1.8 MB/s，剩下的差距来自「服务器源列表拿不到、客户端间不交换源、

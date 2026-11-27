@@ -48,6 +48,7 @@ type Session struct {
 	onChatMessage          func(userHash protocol.Hash, text string)
 	ipFilter               *IPFilter // #10: eMule ipfilter.dat equivalent
 	spamFilter             *SpamFilter // #11: search result rating/spam filter
+	secureIdent            secureIdentIdentity // #5: long term RSA identity for Secure Ident
 }
 
 type diskTask struct {
@@ -543,7 +544,11 @@ func (s *Session) serverUDPAddr() *net.UDPAddr {
 }
 
 // SendUDPSourcesRequest sends an OP_GLOBGETSOURCES2 datagram to the connected
-// server. Returns false when no server/socket is available.
+// server. The opcode depends on the capabilities the server advertised in
+// OP_SERVERIDENT: 0x94 carries <hash><size> when SRV_UDPFLG_EXT_GETSOURCES2 is
+// set, the legacy 0x9A carries the bare hash. A server without
+// SRV_UDPFLG_EXT_GETSOURCES cannot answer UDP source requests at all, matching
+// CDownloadQueue::IsMaxFilesPerUDPServerPacketReached.
 func (s *Session) SendUDPSourcesRequest(hash protocol.Hash, size int64) bool {
 	if s == nil || s.serverUDP == nil {
 		return false
@@ -552,10 +557,49 @@ func (s *Session) SendUDPSourcesRequest(hash protocol.Hash, size int64) bool {
 	if addr == nil {
 		return false
 	}
-	datagram := serverproto.UDPGlobGetSources(hash, size)
+	flags := s.serverUDPFlags()
+	var datagram []byte
+	switch {
+	case flags&serverproto.UDPFlagExtGetSources2 != 0:
+		datagram = serverproto.UDPGlobGetSources(hash, size)
+	case flags&serverproto.UDPFlagExtGetSources != 0:
+		datagram = serverproto.UDPGlobGetSourcesLegacy(hash)
+	default:
+		debugPeerf("server udp: no glob-sources capability flags=0x%x", flags)
+		return false
+	}
 	ok := s.serverUDP.SendTo(addr, datagram)
-	debugPeerf("server udp -> glob sources %s to %s ok=%t", hash.String(), addr.String(), ok)
+	debugPeerf("server udp -> glob sources %s to %s ok=%t flags=0x%x", hash.String(), addr.String(), ok, flags)
 	return ok
+}
+
+// SetServerUDPKey installs the server's datagram obfuscation key. eMule only
+// uses it when the server bound the key to our public IP (CServer::GetServerKeyUDP);
+// a key issued for another address would make every datagram undecryptable.
+func (s *Session) SetServerUDPKey(key, keyIP uint32) {
+	if s == nil || s.serverUDP == nil || key == 0 {
+		return
+	}
+	s.mu.Lock()
+	clientID := s.clientID
+	s.mu.Unlock()
+	if keyIP != 0 && clientID != 0 && keyIP != uint32(clientID) {
+		debugPeerf("server udp: ignoring key issued for %d (our id %d)", keyIP, clientID)
+		return
+	}
+	s.serverUDP.SetUDPKey(key)
+	debugPeerf("server udp: obfuscation key installed keyIP=%d", keyIP)
+}
+
+// serverUDPFlags returns the connected server's UDP capability flags.
+func (s *Session) serverUDPFlags() uint32 {
+	s.mu.Lock()
+	sc := s.serverConnection
+	s.mu.Unlock()
+	if sc == nil {
+		return 0
+	}
+	return sc.UDPFlags()
 }
 
 // SendUDPSearchRequest sends OP_GLOBSEARCHREQ3 to the connected server.
@@ -744,11 +788,16 @@ func (s *Session) Listen() error {
 		s.mu.Unlock()
 	}
 	s.listener = listener
-	// #2: server UDP at TCP port + 4 (eMule convention). A failure to bind is
+	// #2: server UDP datagrams share the configured eD2k UDP port, which is the
+	// source port peers see (eMule binds CClientUDPSocket on UDPPort). The
+	// destination is always a server's TCP port + 4. A failure to bind is
 	// non-fatal: TCP search/source discovery still works.
 	if s.serverUDP != nil {
 		s.mu.Lock()
-		udpPort := s.settings.ListenPort + 4
+		udpPort := s.settings.UDPPort
+		if udpPort == 0 {
+			udpPort = s.settings.ListenPort + 4
+		}
 		s.mu.Unlock()
 		if udpPort >= 0 && udpPort <= 65535 {
 			_ = s.serverUDP.Start(udpPort)
@@ -1344,12 +1393,68 @@ func (s *Session) SetDHTTracker(tracker *DHTTracker) {
 		tracker.onCallback = func(peer protocol.Endpoint) {
 			s.HandleCallbackRequest(peer)
 		}
+		tracker.onBuddyCallback = func(buddy *net.TCPAddr, check, file [16]byte, requester protocol.Endpoint) {
+			s.ForwardKadCallback(buddy, check, file, requester)
+		}
 		tracker.mu.Unlock()
 	}
 }
 
 func (s *Session) GetDHTTracker() *DHTTracker {
 	return s.dhtTracker
+}
+
+// ForwardKadCallback relays a KAD callback request to the peer we act as buddy
+// for. eMule forwards <check><file><ip><port> with OP_CALLBACK over the already
+// established TCP connection instead of dialing the requester itself.
+func (s *Session) ForwardKadCallback(buddy *net.TCPAddr, check, file [16]byte, requester protocol.Endpoint) bool {
+	if s == nil || buddy == nil || !requester.Defined() {
+		return false
+	}
+	pc := s.connectionByTCP(buddy)
+	if pc == nil {
+		debugPeerf("kad callback: no tcp connection for buddy %s", buddy.String())
+		return false
+	}
+	pc.SendCallback(check, file, requester)
+	debugPeerf("kad callback: forwarded %s to buddy %s", requester.String(), buddy.String())
+	return true
+}
+
+// HandleFileCallback consumes an OP_CALLBACK forwarded by a buddy: the source
+// hash identifies the transfer, so only that transfer gets the endpoint.
+func (s *Session) HandleFileCallback(check, file [16]byte, requester protocol.Endpoint) int {
+	if s == nil || !requester.Defined() || IsLowID(requester.IP()) {
+		return 0
+	}
+	hash, err := protocol.HashFromBytes(file[:])
+	if err != nil {
+		return 0
+	}
+	transfer := s.LookupTransfer(hash)
+	if transfer == nil {
+		debugPeerf("kad callback: no transfer for %s", hash.String())
+		return 0
+	}
+	if err := transfer.AddPeer(requester, int(PeerDHT)); err != nil {
+		return 0
+	}
+	debugPeerf("kad callback: %s added to %s (check=%x)", requester.String(), hash.String(), check[:4])
+	return 1
+}
+
+// connectionByTCP finds the peer connection whose endpoint matches addr.
+func (s *Session) connectionByTCP(addr *net.TCPAddr) *PeerConnection {
+	want := protocol.EndpointFromInet(addr)
+	for _, c := range s.snapshotConnections() {
+		if c == nil {
+			continue
+		}
+		if c.endpoint.IP() == want.IP() && c.endpoint.Port() == want.Port() {
+			return c
+		}
+	}
+	return nil
 }
 
 func (s *Session) UploadQueue() *UploadQueue {

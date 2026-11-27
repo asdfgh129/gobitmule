@@ -556,7 +556,11 @@ func (p *PeerConnection) PrepareHelloAnswer() clientproto.HelloAnswer {
 		UnicodeSupport:     1,
 		DataCompVer:        p.session.GetCompressionVersion(),
 		SourceExchange1Ver: clientproto.SourceExchangeVersion1,
-		NoViewSharedFiles:  1,
+		// Secure Ident v1: we sign challenges with a persistent RSA key. We do
+		// not advertise v2 because the v2 signature binds the challenge IP,
+		// which needs the peer's public IP and is not implemented here.
+		SupportSecIdent:   1,
+		NoViewSharedFiles: 1,
 	}
 	var mo2 MiscOptions2
 	mo2.SetCaptcha()
@@ -621,7 +625,10 @@ func (p *PeerConnection) SendExtHelloAnswer() {
 				protocol.NewUInt32Tag(0x24, 0),
 				protocol.NewUInt32Tag(0x25, 0),
 				protocol.NewUInt32Tag(0x26, 0x03),
-				protocol.NewUInt32Tag(0x27, 0),
+				// ET_FEATURES: bit 0-1 Secure Ident version (1 = v1), bit 7
+				// preview. Real clients read this tag, not MiscOptions1, when
+				// deciding whether to request our identity.
+				protocol.NewUInt32Tag(0x27, 0x01),
 				protocol.NewUInt32Tag(0x55, uint32(p.session.settings.Version)),
 			},
 		},
@@ -697,6 +704,45 @@ func (p *PeerConnection) SendHashSetAnswer(transfer *Transfer) {
 	}
 }
 
+// SendCallback forwards a buddy callback request to this peer (OP_CALLBACK).
+func (p *PeerConnection) SendCallback(check, file [16]byte, requester protocol.Endpoint) bool {
+	checkHash, err := protocol.HashFromBytes(check[:])
+	if err != nil {
+		return false
+	}
+	fileHash, err := protocol.HashFromBytes(file[:])
+	if err != nil {
+		return false
+	}
+	packet := clientproto.Callback{
+		Check: checkHash,
+		File:  fileHash,
+		IP:    uint32(requester.IP()),
+		Port:  uint16(requester.Port()),
+	}
+	raw, err := p.combiner.Pack("client.Callback", &packet)
+	if err != nil {
+		return false
+	}
+	p.QueuePacket(raw)
+	return true
+}
+
+// HandleClientCallback consumes OP_CALLBACK: a buddy tells us somebody wants
+// to reach us for a file. eMule then connects back to the requester.
+func (p *PeerConnection) HandleClientCallback(value *clientproto.Callback) {
+	if value == nil || p.session == nil {
+		return
+	}
+	p.session.HandleFileCallback(hashBytes(value.Check), hashBytes(value.File), value.Endpoint())
+}
+
+func hashBytes(hash protocol.Hash) [16]byte {
+	var out [16]byte
+	copy(out[:], hash.Bytes())
+	return out
+}
+
 // SendAICHRequest asks the peer for SHA-1 recovery hashes of one part (#4).
 // SendMessage sends an eMule chat message to this peer (#6).
 func (p *PeerConnection) SendMessage(text string) bool {
@@ -730,6 +776,12 @@ func (p *PeerConnection) SendAICHRequest(part uint16, masterHash [20]byte) {
 // match the transfer's AICH root; otherwise the data is a spoof and is dropped.
 func (p *PeerConnection) HandleAICHAnswer(value *clientproto.AICHAnswer) {
 	if value == nil || p.transfer == nil || !p.transfer.hasAICH {
+		return
+	}
+	if value.Failed {
+		// eMule answers a request it cannot serve with a bare 16 byte hash.
+		debugPeerf("peer %s AICH request refused (hash-only answer)", p.endpoint.String())
+		p.transfer.AbandonAICHRecovery()
 		return
 	}
 	if value.Hash != p.transfer.GetHash() || value.MasterHash != p.transfer.aichRoot {
@@ -889,7 +941,10 @@ func (p *PeerConnection) SendCompressedPart(begin int64, payload []byte) bool {
 		return false
 	}
 	var buf bytes.Buffer
-	zw := zlib.NewWriter(&buf)
+	zw, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+	if err != nil {
+		return false
+	}
 	if _, err := zw.Write(payload); err != nil {
 		_ = zw.Close()
 		return false
@@ -902,13 +957,21 @@ func (p *PeerConnection) SendCompressedPart(begin int64, payload []byte) bool {
 	if len(compressed) >= len(payload) {
 		return false
 	}
+	// eMule CUpDownClient::CreatePackedPackets splits the compressed block into
+	// equal fragments so the packet count is floor(total/10240), not ceil.
 	const maxFragment = 10240
 	total := len(compressed)
+	fragment := total
+	if total > maxFragment {
+		fragment = total / (total / maxFragment)
+	}
 	large := p.transfer.Size() > math.MaxUint32
 	for len(compressed) > 0 {
-		n := len(compressed)
-		if n > maxFragment {
-			n = maxFragment
+		n := fragment
+		if len(compressed) < fragment*2 {
+			// eMule folds the tail into the last packet instead of emitting a
+			// short extra frame.
+			n = len(compressed)
 		}
 		chunk := compressed[:n]
 		var (
@@ -1030,9 +1093,11 @@ func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
 		emuleVersion uint32
 		misc1        uint32
 		misc2        uint32
+		features     uint32
 		hasVersion   bool
 		hasMisc1     bool
 		hasMisc2     bool
+		hasFeatures  bool
 	)
 	for _, tag := range tags {
 		switch {
@@ -1050,6 +1115,9 @@ func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
 			misc1, hasMisc1 = tag.UInt32, true
 		case tag.ID == tagMiscOptions2:
 			misc2, hasMisc2 = tag.UInt32, true
+		case tag.ID == 0x27:
+			// ET_FEATURES: bits 0-1 carry the Secure Ident version.
+			features, hasFeatures = tag.UInt32, true
 		}
 	}
 	p.remotePeerInfo.ModName = clientFamily(modName, clientName)
@@ -1062,6 +1130,9 @@ func (p *PeerConnection) applyClientTags(tags protocol.TagList) {
 		// CT_EMULE_MISCOPTIONS1 decides whether the peer speaks source exchange
 		// and whether we may send it a pieces bitmap at all.
 		p.remotePeerInfo.Misc1.Assign(int(misc1))
+	} else if hasFeatures {
+		// Peers that only send ET_FEATURES still advertise Secure Ident.
+		p.remotePeerInfo.Misc1.SupportSecIdent = int(features & 0x03)
 	}
 	if hasMisc2 {
 		// CT_EMULE_MISCOPTIONS2 bit 10 is the authoritative SX2 capability.
@@ -1187,14 +1258,21 @@ func (p *PeerConnection) HandleHelloAnswer(value *clientproto.HelloAnswer) {
 		p.endpoint.AssignEndpoint(value.Point)
 	}
 	debugPeerf("peer %s <- HelloAnswer", p.endpoint.String())
+	p.StartSecureIdent()
 	if p.transfer != nil {
 		p.SendFileRequest(p.transfer.GetHash())
 	}
 }
 
-func (p *PeerConnection) HandleExtHello(_ *clientproto.ExtHello) {
+func (p *PeerConnection) HandleExtHello(value *clientproto.ExtHello) {
 	debugPeerf("peer %s <- ExtHello", p.endpoint.String())
+	if value != nil && len(value.Properties) > 0 {
+		// eMule advertises MiscOptions (Secure Ident, compression, AICH) in the
+		// extended info packet, not in OP_HELLO.
+		p.applyClientTags(value.Properties)
+	}
 	p.SendExtHelloAnswer()
+	p.StartSecureIdent()
 }
 
 func (p *PeerConnection) HandleClientHello(value *clientproto.Hello) {
@@ -1222,6 +1300,7 @@ func (p *PeerConnection) HandleClientHello(value *clientproto.Hello) {
 			debugPeerf("peer %s HelloAnswer flush failed: %v", p.endpoint.String(), err)
 		}
 	}
+	p.StartSecureIdent()
 }
 
 func (p *PeerConnection) attachTransferByHash(hash protocol.Hash) *Transfer {
@@ -1499,6 +1578,9 @@ func (p *PeerConnection) ProcessIncoming() error {
 			p.HandleSignature(value)
 		case *clientproto.SecIdentState:
 			p.HandleSecIdentState(value)
+		case *clientproto.Callback:
+			// #7: our buddy relays a Kad callback; connect back to the requester.
+			p.HandleClientCallback(value)
 		case *clientproto.Message:
 			// #6: chat is only accepted from a known friend, matching eMule's
 			// friend-only chat policy and avoiding unsolicited message floods.

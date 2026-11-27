@@ -389,6 +389,9 @@ func (n *kadNodeImpl) processSearchRes(addr *net.UDPAddr, res kadproto.SearchRes
 	if tx.observer.traversal != nil {
 		tx.observer.traversal.accum = append(tx.observer.traversal.accum, res.Results...)
 		tx.observer.traversal.emitProgress(res.Results)
+		// A firewalled source cannot be dialed directly; ask the node that
+		// returned it (its buddy) to relay a callback.
+		n.tracker.requestLowIDCallbacks(addr, target, res.Results)
 	}
 	tx.observer.entries = append(tx.observer.entries, res.Results...)
 	tx.observer.processedResponses++

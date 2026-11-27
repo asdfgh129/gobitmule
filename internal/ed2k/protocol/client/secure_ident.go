@@ -5,11 +5,20 @@ package client
 // public key and a signature over a random challenge, binding a user hash to
 // its real owner so credit cannot be stolen by spoofing an ID.
 //
-// Wire form (EMuleProt):
+// Wire form (EMuleProt), matching eMule BaseClient.cpp:
 //
-//	OP_PUBLICKEY:  <keylen 1><DER public key bytes>
-//	OP_SIGNATURE:  <keylen 1><DER pubkey><siglen 1><signature bytes>[<ipkind 1>]
+//	OP_PUBLICKEY:     <keylen 1><DER public key bytes>
+//	OP_SIGNATURE:     v1 <siglen 1><signature bytes>
+//	                  v2 <siglen 1><signature bytes><sigIPused 1>
 //	OP_SECIDENTSTATE: <state 1><challenge 4>
+//
+// The signature payload is NOT carried in the packet: both sides sign
+// <verifier public key><verifier challenge> with the signer's private key
+// (CClientCreditsList::CreateSignature / VerifyIdent).
+//
+// SECIDENTSTATE values are the protocol constants, not the local client state
+// machine: 0 = unavailable, 1 = signature needed (peer already has our key),
+// 2 = public key and signature needed.
 
 import (
 	"bytes"
@@ -19,10 +28,10 @@ import (
 )
 
 const (
-	SecIdentStateKeyAndSignNeeded = 1
-	SecIdentStateSignatureNeeded  = 2
-	SecIdentStateSigned           = 3
-	maxSecureIdentBlob            = 250
+	SecIdentStateUnavailable      byte = 0
+	SecIdentStateSignatureNeeded  byte = 1
+	SecIdentStateKeyAndSignNeeded byte = 2
+	maxSecureIdentBlob                 = 250
 )
 
 type PublicKey struct {
@@ -55,21 +64,14 @@ func (p PublicKey) Put(dst *bytes.Buffer) error {
 
 func (p PublicKey) BytesCount() int { return 1 + len(p.Key) }
 
+// Signature is the raw RSA signature. eMule never repeats the public key here:
+// the key arrived earlier in OP_PUBLICKEY and both sides cached it per user.
 type Signature struct {
-	PublicKey  []byte
-	Signature  []byte
-	UsedIPKind byte // 0 when absent (eMule v1 signature form)
+	Signature []byte
+	UsedIPKind byte // v2 only; 0 when the packet carries no trailing byte
 }
 
 func (s *Signature) Get(src *bytes.Reader) error {
-	keyLen, err := src.ReadByte()
-	if err != nil || int(keyLen) > maxSecureIdentBlob || keyLen == 0 {
-		return errors.New("invalid signature public key length")
-	}
-	s.PublicKey = make([]byte, int(keyLen))
-	if _, err := src.Read(s.PublicKey); err != nil {
-		return err
-	}
 	sigLen, err := src.ReadByte()
 	if err != nil || int(sigLen) > maxSecureIdentBlob || sigLen == 0 {
 		return errors.New("invalid signature length")
@@ -78,6 +80,7 @@ func (s *Signature) Get(src *bytes.Reader) error {
 	if _, err := src.Read(s.Signature); err != nil {
 		return err
 	}
+	// v2 appends the challenge-IP kind; v1 stops after the signature.
 	if src.Len() > 0 {
 		s.UsedIPKind, _ = src.ReadByte()
 	}
@@ -85,18 +88,26 @@ func (s *Signature) Get(src *bytes.Reader) error {
 }
 
 func (s Signature) Put(dst *bytes.Buffer) error {
-	if len(s.PublicKey) == 0 || len(s.PublicKey) > maxSecureIdentBlob ||
-		len(s.Signature) == 0 || len(s.Signature) > maxSecureIdentBlob {
-		return errors.New("invalid signature blob length")
+	if len(s.Signature) == 0 || len(s.Signature) > maxSecureIdentBlob {
+		return errors.New("invalid signature length")
 	}
-	_ = dst.WriteByte(byte(len(s.PublicKey)))
-	_, _ = dst.Write(s.PublicKey)
 	_ = dst.WriteByte(byte(len(s.Signature)))
-	_, _ = dst.Write(s.Signature)
+	if _, err := dst.Write(s.Signature); err != nil {
+		return err
+	}
+	if s.UsedIPKind != 0 {
+		_ = dst.WriteByte(s.UsedIPKind)
+	}
 	return nil
 }
 
-func (s Signature) BytesCount() int { return 2 + len(s.PublicKey) + len(s.Signature) }
+func (s Signature) BytesCount() int {
+	n := 1 + len(s.Signature)
+	if s.UsedIPKind != 0 {
+		n++
+	}
+	return n
+}
 
 type SecIdentState struct {
 	State     byte

@@ -67,22 +67,34 @@ type PublishResAck struct{}
 
 func (PublishResAck) Pack() ([]byte, error) { return encodePacket(PublishResAckOp, nil), nil }
 
-// #7: KAD buddy packets carry the sender's TCP listen port (2 bytes little
-// endian). A firewalled node asks another node to be its buddy; the buddy
-// relays a callback (OP_CALLBACK / 0xD4) when a source wants to reach it.
+// #7: KAD buddy packets.
+//
+// KADEMLIA_FINDBUDDY_REQ/RES carry the sender's TCP listen port (2 bytes).
+// KADEMLIA_CALLBACK_REQ is different: eMule's Process_KADEMLIA_CALLBACK_REQ
+// rejects anything shorter than 34 bytes and parses
+// <check hash 16><file hash 16><TCPPort 2>, so a bare port is not accepted by
+// real clients.
 type CallbackReq struct {
+	Check   [16]byte
+	File    [16]byte
 	TCPPort uint16
 }
 
 func (c CallbackReq) Pack() ([]byte, error) {
-	return encodePacket(CallbackReqOp, encodeUint16(c.TCPPort)), nil
+	payload := make([]byte, 0, 34)
+	payload = append(payload, c.Check[:]...)
+	payload = append(payload, c.File[:]...)
+	payload = append(payload, encodeUint16(c.TCPPort)...)
+	return encodePacket(CallbackReqOp, payload), nil
 }
 
 func (c *CallbackReq) Unpack(payload []byte) error {
-	if len(payload) < 2 {
+	if len(payload) < 34 {
 		return errors.New("short kad callback request")
 	}
-	c.TCPPort = binary.LittleEndian.Uint16(payload[:2])
+	copy(c.Check[:], payload[:16])
+	copy(c.File[:], payload[16:32])
+	c.TCPPort = binary.LittleEndian.Uint16(payload[32:34])
 	return nil
 }
 

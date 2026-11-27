@@ -38,6 +38,15 @@ func UDPGlobGetSources(hash protocol.Hash, size int64) []byte {
 	return packUDPDatagram(OpGlobGetSources2, body.Bytes())
 }
 
+// UDPGlobGetSourcesLegacy packs the older OP_GLOBGETSOURCES form (0x9A), which
+// carries only the file hash and is used when the server did not advertise
+// SRV_UDPFLG_EXT_GETSOURCES2.
+func UDPGlobGetSourcesLegacy(hash protocol.Hash) []byte {
+	var body bytes.Buffer
+	_ = protocol.WriteHash(&body, hash)
+	return packUDPDatagram(OpGlobGetSources, body.Bytes())
+}
+
 // UDPGlobSearchReq packs OP_GLOBSEARCHREQ3: an eMule tag-set search expression.
 // The query bytes are the same wire form as a TCP SearchRequest body.
 func UDPGlobSearchReq(req *SearchRequest) ([]byte, error) {
@@ -60,15 +69,17 @@ func packUDPDatagram(opcode byte, body []byte) []byte {
 }
 
 // ParseUDPFoundSources decodes OP_GLOBFOUNDSOURCES: one or more records of
-// <hash 16><count 1><ip 4><port 2>... concatenated in a single datagram.
+// <hash 16><count 1><ip 4><port 2>... concatenated in a single datagram. A
+// datagram may repeat the <E3 9B> header between records (UDPSocket.cpp loops
+// on it), so the header is consumed again whenever it reappears.
 func ParseUDPFoundSources(datagram []byte) map[protocol.Hash][]protocol.Endpoint {
 	result := make(map[protocol.Hash][]protocol.Endpoint)
 	body, ok := stripUDPDatagram(datagram, OpGlobFoundSources)
 	if !ok {
 		return result
 	}
-	r := bytes.NewReader(body)
-	for r.Len() > 0 {
+	for len(body) > 0 {
+		r := bytes.NewReader(body)
 		hash, err := protocol.ReadHash(r)
 		if err != nil {
 			break
@@ -88,38 +99,68 @@ func ParseUDPFoundSources(datagram []byte) map[protocol.Hash][]protocol.Endpoint
 			}
 			result[hash] = append(result[hash], protocol.NewEndpoint(ip, int(port)))
 		}
+		body = body[len(body)-r.Len():]
+		next, ok := consumeSubpacketHeader(body, OpGlobFoundSources)
+		if !ok {
+			break
+		}
+		body = next
 	}
 	return result
 }
 
 // ParseUDPSearchResults decodes OP_GLOBSEARCHRES: a sequence of
-// SharedFileEntry records (hash/clientID/port/tags) with no count prefix.
+// SharedFileEntry records (hash/clientID/port/tags) with no count prefix. Like
+// the source packets, consecutive records may each carry their own <E3 99>.
 func ParseUDPSearchResults(datagram []byte) ([]SharedFileEntry, error) {
 	body, ok := stripUDPDatagram(datagram, OpGlobSearchRes)
 	if !ok {
 		return nil, errors.New("not a glob search result datagram")
 	}
-	r := bytes.NewReader(body)
 	entries := make([]SharedFileEntry, 0, 8)
-	for r.Len() > 0 {
+	for len(body) > 0 {
+		r := bytes.NewReader(body)
 		var entry SharedFileEntry
 		if err := entry.Get(r); err != nil {
 			break
 		}
+		consumed := len(body) - r.Len()
+		if consumed <= 0 {
+			break
+		}
 		entries = append(entries, entry)
+		body = body[consumed:]
+		next, ok := consumeSubpacketHeader(body, OpGlobSearchRes)
+		if !ok {
+			break
+		}
+		body = next
 	}
 	return entries, nil
 }
 
+// stripUDPDatagram returns the body of a datagram that starts with the eD2k
+// header and the expected opcode. eMule never scans for the header in the
+// middle of a packet, so neither do we: a payload byte pair that happens to be
+// <E3 opcode> must not be mistaken for a new packet.
 func stripUDPDatagram(datagram []byte, opcode byte) ([]byte, bool) {
-	// Skip any leading encrypted header is handled by DecryptServerDatagram.
-	for len(datagram) >= 2 {
-		if datagram[0] == protocol.EdonkeyHeader && datagram[1] == opcode {
-			return datagram[2:], true
-		}
-		datagram = datagram[1:]
+	if len(datagram) < 2 || datagram[0] != protocol.EdonkeyHeader || datagram[1] != opcode {
+		return nil, false
 	}
-	return nil, false
+	return datagram[2:], true
+}
+
+// consumeSubpacketHeader eats a repeated <E3 opcode> prefix when present. It
+// returns ok=false when the body starts with something else, which means the
+// current record was the last one.
+func consumeSubpacketHeader(body []byte, opcode byte) ([]byte, bool) {
+	if len(body) < 2 {
+		return body, false
+	}
+	if body[0] != protocol.EdonkeyHeader || body[1] != opcode {
+		return body, false
+	}
+	return body[2:], true
 }
 
 // EncryptServerDatagram wraps a plaintext eD2k datagram in the eMule server-key

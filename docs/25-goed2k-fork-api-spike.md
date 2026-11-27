@@ -789,10 +789,36 @@ UPnP 是「实现存在但未配置接线」、压缩是「仅出站方向缺失
 
 ### 14.3 边界
 
-- Server UDP 的 key 目前固定为 0（明文），因为 server 尚未下发 `CT_UDPKEY` tag；
-  这是 eMule 允许的模式（`IsServerCryptLayerUDPEnabled()` 默认关闭），
-  拿到 tag 后只需填入 `ServerUDP.SetUDPKey`。
-- AICH 恢复依赖链接携带 `h=`；缺 h 的历史任务仍回退为「整块重下」。
+- Server UDP 的 key 来自 `OP_SERVERIDENT` 的 `ST_UDPKEY`/`ST_UDPKEYIP`，且仅在
+  `SRV_UDPFLG_UDPOBFUSCATION` 置位、keyIP 与本机公网 IP 一致时启用；
+  服务器不下发 key 时保持明文，与 `IsServerCryptLayerUDPEnabled()==false` 一致。
+- AICH 只实现下载侧：能请求并校验恢复数据，但不能生成 hashset 为他人提供恢复数据，
+  因此 MiscOptions 不宣告 AICHVersion（宣告后对端会白跑一次请求）。
 - IP 过滤器只作用于 TCP 拨号与入站 accept；KAD 路由表不做裁剪，
   但 KAD 源最终仍要经过 `openSocket`，因此有效。
 - 预览要求「从头连续完成」至少一个 part（9.5 MB），与 eMule 的 part 级预览一致。
+
+### 14.4 逐项复核结论（2026-11-27 第二轮）
+
+对 16 项逐项做字节级复核，**8 项存在与 eMule 不一致的实现问题**，已全部修正：
+
+| 能力 | 原实现问题 | 修正 |
+|---|---|---|
+| SecureIdent | `OP_SIGNATURE` 重复携带公钥；签名内容只有 4 字节挑战；state 1/2 语义写反；只验不签 | 报文改为 `<len 1><sig>[<ipkind 1>]`；签 `<验证方公钥><挑战>`；补齐主动发起与双向状态机；宣告 v1 |
+| Server UDP | `OP_SERVERIDENT` 未实现 → flags/key 永远为 0；readLoop 快照 key；解析滑动搜头 | 新增 `server_ident.go` 并接入；逐包读 key；严格头解析 + 多子包 |
+| Server UDP 源请求 | 固定 0x94，未按服务器能力选择 | 有 `EXT_GETSOURCES2` 用 0x94，否则 0x9A，都没有则不发 |
+| KAD callback | `KADEMLIA_CALLBACK_REQ` 只发 2 字节端口 | 34 字节 `<check><file><port>`；补 `OP_CALLBACK` 转发与搜源侧发起 |
+| AICH | 16 字节拒绝应答被当解析错误 | 识别 `Failed`，停止请求并回退整块重下 |
+| IPFilter | 用 `<=` 比较等级 | 改为 `<`；0.0.0.0 放行 |
+| 出站压缩 | 默认压缩级别、固定 10 KiB 切片 | `BestCompression` + 均分片（`CreatePackedPackets`） |
+| 聊天 | 上限 8192、不校验长度一致性 | 450 字节上限 + `length+2==size` 校验 |
+
+其余 8 项（A4AF、好友列表、预览、Collection、搜索评分、限速、KAD 发布、UPnP、
+Server Status/Message）协议/格式一致，但存在**已知设计差异**：
+
+- A4AF：eMule 是「源单一归属 + 可回迁」，本项目是「复制给所有缺源任务」，不丢源但可能重复请求。
+- 搜索评分：eMule 用 `searchspam.met` 规则与 0..100 分，本项目用内置启发式 + 0..5 星级。
+- KAD 发布：eMule 周期性 republish（约 5 小时），本项目在文件变为可分享时发布一次。
+- 聊天：本项目只接受好友消息（eMule 接受任意客户端并配 captcha），属更严格的安全策略。
+- UPnP：能力已接线，但默认关闭（eMule 默认开启），沿用本项目 opt-in 策略。
+

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/disk"
+	clientproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/client"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 )
 
@@ -244,4 +245,38 @@ func mustIP(t *testing.T, value string) net.IP {
 		t.Fatalf("bad ip %q", value)
 	}
 	return parsed
+}
+
+// eMule compares with '<': a range whose level equals the configured level is
+// not blocked, and 0.0.0.0 is always passed through.
+func TestIPFilterLevelBoundaryAndUnspecified(t *testing.T) {
+	filter := NewIPFilter()
+	if _, err := filter.Load(strings.NewReader("1.2.3.0 - 1.2.3.255 , 127\n")); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if filter.IsFiltered(mustIP(t, "1.2.3.9")) {
+		t.Fatal("level equal to the filter level must not be blocked")
+	}
+	filter.SetLevel(128)
+	if !filter.IsFiltered(mustIP(t, "1.2.3.9")) {
+		t.Fatal("level below the filter level must be blocked")
+	}
+	if filter.IsFiltered(mustIP(t, "0.0.0.0")) {
+		t.Fatal("unspecified address must never be filtered")
+	}
+}
+
+// AICH refusal answer: eMule replies with a bare 16 byte hash when it cannot
+// serve recovery data.
+func TestAICHAnswerShortRefusal(t *testing.T) {
+	hash := protocol.MustHashFromString("26DFB3060428ACECE9EC8864DE7126AE")
+	raw := make([]byte, 16)
+	copy(raw, hash.Bytes())
+	var answer clientproto.AICHAnswer
+	if err := answer.Get(bytes.NewReader(raw)); err != nil {
+		t.Fatalf("get refusal: %v", err)
+	}
+	if !answer.Failed || answer.Hash != hash {
+		t.Fatalf("refusal not recognised: %+v", answer)
+	}
 }
