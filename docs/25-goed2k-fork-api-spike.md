@@ -10,6 +10,8 @@
 > Connection 读写，`crypt_layer_supported=true`、`crypt_layer_wired=true`，
 > 11 项单测含 net.Pipe 真实双向握手通过；但未做仅混淆对端真机互操作，
 > 仍不判 PASS）；本文不翻转 P3 发布结论。
+> **§13 补记（2026-11-27）**记录生产下载链路的吞吐、服务器登录/重连、SX2
+> 源交换与真实上传统计补齐；属 WBS 16 运行质量改进，不翻转 ED 门禁判定。
 
 ## 1. 勘察对象
 
@@ -665,3 +667,92 @@ P3 可进入发布评审；R-06 由「高」降为「已缓解」。已知边界
 ED-01 仅连接层互见、未做共享同 hash 的块传输下载层，对端为 eMule 单版本非全版本矩阵；
 ED-04 为 clientID 模拟而非真实 NAT 设备。证据汇总见
 `docs/evidence/ed2k-ed-gates-2026-11-22/ed010304-closeout-2026-11-23.json`。
+
+## 13. 生产下载链路补齐（2026-11-27）
+
+> 时点补记：本节记录同日 `b8e9de9` / `55cb958` / `147eeec` / `049217d` /
+> `5b2d3fc` 的落地内容，依据为线上日志与全量测试；**只更新运行质量与
+> 互操作通路清单，不翻转 §12.7 的 ED 门禁与 P3 发布结论**。
+
+### 13.1 对照 eMule 的吞吐差距取证
+
+同一 Ubuntu ISO：eMule 1.82 MB/s（4 源，aMule 3.1 单源 1.77 MB/s），
+本引擎仅 16–136 KB/s、均值 30–60 KB/s。分层取证结论：
+
+| 层 | 根因 | 处置 |
+|---|---|---|
+| 引擎读路径 | `Connection.DoRead` 每个 100ms tick 只读一次 16 KiB，单连接硬顶 ~160 KiB/s；日志见 `SendingPart32` 严格每 100ms 一帧 10240B | 改为 512 KiB 预算排空、64 KiB 复用缓冲，后续读 100µs 短超时 |
+| 请求补货 | `RequestBlocks` 两道闸门（队列非空 / 接收中）叠加成严格批处理，批间空转一个 RTT | 按空缺增量补货、允许接收中补货；补货量 = 空位数（picker 已预占） |
+| 请求包 | `RequestParts` 单包最多 3 range，超长会越界 | 导出 `client.PartsInRequest` 并分批；窗口 3→8 实测更慢（20.2→14.8 KB/s），回退保持 3 |
+| 结构性通路 | 服务器源拿不到、无客户端间源交换、本端不上传 → 无队列信用 | 见 §13.2–§13.4 |
+
+实测同一源帧率 1.8 → 3.8 帧/s，请求后不再出现空档。
+
+### 13.2 服务器登录、port callback 与重连
+
+- **port callback 握手**：服务器回连客户端公告端口做 HighID 探活，实测只发
+  6 字节 `E3 3B 00 00 00 01`（Hello 头，size=59）后**等客户端先发 Hello**。
+  原 `prepareIncoming` 等完整帧，双方互等约 1s，服务器判端口不可用并断开
+  整个服务器会话。现读到完整 6 字节前缀即 `greetingNeeded=true` → `OnConnect()`；
+  `HandleClientHello` 排入 HelloAnswer 后立即 `FlushOutgoing()`，不再等下一 tick。
+  入站日志改用 `socket.RemoteAddr()`（此前误报 `0.0.0.0:0`）。
+- **持续重连**：`ReconnectToServer` 默认 `true`；`ServerConnectionPolicy` 改为
+  永不丢弃 candidate，前 5 次线性退避、之后封顶 60s，登录成功清零
+  （`MarkLoginSucceeded`）；仅显式 `RemoveConnectCandidates` 关闭重试。
+  `ServerConnection.ConnectAsync()/pumpDial()` 异步拨号，不阻塞 IO pump。
+- **身份稳定**：`Goed2kDownloader` 建 engine 后、登录前由
+  `ReadUserHashFromStateFile` 从 `ed2k-resume/*.json` 恢复 `user_hash`，
+  避免「临时 hash 登录、随后换成恢复 hash」导致信用归属错乱。
+- **线上证据**：`ed2k identity restored userHash=92019591…`；
+  `<- IdChange clientID=71042416`；`-> OfferFiles count=1`；
+  `<- FoundFileSources count=5` 每分钟持续返回。
+- 回归：`server_connection_policy_test.go` 5 例（持续重试 / 退避封顶 /
+  登录清零 / 异服务器隔离 / 显式移除）。
+
+### 13.3 客户端间源交换 SX2（0x83 / 0x84）
+
+- 新增 `protocol/client/source_exchange.go`：现行 `OP_REQUESTSOURCES2=0x83`
+  / `OP_ANSWERSOURCES2=0x84`（旧 `0x81/0x82` 已废弃），版本取 aMule
+  `SOURCEEXCHANGE2_VERSION=4`。请求 `[version:1][reserved:2][hash:16]`；
+  应答条目按 v1/v2/v4 递增携带 `UserID/TCPPort/ServerIP/ServerPort`、
+  `UserHash`、`CryptOptions`。
+- **关键字段**：高 ID 源的 `UserID`（hybrid ID）才是可拨号 IP；
+  `ServerIP/ServerPort` 只是其所属服务器信息。此前误把后者当地址，
+  现按 aMule `CreateSrcInfoPacket()` 校正；hybrid ID 由 user hash 末 4 字节
+  按网络序导出（`HybridUserID`）。
+- `peer_source_exchange.go`：FileStatusAnswer 确认对端有文件后每连接发一次
+  RequestSources2；应答过滤低 ID / 请求者自身 / 重复端点后并入 transfer policy，
+  标记 `PeerSourceExchange`（Web 源列表显示 `sx`），上限 500 条。
+- **能力位修复**：Go 中 `<<` 与 `*` 同优先级左结合，原 `x << 4*7` 实为
+  `(x<<4)*7`，Hello tag 线上为 `83FA74000000`，远端看不到 Unicode / SX 能力。
+  所有移位加括号后为 `83FA04100010`；`MiscOptions2` bit10 为 SX2 权威标志，
+  同时兼容 mod 的 `MiscOptions1` nibble。
+- 线上取证：对端 `sx1=3/4 sx2=true`，RequestSources2 线上字节
+  `C5140000008304000026DF…`；**未收到 AnswerSources2**，当前连接的对端
+  多为完整文件源（aMule/eMule 通常不为完整文件维护/返回源列表），
+  受控测试 `peer_source_exchange_test.go` / `source_exchange_test.go`
+  已覆盖 v1/v2/v4 编解码与收发合并闭环；真机端到端交换仍待找到部分文件源验证。
+
+### 13.4 真实上传与队列信用
+
+- 此前只有完成文件会 `OfferFiles`；改为 `CanUpload()` 为真（含部分文件）
+  即发布，并由 `Transfer.SecondTick()` 的 `publishWhenShareable()` 补发。
+- 引擎 `TransferStatus.Upload` 从未上报，`core.Task.BytesUploaded` 恒为 0。
+  新增 `core.UploadSink` 通路：`TransferStatus.Upload` → `Goed2kDownloader`
+  每秒采样 → `chunkWriter.ReportUploaded()` → scheduler `liveUploaded`
+  overlay → `Task.BytesUploaded`（速率权威仍是 `scheduler.Limiter`，本条只上报计数）。
+  线上 `bytesUploaded` 从 34415 递增至 54369，不再恒零。
+- 显示层：源列表原有空位图三态判定（`ProgressKnown`），
+  未知进度显示 `—` 而非 0%，与 SX2 来源标签一并进入 `core.TaskSource`。
+
+### 13.5 验证与边界
+
+- `go test ./internal/... ./cmd/...` 全量通过（EXIT=0）；本轮新增测试覆盖
+  服务器重连策略 5 例、SX2 协议 7 例、源交换业务 4 例、能力位 1 例、
+  吞吐/位图回归若干例。
+- 线上验证实例 `ud-fix.exe --config gobitmule-webui-preview-26889-progress.yaml`，
+  日志 `Temp/ud-fix.log`。09:16 所有源同时 `disconnect code=51` 后未自动恢复；
+  该时点 C 盘写满（历史诊断二进制导致），清理后复验待重启实例确认，
+  不作为引擎回归结论。
+- 未闭环：真机 AnswerSources2；完整文件源的源交换收益；
+  `ed2k-resume/` 中删除任务后的残留 JSON 自动清理。
