@@ -49,6 +49,11 @@ type Session struct {
 	ipFilter               *IPFilter // #10: eMule ipfilter.dat equivalent
 	spamFilter             *SpamFilter // #11: search result rating/spam filter
 	secureIdent            secureIdentIdentity // #5: long term RSA identity for Secure Ident
+	// serverUDPCapabilities caches SRV_UDPFLG_* per server address. It is
+	// seeded from server.met ST_UDPFLAGS and refreshed on every
+	// OP_SERVERIDENT, so a request issued before the current handshake has
+	// produced OP_SERVERIDENT still uses the opcode the server can parse.
+	serverUDPCapabilities map[string]uint32
 }
 
 type diskTask struct {
@@ -595,11 +600,69 @@ func (s *Session) SetServerUDPKey(key, keyIP uint32) {
 func (s *Session) serverUDPFlags() uint32 {
 	s.mu.Lock()
 	sc := s.serverConnection
+	cache := s.serverUDPCapabilities
 	s.mu.Unlock()
 	if sc == nil {
 		return 0
 	}
-	return sc.UDPFlags()
+	// A connection that already parsed OP_SERVERIDENT is authoritative, even
+	// when it reported zero: "this server has no UDP extensions" must not be
+	// overridden by a stale cached value.
+	if sc.HasServerIdent() {
+		return sc.UDPFlags()
+	}
+	// Handshake still in flight — reuse what the same server advertised the
+	// last time we saw its OP_SERVERIDENT.
+	if cache != nil {
+		if flags, ok := cache[sc.GetIdentifier()]; ok {
+			return flags
+		}
+		if addr := sc.GetAddress(); addr != nil {
+			if flags, ok := cache[addr.String()]; ok {
+				return flags
+			}
+		}
+	}
+	return 0
+}
+
+// RememberServerCapabilities records the SRV_UDPFLG_* bits a server advertised.
+func (s *Session) RememberServerCapabilities(address string, flags uint32) {
+	address = strings.TrimSpace(address)
+	if address == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.serverUDPCapabilities == nil {
+		s.serverUDPCapabilities = make(map[string]uint32)
+	}
+	s.serverUDPCapabilities[address] = flags
+}
+
+// SeedServerCapabilities preloads the capability cache from a parsed
+// server.met. eMule persists ST_UDPFLAGS in server.met for exactly this
+// reason: the first search after startup may run before OP_SERVERIDENT.
+func (s *Session) SeedServerCapabilities(entries []serverproto.ServerMetEntry) int {
+	seeded := 0
+	for _, entry := range entries {
+		flags := entry.UDPFlags()
+		if flags == 0 {
+			continue
+		}
+		// Key by both the human-facing address and the numeric endpoint: a
+		// live connection may identify itself by either form.
+		for _, key := range []string{entry.Address(), entry.EndpointKey()} {
+			if key != "" {
+				s.RememberServerCapabilities(key, flags)
+			}
+		}
+		seeded++
+	}
+	if seeded > 0 {
+		logx.Debug("server udp capabilities seeded from server.met", "servers", seeded)
+	}
+	return seeded
 }
 
 // SendUDPSearchRequest sends OP_GLOBSEARCHREQ3 to the connected server.
@@ -611,12 +674,14 @@ func (s *Session) SendUDPSearchRequest(req *serverproto.SearchRequest) bool {
 	if addr == nil {
 		return false
 	}
-	datagram, err := serverproto.UDPGlobSearchReq(req)
+	flags := s.serverUDPFlags()
+	datagram, err := serverproto.UDPGlobSearchDatagram(req, flags)
 	if err != nil {
 		return false
 	}
 	ok := s.serverUDP.SendTo(addr, datagram)
-	debugPeerf("server udp -> glob search %q to %s ok=%t", req.Query, addr.String(), ok)
+	debugPeerf("server udp -> glob search %q to %s opcode=0x%02x flags=0x%x ok=%t",
+		req.Query, addr.String(), datagram[1], flags, ok)
 	return ok
 }
 
@@ -800,7 +865,9 @@ func (s *Session) Listen() error {
 		}
 		s.mu.Unlock()
 		if udpPort >= 0 && udpPort <= 65535 {
-			_ = s.serverUDP.Start(udpPort)
+			if err := s.serverUDP.Start(udpPort); err != nil {
+				debugPeerf("server udp start failed port=%d: %v", udpPort, err)
+			}
 		}
 	}
 	go func(l *net.TCPListener) {

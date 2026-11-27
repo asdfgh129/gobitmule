@@ -42,6 +42,10 @@ type PeerInfo struct {
 	// Hello/HelloAnswer. Invalid means not learned yet. It is what makes
 	// ED-01 "both sides see each other" observable without pcap parsing.
 	UserHash protocol.Hash
+	// Verified reports that the peer answered our SecureIdent challenge with a
+	// valid RSA signature (eMule "已认证"). It stays false when either side has
+	// SecureIdent disabled, which is the normal case on the public network.
+	Verified bool
 	// RetryIn and DeadStrikes explain a source that is known but not connected.
 	// eMule's client list shows the same information as 等待中 / 已失效 instead of
 	// hiding every source that is not downloading right now.

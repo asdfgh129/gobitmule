@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/asdfgh129/gobitmule/internal/ed2k/internal/logx"
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
 	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
@@ -62,12 +63,17 @@ func (u *ServerUDP) Start(port int) error {
 	}
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil && port > 0 {
+		// Falling back to an ephemeral port keeps search alive but breaks the
+		// contract that the source port seen by the server equals the port we
+		// advertised in CT_EMULE_UDPPORTS, so say so out loud.
+		logx.Debug("server udp: bind failed, falling back to ephemeral", "port", port, "err", err.Error())
 		conn, err = net.ListenUDP("udp", &net.UDPAddr{Port: 0})
 	}
 	if err != nil {
 		u.mu.Unlock()
 		return err
 	}
+	logx.Debug("server udp listening", "addr", conn.LocalAddr().String(), "requested", port)
 	u.conn = conn
 	onResults, onSearch := u.onResults, u.onSearch
 	u.mu.Unlock()
@@ -85,7 +91,7 @@ func (u *ServerUDP) readLoop(conn *net.UDPConn,
 			return
 		default:
 		}
-		n, _, err := conn.ReadFromUDP(buf)
+		n, addr, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			select {
 			case <-u.stopCh:
@@ -95,6 +101,9 @@ func (u *ServerUDP) readLoop(conn *net.UDPConn,
 			}
 		}
 		datagram := append([]byte(nil), buf[:n]...)
+		if n >= 2 {
+			logx.Debug("server udp <- datagram", "bytes", n, "opcode", datagram[1], "from", addr.String(), "encrypted", datagram[0] != protocol.EdonkeyHeader)
+		}
 		// Read the key per datagram: OP_SERVERIDENT installs it after the
 		// socket is already running, so a startup snapshot would leave every
 		// encrypted answer undecryptable for the whole session.

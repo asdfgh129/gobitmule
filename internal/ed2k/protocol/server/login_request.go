@@ -20,10 +20,11 @@ const (
 	JED2KVersionMinor = 1
 	JED2KVersionTiny  = 0
 
-	ctName         = 0x01
-	ctVersion      = 0x11
-	ctServerFlags  = 0x20
-	ctEMuleVersion = 0xFB
+	ctName          = 0x01
+	ctVersion       = 0x11
+	ctServerFlags   = 0x20
+	ctEMuleUDPPorts = 0xF9
+	ctEMuleVersion  = 0xFB
 )
 
 type LoginRequest struct {
@@ -84,9 +85,17 @@ func (l LoginRequest) BytesCount() int {
 	return size
 }
 
-func NewLoginRequest(userAgent protocol.Hash, listenPort int, clientName string) LoginRequest {
+// NewLoginRequest builds OP_LOGINREQUEST. udpPort is advertised through
+// CT_EMULE_UDPPORTS as <kadPort 16><udpPort 16>: without it a server has no
+// address to send OP_GLOBFOUNDSOURCES to and will not hand out ST_UDPKEY, so
+// server UDP silently degrades to TCP-only.
+func NewLoginRequest(userAgent protocol.Hash, listenPort int, udpPort int, clientName string) LoginRequest {
 	versionClient := uint32((JED2KVersionMajor << 24) | (JED2KVersionMinor << 17) | (JED2KVersionTiny << 10) | (1 << 7))
 	capability := uint32(CapableAuxPort | CapableNewTags | CapableUnicode | CapableLargeFile | CapableZlib)
+	if udpPort <= 0 || udpPort > 65535 {
+		udpPort = 0
+	}
+	udpPorts := uint32(udpPort)<<16 | uint32(udpPort)
 	return LoginRequest{
 		Hash:  userAgent,
 		Point: protocol.NewEndpoint(0, listenPort),
@@ -95,6 +104,7 @@ func NewLoginRequest(userAgent protocol.Hash, listenPort int, clientName string)
 			protocol.NewUInt32Tag(ctServerFlags, capability),
 			protocol.NewStringTag(ctName, clientName),
 			protocol.NewUInt32Tag(ctEMuleVersion, versionClient),
+			protocol.NewUInt32Tag(ctEMuleUDPPorts, udpPorts),
 		},
 	}
 }

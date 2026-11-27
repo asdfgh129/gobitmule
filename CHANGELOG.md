@@ -16,6 +16,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **eD2k 真实服务器 / 真实客户端互通实测，修复 4 处只有联网才会暴露的缺陷（2026-11-27）**：
+  上一条复核是读码比对；本轮用 `cmd/uded2kpeerprobe` 登录真实公网服务器
+  （`176.123.5.89:4725` eMule Sunrise、`57.128.161.24:6666` Cyberchrist 18.1）并与真实
+  eMule / aMule 客户端对连，暴露出以下偏差：
+  - **登录包缺 `CT_EMULE_UDPPORTS(0xF9)`**：服务器无从得知本端 eD2k UDP 端口，
+    发来的 UDP 应答无法与本端绑定端口对应。`NewLoginRequest` 补该 tag，值 `udpPort<<16|udpPort`。
+  - **从不发 `OP_GETSERVERLIST`，服务器因此从不发 `OP_SERVERIDENT`**：能力位与 UDP key 全部落空。
+    现在 `OP_IDCHANGE` 后补发一次，实测立即收到
+    `ServerIdent name="Cyberchrist" version="18.1" udpFlags=0x0000073b`。
+  - **UDP 搜索**：`0x90` 必须是 `<1 tag set><搜索树>`，原实现只写搜索树，服务器会把查询首
+    4 字节当 tag 数直接丢弃；同时未按能力选版本。新增 `UDPGlobSearchDatagram()`，
+    按 `EXT_GETFILES`+`LARGEFILES`/`EXT_GETFILES`/其余 选 `0x90`/`0x92`/`0x98`，
+    并补 `CT_SERVER_UDPSEARCH_FLAGS(0x0E)` tag set。
+  - **SecureIdent 身份 1024 位被 eMule 直接丢弃**：eMule `RSAKEYSIZE=384`、
+    `MAXPUBKEYSIZE=80`，1024 位的 X.509 SPKI 是 162 字节，`SetSecureIdent` 判超长即弃，
+    对端因此永不回签名。Go 的 `crypto/rsa` 拒绝 <1024 位，故新增
+    `internal/ed2k/rsa_ident.go` 自实现 384 位 RSA（PKCS#1 v1.5 + SHA-1），
+    公钥 78–80 字节、签名 48 字节；身份随 `client_state` 持久化，跨重启稳定。
+    实测对端 `bambino 60` 完成双向验证（`secure_ident_peers=1`）。
+  - **能力位时序**：搜索/查源可能在 `OP_SERVERIDENT` 到达前发出，导致 opcode 降级为 legacy、
+    UDP 查源直接不发。现补 `ServerMetEntry.UDPFlags()` 读取 `server.met` 的 `ST_UDPFLAGS(0x92)`
+    并在加载时预热会话缓存（`Session.SeedServerCapabilities`），每次 `OP_SERVERIDENT` 回填
+    （`RememberServerCapabilities`），并以 `ServerConnection.HasServerIdent()` 区分
+    「尚未下发」与「确实不支持」。
+  - 实测结果：UDP 搜索请求 `opcode=0x90 flags=0x73b`、回 10 个 `0x99` 结果全部解析入库；
+    UDP 查源 `0x94`（`e394<hash><size>`）→ `0x9B`（2 条源）解析正确并按 `IsLowID` 过滤；
+    真实客户端识别 `eMule v0.50` / `aMule GIT v3.2` / `bambino`；小样本实际下载有
+    `TotalDone` 增长。证据与抓包在 `dist/ed2k-interop/`，结论写入 `docs/16` §6.1。
+  - 新增回归测试：`TestIdentPublicKeyFitsEMuleLimit`、`TestIdentSignVerifyRoundTrip`、
+    `TestIdentKeyStateRoundTrip`、`TestServerMetEntryCarriesUDPFlags`、
+    `TestGlobSearchOpcodeFollowsServerCapabilities`、`TestSeedServerCapabilitiesFromServerMet`、
+    `TestParseUDPFoundSourcesRealServerAnswer`（真实服务器回包作为黄金样本）。
+  - **未闭环**：`UDPOBFUSCATION` 的 RC4 信封端到端（本轮服务器均 `udpKey=false`）；
+    `0x92` 分支仅单测覆盖；抽样 40 台公开服务器仅 1 台宣告 UDP 能力。
 - **对照 eMule 逐项复核 16 项能力，修正 8 处协议/语义不一致（2026-11-27）**：
   上轮补齐的 16 项能力经字节级复核后，发现以下实现与 `srchybrid` 参考实现不符，均已修正：
   - **SecureIdent 签名报文与签名内容**：`OP_SIGNATURE` 只带 `<len 1><sig>[<sigIPused 1>]`，

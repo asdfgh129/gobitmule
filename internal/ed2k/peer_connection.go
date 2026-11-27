@@ -1257,7 +1257,11 @@ func (p *PeerConnection) HandleHelloAnswer(value *clientproto.HelloAnswer) {
 	if value.Point.Defined() {
 		p.endpoint.AssignEndpoint(value.Point)
 	}
-	debugPeerf("peer %s <- HelloAnswer", p.endpoint.String())
+	debugPeerf("peer %s <- HelloAnswer client=%q ver=%d misc1=0x%08x secIdent=%d comp=%d sx1=%d aich=%d",
+		p.endpoint.String(), p.remotePeerInfo.ModName, p.remotePeerInfo.Version,
+		p.remotePeerInfo.Misc1.IntValue(), p.remotePeerInfo.Misc1.SupportSecIdent,
+		p.remotePeerInfo.Misc1.DataCompVer, p.remotePeerInfo.Misc1.SourceExchange1Ver,
+		p.remotePeerInfo.Misc1.AICHVersion)
 	p.StartSecureIdent()
 	if p.transfer != nil {
 		p.SendFileRequest(p.transfer.GetHash())
@@ -1623,6 +1627,7 @@ func (p *PeerConnection) GetInfo() PeerInfo {
 	info.Version = p.remotePeerInfo.Version
 	info.ModVersion = p.remotePeerInfo.ModNumber
 	info.StrModVersion = p.remotePeerInfo.ModVersion
+	info.Verified = p.SecIdentVerified()
 	info.QueueRank = int(p.uploadQueueRank)
 	info.RemoteQueueRank = int(p.remoteQueueRank)
 	switch {

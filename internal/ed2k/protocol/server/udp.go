@@ -47,9 +47,42 @@ func UDPGlobGetSourcesLegacy(hash protocol.Hash) []byte {
 	return packUDPDatagram(OpGlobGetSources, body.Bytes())
 }
 
-// UDPGlobSearchReq packs OP_GLOBSEARCHREQ3: an eMule tag-set search expression.
-// The query bytes are the same wire form as a TCP SearchRequest body.
+// OP_GLOBSEARCHREQ is versioned: the opcode tells the server how the body is
+// framed. eMule picks between them by the server's SRV_UDPFLG_EXT_GETFILES /
+// SRV_UDPFLG_LARGEFILES capabilities (CSearchResultsWnd::DoNewED2KSearch):
+//
+//	0x90 OP_GLOBSEARCHREQ3  <1 tag set><search tree>   EXT_GETFILES + large files
+//	0x92 OP_GLOBSEARCHREQ2  <search tree>              EXT_GETFILES only
+//	0x98 OP_GLOBSEARCHREQ   <search tree>              legacy / no flags
+//
+// Sending 0x90 with a bare search tree makes the server read the first four
+// query bytes as a tag count and drop the datagram, which is exactly what a
+// server without UDP capabilities does with the wrong opcode.
+const (
+	OpGlobSearchReqV1 byte = 0x98
+	OpGlobSearchReqV2 byte = 0x92
+)
+
+// UDPGlobSearchReq packs OP_GLOBSEARCHREQ3: a tag set announcing the search
+// capabilities followed by the eMule search expression.
 func UDPGlobSearchReq(req *SearchRequest) ([]byte, error) {
+	if req == nil {
+		return nil, errors.New("nil search request")
+	}
+	var body bytes.Buffer
+	_ = binary.Write(&body, binary.LittleEndian, uint32(1))
+	tag := protocol.NewUInt32Tag(0x0E, 0x01) // CT_SERVER_UDPSEARCH_FLAGS = new tags + large files
+	if err := tag.Put(&body); err != nil {
+		return nil, err
+	}
+	if err := req.Put(&body); err != nil {
+		return nil, err
+	}
+	return packUDPDatagram(OpGlobSearchReq, body.Bytes()), nil
+}
+
+// UDPGlobSearchReqV2 packs OP_GLOBSEARCHREQ2: the bare search expression.
+func UDPGlobSearchReqV2(req *SearchRequest) ([]byte, error) {
 	if req == nil {
 		return nil, errors.New("nil search request")
 	}
@@ -57,7 +90,32 @@ func UDPGlobSearchReq(req *SearchRequest) ([]byte, error) {
 	if err := req.Put(&body); err != nil {
 		return nil, err
 	}
-	return packUDPDatagram(OpGlobSearchReq, body.Bytes()), nil
+	return packUDPDatagram(OpGlobSearchReqV2, body.Bytes()), nil
+}
+
+// UDPGlobSearchReqV1 packs the legacy OP_GLOBSEARCHREQ (0x98): bare expression,
+// understood by servers that advertise no UDP capability flags at all.
+func UDPGlobSearchReqV1(req *SearchRequest) ([]byte, error) {
+	if req == nil {
+		return nil, errors.New("nil search request")
+	}
+	var body bytes.Buffer
+	if err := req.Put(&body); err != nil {
+		return nil, err
+	}
+	return packUDPDatagram(OpGlobSearchReqV1, body.Bytes()), nil
+}
+
+// UDPGlobSearchDatagram picks the opcode the server can actually parse.
+func UDPGlobSearchDatagram(req *SearchRequest, flags uint32) ([]byte, error) {
+	switch {
+	case flags&UDPFlagExtGetFiles != 0 && flags&UDPFlagLargeFiles != 0:
+		return UDPGlobSearchReq(req)
+	case flags&UDPFlagExtGetFiles != 0:
+		return UDPGlobSearchReqV2(req)
+	default:
+		return UDPGlobSearchReqV1(req)
+	}
 }
 
 func packUDPDatagram(opcode byte, body []byte) []byte {

@@ -26,6 +26,14 @@ type ServerSnapshot struct {
 	LastMessage string
 	UsersCount  int32
 	FilesCount  int32
+	// UDPFlags is what OP_SERVERIDENT advertised (SRV_UDPFLG_*). 0 means the
+	// server cannot answer OP_GLOBGETSOURCES / OP_GLOBSEARCHREQ, which is why
+	// the console shows "UDP: none" for most servers.
+	UDPFlags uint32
+	Name     string
+	// HasServerIdent reports whether OP_SERVERIDENT was already parsed. Before
+	// that, UDPFlags==0 only means "not announced yet", not "unsupported".
+	HasServerIdent bool
 }
 
 func (s ServerSnapshot) IDClass() string {
@@ -211,6 +219,9 @@ func (s *Session) ServerSnapshots() []ServerSnapshot {
 			snapshot.DownloadRate = int(stats.DownloadRate())
 			snapshot.UploadRate = int(stats.UploadRate())
 			snapshot.UsersCount, snapshot.FilesCount, snapshot.LastMessage = sc.ServerInfo()
+			snapshot.UDPFlags = sc.UDPFlags()
+			snapshot.Name = sc.ServerName()
+			snapshot.HasServerIdent = sc.HasServerIdent()
 		}
 		snapshots = append(snapshots, snapshot)
 	}

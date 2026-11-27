@@ -437,6 +437,9 @@ func (c *Client) LoadServerMet(path string) ([]serverproto.ServerMetEntry, error
 	logx.Debug("server.met loaded", "source", path, "servers", len(met.Servers))
 	entries := make([]serverproto.ServerMetEntry, len(met.Servers))
 	copy(entries, met.Servers)
+	// Keep the UDP capability bits the file carries; they let the first search
+	// or source request after startup pick the right datagram opcode.
+	c.session.SeedServerCapabilities(entries)
 	return entries, nil
 }
 
@@ -445,6 +448,7 @@ func (c *Client) ConnectServerMet(path string) error {
 	if err != nil {
 		return err
 	}
+	c.session.SeedServerCapabilities(met.Servers)
 	return c.ConnectServers(met.Addresses()...)
 }
 

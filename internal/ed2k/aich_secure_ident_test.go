@@ -2,10 +2,7 @@ package goed2k
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha1"
-	"crypto/x509"
 	"testing"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
@@ -89,11 +86,16 @@ func TestSecureIdentChallengeResponse(t *testing.T) {
 	if myKey == nil || len(myDER) == 0 {
 		t.Fatal("session identity was not generated")
 	}
-	peerKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	// eMule caps OP_PUBLICKEY at MAXPUBKEYSIZE (80 bytes): a 1024 bit SPKI is
+	// 162 bytes and the peer silently stops answering, so assert the size here.
+	if len(myDER) > identPublicKeyLimit {
+		t.Fatalf("session public key is %d bytes, eMule accepts at most %d", len(myDER), identPublicKeyLimit)
+	}
+	peerKey, err := generateIdentKey()
 	if err != nil {
 		t.Fatalf("rsa key: %v", err)
 	}
-	peerDER, err := x509.MarshalPKIXPublicKey(&peerKey.PublicKey)
+	peerDER, err := peerKey.publicDER()
 	if err != nil {
 		t.Fatalf("marshal pubkey: %v", err)
 	}
@@ -132,7 +134,7 @@ func TestSecureIdentChallengeResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
-	if err := verifyIdentPayload(&myKey.PublicKey, peerDER, 0xAABBCCDD, ours); err != nil {
+	if err := verifyIdentPayload(myDER, peerDER, 0xAABBCCDD, ours); err != nil {
 		t.Fatalf("our signature did not verify: %v", err)
 	}
 }

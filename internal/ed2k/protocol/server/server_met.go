@@ -196,6 +196,43 @@ func (e ServerMetEntry) Description() string {
 	return ""
 }
 
+// UDPFlags returns the SRV_UDPFLG_* capability bits cached in a server.met
+// entry (tag ST_UDPFLAGS = 0x92).
+//
+// eMule writes that tag back to server.met after every OP_SERVERIDENT
+// (CServer::SetUDPFlags / server.cpp case ST_UDPFLAGS), which is what lets it
+// pick the right OP_GLOBSEARCHREQ variant for a server it is not connected to
+// yet. Reading it back gives us the same head start: the search box may fire
+// before the login handshake has produced OP_SERVERIDENT.
+func (e ServerMetEntry) UDPFlags() uint32 {
+	return e.udpUInt32Tag(TagUDPFlags)
+}
+
+// UDPKey returns the ST_UDPKEY/ST_UDPKEYIP pair cached in server.met, used for
+// the server UDP obfuscation envelope. Zero values mean "not advertised".
+func (e ServerMetEntry) UDPKey() (key, keyIP uint32) {
+	return e.udpUInt32Tag(TagUDPKey), e.udpUInt32Tag(TagUDPKeyIP)
+}
+
+func (e ServerMetEntry) udpUInt32Tag(id byte) uint32 {
+	for _, tag := range e.Tags {
+		if tag.ID == id {
+			return tag.UInt32
+		}
+	}
+	return 0
+}
+
+// EndpointKey is the numeric ip:port form of the entry, matching the address a
+// live ServerConnection reports after dialing. Empty when the entry only
+// carries a host name, in which case only Address() can be used as a key.
+func (e ServerMetEntry) EndpointKey() string {
+	if e.Endpoint.IP() == 0 || e.Endpoint.Port() == 0 {
+		return ""
+	}
+	return e.Endpoint.String()
+}
+
 func (e ServerMetEntry) Host() string {
 	if e.Endpoint.IP() != 0 {
 		return endpointIPString(e.Endpoint)

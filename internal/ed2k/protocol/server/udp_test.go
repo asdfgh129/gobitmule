@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 
 	"github.com/asdfgh129/gobitmule/internal/ed2k/protocol"
@@ -56,5 +57,39 @@ func TestUDPServerEncryptionRoundTrip(t *testing.T) {
 	// Plaintext passes through untouched.
 	if out, ok := DecryptServerDatagram(plain, key); ok || !bytes.Equal(out, plain) {
 		t.Fatal("plaintext datagram not passed through")
+	}
+}
+
+// A real OP_GLOBFOUNDSOURCES answer captured from a public eD2k server
+// (57.128.161.24:6666, "Cyberchrist" 18.1) while our client asked for sources
+// of D6DA273629B1C6781E96E0BAB4142602 with OP_GLOBGETSOURCES2. Framing is
+// <E3 9B><hash 16><count 1><ip 4><port 2>*count, byte order per eMule's
+// CPartFile::AddSources + ipstr() (first octet in the low byte).
+func TestParseUDPFoundSourcesRealServerAnswer(t *testing.T) {
+	raw, err := hex.DecodeString("e39bd6da273629b1c6781e96e0bab414260202041a01003612ffc005005a88")
+	if err != nil {
+		t.Fatalf("decode capture: %v", err)
+	}
+	got := ParseUDPFoundSources(raw)
+	if len(got) != 1 {
+		t.Fatalf("hashes = %d, want 1", len(got))
+	}
+	hash := protocol.MustHashFromString("D6DA273629B1C6781E96E0BAB4142602")
+	endpoints := got[hash]
+	if len(endpoints) != 2 {
+		t.Fatalf("sources = %d, want 2", len(endpoints))
+	}
+	if got, want := endpoints[0].String(), "4.26.1.0:4662"; got != want {
+		t.Fatalf("source[0] = %s, want %s", got, want)
+	}
+	if got, want := endpoints[1].String(), "255.192.5.0:34906"; got != want {
+		t.Fatalf("source[1] = %s, want %s", got, want)
+	}
+	// Both entries are low IDs (first octet encoded below 0x01000000), which is
+	// why the session dropped them instead of queueing a direct dial.
+	for _, endpoint := range endpoints {
+		if endpoint.IP() >= 0x01000000 {
+			t.Fatalf("%s expected to be a low ID", endpoint.String())
+		}
 	}
 }

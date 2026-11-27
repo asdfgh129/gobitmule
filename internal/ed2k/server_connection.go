@@ -24,15 +24,24 @@ type ServerConnection struct {
 	// or its welcome/warning banner. The session pump writes these; the REST
 	// snapshot goroutine reads them, hence the mutex.
 	serverInfoMu sync.Mutex
-	usersCount   int32
-	filesCount   int32
-	lastMessage  string
+	// serverListRequested guards the one-shot OP_GETSERVERLIST that makes the
+	// server answer with OP_SERVERIDENT.
+	serverListRequested bool
+	usersCount          int32
+	filesCount          int32
+	lastMessage         string
 	// OP_SERVERIDENT carries the UDP capability flags and the obfuscation key
 	// used by server datagrams; eMule keeps them on the CServer object.
-	udpFlags  uint32
-	udpKey    uint32
-	udpKeyIP  uint32
-	serverName string
+	udpFlags     uint32
+	udpKey       uint32
+	udpKeyIP     uint32
+	serverName   string
+	// hasServerIdent is set once OP_SERVERIDENT has been parsed on this
+	// connection. A connected server that advertises no UDP capability at all
+	// (udpFlags == 0) is indistinguishable from "not answered yet" by the flags
+	// alone, and the two cases must be told apart: only the latter may fall
+	// back to the capability bits cached in server.met.
+	hasServerIdent bool
 
 	// Asynchronous dial state. connectConfiguredServers runs inside SecondTick,
 	// so a blocking dial to a dead server froze every transfer for the whole
@@ -177,8 +186,22 @@ func (s *ServerConnection) SendSearchMore() {
 	}
 }
 
+// SendGetServerList asks the server for its server.met plus OP_SERVERIDENT.
+// The list itself is ignored (WithoutDataPacket); the ident carries the UDP
+// capability flags and obfuscation key.
+func (s *ServerConnection) SendGetServerList() {
+	packet := serverproto.GetList{}
+	raw, err := s.combiner.Pack("server.GetList", &packet)
+	if err != nil {
+		debugPeerf("server %s -> GetServerList pack failed: %v", s.identifier, err)
+		return
+	}
+	debugPeerf("server %s -> GetServerList (asks for OP_SERVERIDENT)", s.identifier)
+	s.QueuePacket(raw)
+}
+
 func (s *ServerConnection) SendLoginRequest() {
-	packet := serverproto.NewLoginRequest(s.session.GetUserAgent(), s.session.GetListenPort(), s.session.GetClientName())
+	packet := serverproto.NewLoginRequest(s.session.GetUserAgent(), s.session.GetListenPort(), s.session.GetUDPPort(), s.session.GetClientName())
 	raw, err := s.combiner.Pack("server.LoginRequest", &packet)
 	if err != nil {
 		debugPeerf("server %s -> LoginRequest pack failed: %v", s.identifier, err)
@@ -224,6 +247,16 @@ func (s *ServerConnection) ProcessIncoming() error {
 		switch value := packet.(type) {
 		case *serverproto.IdChange:
 			s.OnServerIDChange(value.ClientID, value.TCPFlags, value.AuxPort)
+			// eMule only receives OP_SERVERIDENT (and with it ST_UDPFLAGS /
+			// ST_UDPKEY / ST_UDPKEYIP) after it asks for the server list:
+			// "OP_SERVERIDENT - this is sent by the server only if we send a
+			// OP_GETSERVERLIST" (ServerSocket.cpp). Without this request server
+			// UDP can never learn the key and stays dead against servers that
+			// require it, so send it once per connection.
+			if value.ClientID != 0 && !s.serverListRequested {
+				s.serverListRequested = true
+				s.SendGetServerList()
+			}
 		case *serverproto.FoundFileSources:
 			debugPeerf("server %s <- FoundFileSources hash=%s count=%d", s.identifier, value.Hash.String(), len(value.Sources))
 			if transfer := s.session.LookupTransfer(value.Hash); transfer != nil {
@@ -251,7 +284,12 @@ func (s *ServerConnection) ProcessIncoming() error {
 			s.udpKey = value.UDPKey
 			s.udpKeyIP = value.UDPKeyIP
 			s.serverName = value.Name
+			s.hasServerIdent = true
 			s.serverInfoMu.Unlock()
+			// Feed the capability bits back into the session cache so a later
+			// search can pick the right datagram opcode without waiting for yet
+			// another handshake (mirrors eMule writing ST_UDPFLAGS to disk).
+			s.session.RememberServerCapabilities(s.identifier, value.UDPFlags)
 			debugPeerf("server %s <- ServerIdent name=%q version=%q udpFlags=0x%08x udpKey=%t",
 				s.identifier, value.Name, value.Version, value.UDPFlags, value.UDPKey != 0)
 			// eMule enables the server UDP envelope only when the server offers
@@ -308,6 +346,14 @@ func (s *ServerConnection) UDPFlags() uint32 {
 	s.serverInfoMu.Lock()
 	defer s.serverInfoMu.Unlock()
 	return s.udpFlags
+}
+
+// HasServerIdent reports whether OP_SERVERIDENT has been parsed on this
+// connection. Until then a zero UDPFlags value says nothing about the server.
+func (s *ServerConnection) HasServerIdent() bool {
+	s.serverInfoMu.Lock()
+	defer s.serverInfoMu.Unlock()
+	return s.hasServerIdent
 }
 
 // ServerName reports the name advertised by OP_SERVERIDENT, if any.

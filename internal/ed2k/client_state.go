@@ -1,6 +1,7 @@
 package goed2k
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
@@ -28,6 +29,19 @@ type ClientState struct {
 	Credits       []ClientCreditState   `json:"credits,omitempty"`
 	FriendSlots   []protocol.Hash       `json:"friend_slots,omitempty"`
 	DHT           *ClientDHTState       `json:"dht,omitempty"`
+	// SecureIdentKey is the long term SecureIdent identity (eMule cryptkey.dat).
+	// Without it every restart presents a new key and peers forget our credits.
+	SecureIdentKey *ClientIdentKeyState `json:"secure_ident_key,omitempty"`
+}
+
+// ClientIdentKeyState is the 384 bit RSA identity in base64. It is not a
+// secret in the eMule threat model (the public half is sent to every peer) but
+// it must not be regenerated: the private half is what proves ownership of the
+// user hash.
+type ClientIdentKeyState struct {
+	N string `json:"n"`
+	D string `json:"d"`
+	E int    `json:"e"`
 }
 
 type ClientTransferState struct {
@@ -195,6 +209,13 @@ func (c *Client) snapshotState() (*ClientState, error) {
 		Credits:       c.session.Credits().Snapshot(),
 		FriendSlots:   c.session.friendSlotSnapshot(),
 	}
+	if n, d, e := c.session.IdentKeyMaterial(); len(n) > 0 && len(d) > 0 && e > 0 {
+		state.SecureIdentKey = &ClientIdentKeyState{
+			N: base64.StdEncoding.EncodeToString(n),
+			D: base64.StdEncoding.EncodeToString(d),
+			E: e,
+		}
+	}
 	if tracker := c.GetDHTTracker(); tracker != nil {
 		state.DHT = tracker.SnapshotState()
 	}
@@ -234,6 +255,13 @@ func (c *Client) applyState(state *ClientState) error {
 	}
 	if state.SecureIdent {
 		c.SetSecureIdent(true)
+	}
+	if key := state.SecureIdentKey; key != nil {
+		if n, errN := base64.StdEncoding.DecodeString(key.N); errN == nil {
+			if d, errD := base64.StdEncoding.DecodeString(key.D); errD == nil {
+				c.session.AdoptIdentKey(n, d, key.E)
+			}
+		}
 	}
 	c.session.Credits().ApplySnapshot(state.Credits)
 	c.session.applyFriendSlotSnapshot(state.FriendSlots)
