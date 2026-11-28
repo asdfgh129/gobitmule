@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **eD2k UDP 抽样复跑：强制 `0x92` 9/9 回包，自动/`0x9A` 查源稳定为 3 台（2026-11-28）**：
+  对 `server-capabilities.txt` 中 9 台服务器再跑两轮——仅自动查源重试、强制 `0x92`
+  搜索 + 强制 `0x9A` 查源，证据在 `dist/ed2k-interop/udp-cap2/`。强制 `0x92` 在
+  9/9 服务器上拿到解析回包；自动查源与强制 `0x9A` 仍是同一批 3 台（91.208.162.87、
+  82.192.72.186、57.128.161.24）回包，逐哈希日志确认 `got=1 ... encrypted=true`。
+  三轮 crypt key 下发分别是 5/9、7/9、8/9，说明 `0x97` key 跨会话不稳定；有 key 也
+  不等于查源有回包。文档 `docs/26` 升 v1.3（§4.7），同步 `docs/16` §6.1、
+  `docs/README` v1.56。
 - **eD2k legacy UDP 真机往返与 9 台抽样验证（2026-11-28）**：补完上一轮留下的
   `0x9A` / `0x98` 未闭环项，并把抽样中 9 台 UDP 能力服务器逐台重跑。
   - 探针新增 `-udp-only`（不加载 transfer、只看 UDP 回包）、`-udp-search` /

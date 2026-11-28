@@ -1,6 +1,6 @@
 # 26 eD2k UDP 互通验证报告
 
-> 文档编号：UD-DOC-26 ｜ 版本：v1.2 ｜ 状态：**验证报告（本地交叉验证 + 真实服务器抓包；不作发布门禁）** ｜ 日期：2026-11-28 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-26 ｜ 版本：v1.3 ｜ 状态：**验证报告（本地交叉验证 + 真实服务器抓包；不作发布门禁）** ｜ 日期：2026-11-28 ｜ 维护责任：架构组
 >
 > 本文只讨论 eD2k 的 **server UDP 数据报链路**（全局搜索、全局查源、能力协商与混淆信封）。
 > TCP 登录/源交换、SecureIdent、KAD 的结论见 [`16`](16-互操作性与兼容性设计.md) §3.1 / §6.1。
@@ -13,6 +13,7 @@
 | `0x90` tag set、`0x92` 裸搜索树、`0x98` legacy 三种格式 | **PASS（真机）** | 真实服务器抓包（`0x90`、强制 `0x92`）与 `0x98` 强制 opcode 往返（§4.5） |
 | UDP 查源 `0x94` / `0x9A` 与 `0x9B` 回包解析 | **PASS（真机）** | `0x94` 抓包 + `0x9A` 强制 opcode 往返（§4.5）+ 黄金样本回归测试 |
 | 抽样中 9 台 UDP 能力服务器的实际可达性 | **9/9 登录、9/9 UDP 搜索有回包；3/9 查源有回包** | 逐台真实服务器探针（§4.6） |
+| 抽样 9 台复跑 + 强制 `0x92`/`0x9A` | **9/9 `0x92` 回包；自动/强制 `0x9A` 均为同 3 台** | 第二轮逐台复跑（§4.7） |
 | 能力位时序（登录尚未拿到 `OP_SERVERIDENT` 时） | **PASS** | 真实服务器日志 + 单测 |
 | RC4 信封与 eMule 字节级互认 | **PASS（交叉验证）** | 独立 eMule 算法实现的向量测试 + 真实 UDP socket 端到端 |
 | RC4 信封在**真实服务器**上端到端（crypt ping 下发 key → 加密请求 → 加密回包） | **PASS（真机）** | Cyberchrist 18.1 `run13`/`run14` + `crypt-ping-cyberchrist2.pcapng` / `udp92-encrypted.pcapng` |
@@ -308,6 +309,39 @@ server key、3/9 对目标哈希回传了 `0x9B`**。探针的总 verdict 对「
 Cyberchrist / Sharing-Devils No.4 上成功的请求完全一致，差异更可能是目标哈希在该
 服务器的索引里没有可用源。这里只记录「未回包」，不外推结论。
 
+### 4.7 第二轮复跑：自动查源重试与逐台强制 `0x92`/`0x9A`
+
+§4.6 里 5 台通过 crypt ping 装上了 key，但不是所有装 key 的服务器都回了 `0x9A/0x94`
+的查源结果。为区分「偶发丢包」与「稳定无源」，对同一批 9 台服务器再跑两轮：
+① 仅自动查源重试；② 强制 `0x92` 搜索 + 强制 `0x9A` 查源。证据在
+`dist/ed2k-interop/udp-cap2/auto-*.json/.log` 与 `forced-*.json/.log`。
+
+| 服务器 | 自动 verdict | key | 自动查源 包/端点 | 目标哈希回包 | 强制 verdict | key | `0x92` 回包/条目 | `0x9A` 回包/端点 | 目标哈希回包 |
+|---|---|---|---|---|---|---|---|---|---|
+| 85.121.5.137:4232 | FAIL | 是 | 0/0 | 0 | FAIL | 是 | 10/10 | 0/0 | 0 |
+| 85.137.248.210:56612 | FAIL | 否 | 0/0 | 0 | FAIL | 否 | 11/100 | 0/0 | 0 |
+| 91.208.162.55:4235 | FAIL | 否 | 0/0 | 0 | FAIL | 是 | 10/10 | 0/0 | 0 |
+| 91.208.162.87:4232 | PASS | 是 | 1/1 | 1 | PASS | 是 | 10/10 | 1/1 | 1 |
+| 82.192.72.186:4661 | PASS | 是 | 1/1 | 1 | PASS | 是 | 8/8 | 1/1 | 1 |
+| 77.42.68.79:4232 | FAIL | 是 | 0/0 | 0 | FAIL | 是 | 10/10 | 0/0 | 0 |
+| 91.208.162.182:4232 | FAIL | 是 | 0/0 | 0 | FAIL | 是 | 10/10 | 0/0 | 0 |
+| 57.128.161.24:6666 | PASS | 是 | 1/1 | 1 | PASS | 是 | 10/10 | 1/1 | 1 |
+| 143.246.192.192:4232 | FAIL | 是 | 0/0 | 0 | FAIL | 是 | 7/7 | 0/0 | 0 |
+
+结论：
+
+- **强制 `0x92` 搜索：9/9 有回包**，且日志逐一确认 `opcode=0x92`。这比 §4.5 只在
+  Cyberchrist 上验证更进一步，说明裸搜索树格式在多台 eMule 系服务器上都能被解析。
+- **自动查源与强制 `0x9A`：两轮都是同一批 3 台回包**（91.208.162.87、
+  82.192.72.186、57.128.161.24），强制 opcode 没有扩大回包范围。三台的逐哈希日志
+  均记录 `got=1 ... encrypted=true`，确认回包归属目标哈希。其余 6 台两次均无回包，
+  更像是目标哈希在那些服务器上没有可用源，而不是 opcode 格式或偶发丢包问题——但
+  这里仍只记录事实，不外推原因。
+- **crypt key 本身不稳定**：自动轮 7/9 装上 key，强制轮 8/9，而 §4.6 那轮是 5/9；
+  同一台服务器跨会话可能给 key 也可能不给（`0x97` 应答是运行时行为）。因此不能把
+  「有 key」直接等同于「查源有回包」：85.121.5.137、77.42.68.79、91.208.162.182、
+  143.246.192.192 两轮都有 key 但都没有查源回包。
+
 ## 5. 复跑命令
 
 ```bash
@@ -340,6 +374,23 @@ awk -F'\t' '/udpFlags=0x/ && $0 !~ /udpFlags=0x00000000/ {print $1}' \
     -out "dist/ed2k-interop/udp-cap/${srv//:/_}.json"
 done
 
+# 第二轮：自动查源重试 + 逐台强制 0x92 / 0x9A
+awk -F'\t' '/udpFlags=0x/ && $0 !~ /udpFlags=0x00000000/ {print $1}' \
+  dist/ed2k-interop/server-capabilities.txt | while read -r srv; do
+  key=${srv//:/_}
+  go run ./cmd/uded2kpeerprobe -server "$srv" \
+    -udp-only -udp-search=false -udp-source \
+    -hash 1565D4FAE4B5F20EC77429622BC46C90 -size 663748608 \
+    -wait-udp-key -udp-wait 10 -debug \
+    -out "dist/ed2k-interop/udp-cap2/auto-$key.json"
+  go run ./cmd/uded2kpeerprobe -server "$srv" -search debian -search-wait 8 \
+    -udp-only -udp-search -udp-search-opcode 0x92 \
+    -udp-source -udp-source-opcode 0x9A \
+    -hash 1565D4FAE4B5F20EC77429622BC46C90 -size 663748608 \
+    -wait-udp-key -udp-wait 8 -debug \
+    -out "dist/ed2k-interop/udp-cap2/forced-$key.json"
+done
+
 # 全量
 go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/build_docs.py --check
 ```
@@ -352,7 +403,8 @@ go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/b
 其后 `0x92` 请求与 `0x99` 回包都以 RC4 信封传输并被正确解析（`run14` /
 `udp92-encrypted.pcapng`）。本轮又补齐 `0x98`→`0x99`（10 条）与 `0x9A`→`0x9B`（1 个目标
 哈希回包）的强制 opcode 真机往返，并把抽样中 9 台服务器全部重跑：9/9 登录、
-9/9 UDP 搜索有回包、3/9 目标哈希查源有回包（§4.5 / §4.6）。
+9/9 UDP 搜索有回包、3/9 目标哈希查源有回包（§4.5 / §4.6）。第二轮复跑中强制 `0x92`
+在 9/9 服务器上都拿到回包；自动查源与强制 `0x9A` 仍是同一批 3 台回包（§4.7）。
 
 **仍不能宣称**：找到一台会**自动选择** `0x92` 或 `0x9A` 的服务器——抽样里的服务器要么
 同时宣告 `EXT_GETFILES`+`LARGEFILES` 自动走 `0x90`，要么宣告 `EXT_GETSOURCES2` 自动走
@@ -360,6 +412,7 @@ go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/b
 的服务器「不兼容」：只记录未回包，不外推原因。`0x97` 之外其他下发 key 的服务器实现
 仍未覆盖。早前记录的「40 台抽样仅 1 台有 UDP 能力」是按 8 位零值匹配 grep 漏判，
 实际是 9 台（见 `dist/ed2k-interop/server-capabilities.txt`），其中没有一台在
-`OP_SERVERIDENT` 里带 `ST_UDPKEY`；本轮 5/9 是通过 crypt ping 的 `0x97` 拿到 key。
+`OP_SERVERIDENT` 里带 `ST_UDPKEY`；三轮分别有 5/9、7/9、8/9 通过 crypt ping 的
+`0x97` 拿到 key，key 下发本身跨会话不稳定，不能当作服务器能力的固定属性。
 
 本报告的 PASS 项不改变 `12` §3.2 的 ED 门禁判定，也不翻转 P3 发布结论。
