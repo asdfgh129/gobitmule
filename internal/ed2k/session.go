@@ -32,6 +32,10 @@ type Session struct {
 	clientID               int32
 	tcpFlags               int32
 	auxPort                int32
+	// publicIP is the address the server sees for us (eMule GetPublicIP()).
+	// It is the only valid comparison for ST_UDPKEYIP: a LOW_ID clientID is
+	// a server-assigned handle, not an IP address at all.
+	publicIP               uint32
 	diskTasks              []*diskTask
 	diskResults            chan diskTaskResult
 	listener               *net.TCPListener
@@ -579,17 +583,31 @@ func (s *Session) SendUDPSourcesRequest(hash protocol.Hash, size int64) bool {
 }
 
 // SetServerUDPKey installs the server's datagram obfuscation key. eMule only
-// uses it when the server bound the key to our public IP (CServer::GetServerKeyUDP);
-// a key issued for another address would make every datagram undecryptable.
+// uses it when the server bound the key to our public IP
+// (CServer::GetServerKeyUDP):
+//
+//	return m_dwIPServerKeyUDP == theApp.GetPublicIP() ? m_dwServerKeyUDP : 0;
+//
+// For a LOW_ID client the public IP comes from the 20-byte OP_IDCHANGE answer
+// and is unrelated to ClientID, so comparing against ClientID would reject
+// every key a real server issues to a firewalled client.
 func (s *Session) SetServerUDPKey(key, keyIP uint32) {
 	if s == nil || s.serverUDP == nil || key == 0 {
 		return
 	}
 	s.mu.Lock()
+	publicIP := s.publicIP
 	clientID := s.clientID
 	s.mu.Unlock()
-	if keyIP != 0 && clientID != 0 && keyIP != uint32(clientID) {
-		debugPeerf("server udp: ignoring key issued for %d (our id %d)", keyIP, clientID)
+	if keyIP != 0 && publicIP != 0 && keyIP != publicIP {
+		debugPeerf("server udp: ignoring key issued for %d (our public ip %d)", keyIP, publicIP)
+		return
+	}
+	if keyIP != 0 && publicIP == 0 {
+		// eMule refuses the key as well: GetPublicIP()==0 makes
+		// GetServerKeyUDP() return 0. Installing it here would only produce
+		// datagrams no server can decrypt.
+		debugPeerf("server udp: ignoring key issued for %d (public ip unknown, clientID=%d)", keyIP, clientID)
 		return
 	}
 	s.serverUDP.SetUDPKey(key)
@@ -1589,7 +1607,7 @@ func (s *Session) applyFriendSlotSnapshot(values []protocol.Hash) {
 	}
 }
 
-func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, auxPort int32) {
+func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, auxPort int32, reportedIP uint32) {
 	if sc == nil {
 		return
 	}
@@ -1609,6 +1627,13 @@ func (s *Session) OnServerIDChange(sc *ServerConnection, clientID, tcpFlags, aux
 		s.clientID = clientID
 		s.tcpFlags = tcpFlags
 		s.auxPort = auxPort
+		// eMule's GetPublicIP(): the HIGH_ID is its own clientID, a LOW_ID
+		// needs the address the server reported in the 20-byte login answer.
+		if reportedIP != 0 {
+			s.publicIP = reportedIP
+		} else if clientID > 0 {
+			s.publicIP = uint32(clientID)
+		}
 	}
 	for _, transfer := range s.transfers {
 		if transfer == nil || transfer.IsPaused() || transfer.IsAborted() {

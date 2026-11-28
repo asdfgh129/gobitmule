@@ -16,6 +16,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **eD2k UDP 信封交叉验证，补 0x92 分支测试，并修复 UDP key 绑定对象（2026-11-28）**：
+  上一轮实测确认 `udpKey=false` 的服务器无法验证 RC4 信封，本轮用**按 eMule 源码另行实现**
+  的编解码器做字节级交叉验证，并补齐 0x92 分支；验证中发现第 5 处互通缺陷：
+  - **UDP key 校验对象错误**：eMule `CServer::GetServerKeyUDP()` 把 key 绑定到
+    `theApp.GetPublicIP()`，而 LOW_ID 客户端的公网 IP 来自 `OP_IDCHANGE` 第 4 个字段，
+    与 `clientID`（服务器分配的 token）无关。原实现用 `keyIP == clientID`，
+    会让防火墙后客户端收到的 key 全部被拒，UDP 加密永远不启用。同时 `IdChange`
+    只读 12 字节，丢掉了 reported IP 和混淆 TCP 端口。现解析 20 字节（按 eMule
+    规则忽略 `IsLowID` 的 reported IP），会话新增 `publicIP`，key 改为按公网 IP 校验。
+  - **RC4 信封交叉验证**：新增 `emule_udp_vector_test.go`，独立实现 eMule
+    `EncryptSendServer`/`DecryptReceivedServer` 与 `RC4CreateKey`，验证我们发的包能被
+    **只认 `0x6B` 方向**的 eMule 解码器还原、我们收的 `0xA5` 包（padLen=0/5/15）能正确解密；
+    另在 `server_udp_encryption_test.go` 用真实 UDP socket 跑通「加密 0x92 请求 →
+    eMule 解码 → 加密 `0x99`/`0x9B` 回包 → 回调解析」全链路。
+  - **`bSkipDiscard` 语义核对**：eMule `RC4CreateKey(..., true)` 是「跳过丢弃前 1024 字节」，
+    与 Go `crypto/rc4.NewCipher` 行为一致；若按字面理解成「要丢弃」会得到永远对不上的密流。
+    已在 `docs/26` §4.1 留档，避免后续误改。
+  - **0x92 分支完整测试**：`TestUDPSearchReqV2WireFormat` 逐字节断言 opcode `0x92`、
+    无 tag set（`01 0600 "debian"` 中的 `01` 是搜索项类型而非 tag 数），以及加上
+    `LARGEFILES` 后切到带 tag set 的 `0x90`。
+  - 新增测试：`TestIdChangeParsesReportedPublicIP`、`TestIdChangeLegacyAndBogusReportedIP`、
+    `TestIdChangePutRoundTrip`、`TestOnServerIDChangeStoresReportedPublicIP`、
+    `TestSetServerUDPKeyUsesPublicIP`、`TestDecryptServerDatagramAgainstEMuleServerVector`、
+    `TestEncryptServerDatagramMatchesEMuleDecoder`、
+    `TestDecryptServerDatagramRejectsInvalidEnvelope`、
+    `TestUDPSearchReqV2WireFormat`、`TestServerUDPEncryptedRoundTripAndEMuleAnswers`。
+  - 存档：`docs/26-eD2k-UDP互通验证报告.md`（格式、证据、交叉验证方法、PASS/未闭环清单、
+    复跑命令），`docs/README.md` §三登记，`tools/build_docs.py` 分组同步，`docs/16` §6.1
+    交叉引用。**真机 RC4（服务器下发 `ST_UDPKEY`）与 0x92 真实服务器往返仍未执行**，
+    不据此翻转发布结论。
 - **eD2k 真实服务器 / 真实客户端互通实测，修复 4 处只有联网才会暴露的缺陷（2026-11-27）**：
   上一条复核是读码比对；本轮用 `cmd/uded2kpeerprobe` 登录真实公网服务器
   （`176.123.5.89:4725` eMule Sunrise、`57.128.161.24:6666` Cyberchrist 18.1）并与真实

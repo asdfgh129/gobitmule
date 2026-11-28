@@ -77,6 +77,7 @@ GROUPS = [
         "23-当前状态审计报告.md",
         "24-微信插件合规评审清单.md",
         "25-goed2k-fork-api-spike.md",
+        "26-eD2k-UDP互通验证报告.md",
     ]),
     ("变更记录", ["@root:CHANGELOG.md"]),
 ]

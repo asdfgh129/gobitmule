@@ -36,6 +36,10 @@ type ServerConnection struct {
 	udpKey       uint32
 	udpKeyIP     uint32
 	serverName   string
+	// reportedIP is the public IP OP_IDCHANGE told us we have (offset 12).
+	// CServer::GetServerKeyUDP() binds the UDP obfuscation key to this value,
+	// not to the (possibly LOW_ID) clientID.
+	reportedIP uint32
 	// hasServerIdent is set once OP_SERVERIDENT has been parsed on this
 	// connection. A connected server that advertises no UDP capability at all
 	// (udpFlags == 0) is indistinguishable from "not answered yet" by the flags
@@ -124,13 +128,14 @@ func (s *ServerConnection) pumpDial() bool {
 	return false
 }
 
-func (s *ServerConnection) OnServerIDChange(clientID, tcpFlags, auxPort int32) {
-	debugPeerf("server %s <- IdChange clientID=%d", s.identifier, clientID)
+func (s *ServerConnection) OnServerIDChange(clientID, tcpFlags, auxPort int32, reportedIP uint32) {
+	debugPeerf("server %s <- IdChange clientID=%d reportedIP=%d", s.identifier, clientID, reportedIP)
 	s.clientID = clientID
 	s.tcpFlags = tcpFlags
 	s.auxPort = auxPort
+	s.reportedIP = reportedIP
 	s.handshakeCompleted = true
-	s.session.OnServerIDChange(s, clientID, tcpFlags, auxPort)
+	s.session.OnServerIDChange(s, clientID, tcpFlags, auxPort, reportedIP)
 }
 
 func (s *ServerConnection) OnDisconnect(ec BaseErrorCode) {
@@ -246,7 +251,7 @@ func (s *ServerConnection) ProcessIncoming() error {
 	for _, packet := range packets {
 		switch value := packet.(type) {
 		case *serverproto.IdChange:
-			s.OnServerIDChange(value.ClientID, value.TCPFlags, value.AuxPort)
+			s.OnServerIDChange(value.ClientID, value.TCPFlags, value.AuxPort, value.ReportedIP)
 			// eMule only receives OP_SERVERIDENT (and with it ST_UDPFLAGS /
 			// ST_UDPKEY / ST_UDPKEYIP) after it asks for the server list:
 			// "OP_SERVERIDENT - this is sent by the server only if we send a
