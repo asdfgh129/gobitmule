@@ -32,30 +32,31 @@ type Session struct {
 	serverConnectionPolicy map[string]*ServerConnectionPolicy
 	configuredServers      map[string]*net.TCPAddr
 	forcedUDPSearchOpcode  byte // 0 = choose from server capabilities; test override
+	forcedUDPSourceOpcode  byte // 0 = choose from server capabilities; test override
 	clientID               int32
 	tcpFlags               int32
 	auxPort                int32
 	// publicIP is the address the server sees for us (eMule GetPublicIP()).
 	// It is the only valid comparison for ST_UDPKEYIP: a LOW_ID clientID is
 	// a server-assigned handle, not an IP address at all.
-	publicIP               uint32
-	diskTasks              []*diskTask
-	diskResults            chan diskTaskResult
-	listener               *net.TCPListener
-	incomingConns          chan net.Conn
-	dhtTracker             *DHTTracker
-	upnp                   *upnpManager
-	uploadQueue            *UploadQueue
-	credits                *PeerCreditManager
-	friendSlots            map[string]bool
-	activeSearch           *searchTask
-	nextSearchID           uint32
-	serverUDP              *ServerUDP // #2: server UDP socket (global search / glob sources)
-	friendList             *FriendList // #6: friends and chat identities
-	onChatMessage          func(userHash protocol.Hash, text string)
-	ipFilter               *IPFilter // #10: eMule ipfilter.dat equivalent
-	spamFilter             *SpamFilter // #11: search result rating/spam filter
-	secureIdent            secureIdentIdentity // #5: long term RSA identity for Secure Ident
+	publicIP      uint32
+	diskTasks     []*diskTask
+	diskResults   chan diskTaskResult
+	listener      *net.TCPListener
+	incomingConns chan net.Conn
+	dhtTracker    *DHTTracker
+	upnp          *upnpManager
+	uploadQueue   *UploadQueue
+	credits       *PeerCreditManager
+	friendSlots   map[string]bool
+	activeSearch  *searchTask
+	nextSearchID  uint32
+	serverUDP     *ServerUDP  // #2: server UDP socket (global search / glob sources)
+	friendList    *FriendList // #6: friends and chat identities
+	onChatMessage func(userHash protocol.Hash, text string)
+	ipFilter      *IPFilter           // #10: eMule ipfilter.dat equivalent
+	spamFilter    *SpamFilter         // #11: search result rating/spam filter
+	secureIdent   secureIdentIdentity // #5: long term RSA identity for Secure Ident
 	// serverUDPCapabilities caches SRV_UDPFLG_* per server address. It is
 	// seeded from server.met ST_UDPFLAGS and refreshed on every
 	// OP_SERVERIDENT, so a request issued before the current handshake has
@@ -575,19 +576,49 @@ func (s *Session) SendUDPSourcesRequest(hash protocol.Hash, size int64) bool {
 		return false
 	}
 	flags := s.serverUDPFlags()
+	s.mu.Lock()
+	forced := s.forcedUDPSourceOpcode
+	s.mu.Unlock()
 	var datagram []byte
-	switch {
-	case flags&serverproto.UDPFlagExtGetSources2 != 0:
+	switch forced {
+	case serverproto.OpGlobGetSources2:
 		datagram = serverproto.UDPGlobGetSources(hash, size)
-	case flags&serverproto.UDPFlagExtGetSources != 0:
+	case serverproto.OpGlobGetSources:
 		datagram = serverproto.UDPGlobGetSourcesLegacy(hash)
 	default:
-		debugPeerf("server udp: no glob-sources capability flags=0x%x", flags)
-		return false
+		switch {
+		case flags&serverproto.UDPFlagExtGetSources2 != 0:
+			datagram = serverproto.UDPGlobGetSources(hash, size)
+		case flags&serverproto.UDPFlagExtGetSources != 0:
+			datagram = serverproto.UDPGlobGetSourcesLegacy(hash)
+		default:
+			debugPeerf("server udp: no glob-sources capability flags=0x%x", flags)
+			return false
+		}
 	}
 	ok := s.serverUDP.SendTo(addr, datagram)
-	debugPeerf("server udp -> glob sources %s to %s ok=%t flags=0x%x", hash.String(), addr.String(), ok, flags)
+	debugPeerf("server udp -> glob sources %s to %s opcode=0x%02x ok=%t flags=0x%x",
+		hash.String(), addr.String(), datagram[1], ok, flags)
 	return ok
+}
+
+// SetForcedUDPSourcesOpcode pins the source-request opcode for interop probes.
+// Production code leaves it at zero and lets the server capabilities decide.
+func (s *Session) SetForcedUDPSourcesOpcode(opcode byte) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.forcedUDPSourceOpcode = opcode
+	s.mu.Unlock()
+}
+
+// UDPStats exposes decoded server-UDP counters for interop evidence.
+func (s *Session) UDPStats() UDPTrafficStats {
+	if s == nil || s.serverUDP == nil {
+		return UDPTrafficStats{}
+	}
+	return s.serverUDP.TrafficStats()
 }
 
 // MaybeSendCryptPing performs the obfuscated UDP server-status probe eMule

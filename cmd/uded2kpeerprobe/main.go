@@ -61,6 +61,21 @@ type peerEvidence struct {
 	DownloadRate int    `json:"download_bps,omitempty"`
 }
 
+type udpEvidence struct {
+	SearchRequested  bool                   `json:"search_requested"`
+	SourceRequested  bool                   `json:"source_requested"`
+	SearchOpcode     string                 `json:"search_opcode"`
+	SourceOpcode     string                 `json:"source_opcode"`
+	SourceSent       bool                   `json:"source_sent,omitempty"`
+	ServerUDPKey     bool                   `json:"server_udp_key"`
+	Before           goed2k.UDPTrafficStats `json:"before"`
+	After            goed2k.UDPTrafficStats `json:"after"`
+	SearchDatagrams  int64                  `json:"search_datagrams"`
+	SearchEntries    int64                  `json:"search_entries"`
+	SourcesDatagrams int64                  `json:"sources_datagrams"`
+	SourcesEndpoints int64                  `json:"sources_endpoints"`
+}
+
 type report struct {
 	Timestamp    string           `json:"timestamp"`
 	Servers      []serverEvidence `json:"servers"`
@@ -74,6 +89,7 @@ type report struct {
 	VerifiedPeer int              `json:"secure_ident_peers"`
 	IdentKeyLen  int              `json:"secure_ident_key_bytes,omitempty"`
 	Downloaded   int64            `json:"downloaded_bytes"`
+	UDP          *udpEvidence     `json:"udp,omitempty"`
 	Verdict      string           `json:"verdict"`
 	BlockReason  string           `json:"block_reason,omitempty"`
 }
@@ -97,7 +113,12 @@ func run() int {
 	statePath := flag.String("state", "", "engine state file (persists UserHash + RSA identity)")
 	debug := flag.Bool("debug", false, "emit engine debug logs to stderr")
 	waitUDPKey := flag.Bool("wait-udp-key", false, "wait for the server's crypt-ping key before searching")
-	udpSearchOpcode := flag.String("udp-search-opcode", "", "force UDP search opcode (hex, e.g. 0x92) for interop testing")
+	udpSearchOpcode := flag.String("udp-search-opcode", "", "force UDP search opcode (hex, e.g. 0x98) for interop testing")
+	udpSourceOpcode := flag.String("udp-source-opcode", "", "force UDP source opcode (hex, e.g. 0x9A) for interop testing")
+	udpOnly := flag.Bool("udp-only", false, "only collect UDP search/source evidence; skip the peer swarm")
+	udpSearch := flag.Bool("udp-search", true, "in -udp-only mode, send a global search")
+	udpSource := flag.Bool("udp-source", false, "in -udp-only mode, send a global source request (needs -hash/-size)")
+	udpWait := flag.Int("udp-wait", 8, "seconds to wait for UDP answers in -udp-only mode")
 	out := flag.String("out", "", "write the JSON report to this path")
 	flag.Parse()
 
@@ -192,6 +213,16 @@ func run() int {
 		c.Session().SetForcedUDPSearchOpcode(byte(value))
 		fmt.Fprintf(os.Stderr, "probe: forcing UDP search opcode 0x%02x\n", value)
 	}
+	if *udpSourceOpcode != "" {
+		value, err := strconv.ParseUint(strings.TrimPrefix(strings.ToLower(*udpSourceOpcode), "0x"), 16, 8)
+		if err != nil {
+			r.BlockReason = "bad -udp-source-opcode: " + err.Error()
+			printReport(r, *out)
+			return 2
+		}
+		c.Session().SetForcedUDPSourcesOpcode(byte(value))
+		fmt.Fprintf(os.Stderr, "probe: forcing UDP source opcode 0x%02x\n", value)
+	}
 	if *waitUDPKey {
 		for i := 0; i < 40 && !c.Session().HasServerUDPKey(); i++ {
 			time.Sleep(250 * time.Millisecond)
@@ -204,6 +235,71 @@ func run() int {
 		r.BlockReason = "no server completed the login handshake"
 		printReport(r, *out)
 		return 2
+	}
+
+	// UDP-only interop mode: prove that a specific request opcode really
+	// produced a parseable answer from the live server. No transfer is added,
+	// so peer state cannot mask a missing UDP reply.
+	if *udpOnly {
+		ev := udpEvidence{
+			SearchRequested: *udpSearch,
+			SourceRequested: *udpSource,
+			SearchOpcode:    forcedOpcodeLabel(*udpSearchOpcode),
+			SourceOpcode:    forcedOpcodeLabel(*udpSourceOpcode),
+			ServerUDPKey:    c.Session().HasServerUDPKey(),
+		}
+		ev.Before = c.Session().UDPStats()
+		if *udpSearch {
+			r.SearchQuery = *query
+			r.SearchHits = runSearch(c, *query, time.Duration(*searchWait)*time.Second)
+		}
+		if *udpSource {
+			if *hashArg == "" || *sizeArg <= 0 {
+				r.Verdict = "FAIL"
+				r.BlockReason = "-udp-source needs -hash and -size"
+				printReport(r, *out)
+				return 2
+			}
+			hash, err := protocol.HashFromString(*hashArg)
+			if err != nil {
+				r.Verdict = "FAIL"
+				r.BlockReason = "bad -hash: " + err.Error()
+				printReport(r, *out)
+				return 2
+			}
+			r.ChosenFile = &searchHit{Hash: hash.String(), Size: *sizeArg, Name: "(from -hash)"}
+			ev.SourceSent = c.Session().SendUDPSourcesRequest(hash, *sizeArg)
+		}
+		if *udpWait > 0 {
+			time.Sleep(time.Duration(*udpWait) * time.Second)
+		}
+		ev.After = c.Session().UDPStats()
+		ev.SearchDatagrams = ev.After.SearchDatagrams - ev.Before.SearchDatagrams
+		ev.SearchEntries = ev.After.SearchEntries - ev.Before.SearchEntries
+		ev.SourcesDatagrams = ev.After.SourcesDatagrams - ev.Before.SourcesDatagrams
+		ev.SourcesEndpoints = ev.After.SourcesEndpoints - ev.Before.SourcesEndpoints
+		r.UDP = &ev
+		missing := []string{}
+		if *udpSearch && ev.SearchDatagrams == 0 {
+			missing = append(missing, "no UDP search answer")
+		}
+		if *udpSource {
+			if !ev.SourceSent {
+				missing = append(missing, "source request not sent")
+			}
+			if ev.SourcesDatagrams == 0 {
+				missing = append(missing, "no UDP source answer")
+			}
+		}
+		if len(missing) > 0 {
+			r.Verdict = "FAIL"
+			r.BlockReason = strings.Join(missing, "; ")
+			printReport(r, *out)
+			return 2
+		}
+		r.Verdict = "PASS"
+		printReport(r, *out)
+		return 0
 	}
 
 	// 2) find a file that real peers are actually sharing.
@@ -292,6 +388,13 @@ func run() int {
 		return 0
 	}
 	return 2
+}
+
+func forcedOpcodeLabel(value string) string {
+	if value == "" {
+		return "auto"
+	}
+	return strings.ToLower(value)
 }
 
 func anyHandshake(c *goed2k.Client) bool {

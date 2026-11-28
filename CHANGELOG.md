@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > （首条为 2026-11-10 的覆盖率债清零）。标签 message 附本文件摘要。
 
 
+### Added
+- **eD2k legacy UDP 真机往返与 9 台抽样验证（2026-11-28）**：补完上一轮留下的
+  `0x9A` / `0x98` 未闭环项，并把抽样中 9 台 UDP 能力服务器逐台重跑。
+  - 探针新增 `-udp-only`（不加载 transfer、只看 UDP 回包）、`-udp-search` /
+    `-udp-source`、`-udp-source-opcode` 覆盖开关与 `-udp-wait`；会话层新增
+    `SetForcedUDPSourcesOpcode()` 和 `UDPTrafficStats()`，接收路径按解析成功计数并
+    逐条打印目标哈希的 `0x9B` 回包，避免把登录时的异步回包误算成目标请求结果。
+  - 新增 `TestForcedUDPSourcesOpcodeOnRealSocket`：真实 UDP socket 断言 `0x9A`（18 B）
+    与 `0x94`（22 B）字节内容，并验证强制值可绕过「无能力位不发」的默认分支。
+  - 真机：Cyberchrist 18.1 上 `0x98` → 10 个加密 `0x99`，`0x9A` → 1 个目标哈希的
+    加密 `0x9B`；证据 `dist/ed2k-interop/udp98-real.*`、`udp9a-real.*`。
+  - 9 台抽样：9/9 登录、9/9 UDP 搜索有回包、3/9 目标哈希查源有回包、5/9 经 crypt ping
+    装上 server key。两台实时 `OP_SERVERIDENT` 报 `udpFlags=0` 但 server.met 缓存让
+    请求自动选了 `0x90` 且仍被服务器应答，验证了能力位预热策略。证据在
+    `dist/ed2k-interop/udp-cap/`。自动选择 `0x92`/`0x9A` 的服务器仍未找到；
+    6 台查源未回包只记录事实，不外推为不兼容。
+  - 存档 `docs/26` v1.2、`docs/16` §6.1、`docs/README` v1.55。
+
 ### Fixed
 - **eD2k UDP 真机闭环：crypt ping 下发 key、加密往返与 0x92 回传（2026-11-28）**：
   上一轮未闭环的两项已在 Cyberchrist 18.1（`57.128.161.24:6666`）上跑通。
@@ -30,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     抓包 `udp92-encrypted.pcapng` 帧 18/24/28/32 覆盖明文 ping、加密应答、
     加密请求与加密结果四个环节。
   - 存档 `docs/26` v1.1、`docs/16` §6.1、`docs/README` v1.54；新增 3 个测试。
-  - 仍不能宣称：自动选择 `0x92` 的服务器、`0x9A`/`0x98` legacy 真机往返。
+  - 当时仍未闭环：自动选择 `0x92` 的服务器、`0x9A`/`0x98` legacy 真机往返
+    （legacy 两项已于本日稍后的上一条关闭）。
 - **eD2k UDP 信封交叉验证，补 0x92 分支测试，并修复 UDP key 绑定对象（2026-11-28）**：
   上一轮实测确认 `udpKey=false` 的服务器无法验证 RC4 信封，本轮用**按 eMule 源码另行实现**
   的编解码器做字节级交叉验证，并补齐 0x92 分支；验证中发现第 5 处互通缺陷：

@@ -14,6 +14,16 @@ import (
 	serverproto "github.com/asdfgh129/gobitmule/internal/ed2k/protocol/server"
 )
 
+// UDPTrafficStats counts server-UDP datagrams that were actually decoded.
+// Probes use it as evidence that a legacy opcode round-tripped with a real
+// server instead of merely being written to a socket.
+type UDPTrafficStats struct {
+	SearchDatagrams  int64 `json:"search_datagrams"`
+	SearchEntries    int64 `json:"search_entries"`
+	SourcesDatagrams int64 `json:"sources_datagrams"`
+	SourcesEndpoints int64 `json:"sources_endpoints"`
+}
+
 // ServerUDP holds the server-facing UDP socket. Send uses the connected
 // server's UDP endpoint; baseKey==0 means plaintext (server did not supply a
 // UDP key), matching eMule's IsServerCryptLayerUDPEnabled()==false path.
@@ -30,6 +40,7 @@ type ServerUDP struct {
 	// binds the key to our current public IP without extra validation.
 	onServerKey      func(uint32)
 	pendingChallenge uint32
+	stats            UDPTrafficStats
 }
 
 func NewServerUDP() *ServerUDP {
@@ -41,6 +52,15 @@ func (u *ServerUDP) SetUDPKey(key uint32) {
 	u.mu.Lock()
 	u.baseKey = key
 	u.mu.Unlock()
+}
+
+// TrafficStats returns decoded server-UDP counters. The counters are kept on
+// the receive path so an opcode can be proven to have produced a parseable
+// answer even when no transfer or search handle consumes the entries.
+func (u *ServerUDP) TrafficStats() UDPTrafficStats {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.stats
 }
 
 // HasUDPKey reports whether a server key is currently installed. Tests and
@@ -191,13 +211,30 @@ func (u *ServerUDP) readLoop(conn *net.UDPConn,
 				}
 			}
 		}
-		if onResults != nil {
-			for hash, endpoints := range serverproto.ParseUDPFoundSources(plain) {
+		foundSources := serverproto.ParseUDPFoundSources(plain)
+		if len(foundSources) > 0 {
+			endpoints := 0
+			for _, list := range foundSources {
+				endpoints += len(list)
+			}
+			u.mu.Lock()
+			u.stats.SourcesDatagrams++
+			u.stats.SourcesEndpoints += int64(endpoints)
+			u.mu.Unlock()
+		}
+		for hash, endpoints := range foundSources {
+			debugPeerf("server udp source answer hash=%s got=%d from=%s encrypted=%t",
+				hash.String(), len(endpoints), addr.String(), decrypted)
+			if onResults != nil {
 				onResults(hash, endpoints)
 			}
 		}
-		if onSearch != nil {
-			if entries, err := serverproto.ParseUDPSearchResults(plain); err == nil && len(entries) > 0 {
+		if entries, err := serverproto.ParseUDPSearchResults(plain); err == nil && len(entries) > 0 {
+			u.mu.Lock()
+			u.stats.SearchDatagrams++
+			u.stats.SearchEntries += int64(len(entries))
+			u.mu.Unlock()
+			if onSearch != nil {
 				onSearch(entries)
 			}
 		}

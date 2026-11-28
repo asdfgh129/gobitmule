@@ -1,6 +1,6 @@
 # 26 eD2k UDP 互通验证报告
 
-> 文档编号：UD-DOC-26 ｜ 版本：v1.1 ｜ 状态：**验证报告（本地交叉验证 + 真实服务器抓包；不作发布门禁）** ｜ 日期：2026-11-28 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-26 ｜ 版本：v1.2 ｜ 状态：**验证报告（本地交叉验证 + 真实服务器抓包；不作发布门禁）** ｜ 日期：2026-11-28 ｜ 维护责任：架构组
 >
 > 本文只讨论 eD2k 的 **server UDP 数据报链路**（全局搜索、全局查源、能力协商与混淆信封）。
 > TCP 登录/源交换、SecureIdent、KAD 的结论见 [`16`](16-互操作性与兼容性设计.md) §3.1 / §6.1。
@@ -10,8 +10,9 @@
 | 目标 | 结论 | 依据类型 |
 |---|---|---|
 | UDP 搜索 opcode 按服务器能力选择 | **PASS** | 真实服务器抓包 + 单测 |
-| `0x90` tag set、`0x92` 裸搜索树、`0x98` legacy 三种格式 | **PASS** | 真实服务器抓包（`0x90`、强制 `0x92`）+ 单测（`0x98`） |
-| UDP 查源 `0x94` / `0x9A` 与 `0x9B` 回包解析 | **PASS** | 真实服务器抓包 + 黄金样本回归测试 |
+| `0x90` tag set、`0x92` 裸搜索树、`0x98` legacy 三种格式 | **PASS（真机）** | 真实服务器抓包（`0x90`、强制 `0x92`）与 `0x98` 强制 opcode 往返（§4.5） |
+| UDP 查源 `0x94` / `0x9A` 与 `0x9B` 回包解析 | **PASS（真机）** | `0x94` 抓包 + `0x9A` 强制 opcode 往返（§4.5）+ 黄金样本回归测试 |
+| 抽样中 9 台 UDP 能力服务器的实际可达性 | **9/9 登录、9/9 UDP 搜索有回包；3/9 查源有回包** | 逐台真实服务器探针（§4.6） |
 | 能力位时序（登录尚未拿到 `OP_SERVERIDENT` 时） | **PASS** | 真实服务器日志 + 单测 |
 | RC4 信封与 eMule 字节级互认 | **PASS（交叉验证）** | 独立 eMule 算法实现的向量测试 + 真实 UDP socket 端到端 |
 | RC4 信封在**真实服务器**上端到端（crypt ping 下发 key → 加密请求 → 加密回包） | **PASS（真机）** | Cyberchrist 18.1 `run13`/`run14` + `crypt-ping-cyberchrist2.pcapng` / `udp92-encrypted.pcapng` |
@@ -226,6 +227,86 @@ server udp search results got=1 added=1   （连续 10 条）
 - `TestParseGlobServStatRes` 系列：`0x97` 短包/完整包解析，key 取自 body[36:40]。
 - 探针 `-wait-udp-key` 让真机复跑能稳定等到信封激活后再发请求。
 
+### 4.5 legacy opcode 真机往返：`0x98` 与 `0x9A`
+
+此前的未闭环项是「两种 legacy 格式只做过单测，没有跑真实服务器」。本轮给探针补了
+`-udp-only` 模式：只登录、只发 UDP 请求并统计**解出的**回包，不加载 transfer、
+不依赖 peer 状态，避免 peer 连接掩盖 UDP 是否真的回包。新增开关：
+
+| 开关 | 作用 |
+|---|---|
+| `-udp-only` | 跳过 peer swarm，只做 UDP 证据采集 |
+| `-udp-search` / `-udp-source` | 分别启用全局搜索 / 全局查源 |
+| `-udp-search-opcode 0x98` / `-udp-source-opcode 0x9A` | 强制 legacy opcode，生产默认仍按能力位自动选择 |
+| `-udp-wait N` | 发完请求后等待 N 秒收集回包 |
+
+会话层相应增加 `SetForcedUDPSourcesOpcode()`（原来只有搜索 opcode 可覆盖）与
+`UDPTrafficStats()`：接收路径按 `0x99` / `0x9B` 解析成功计数，并逐条打印
+`server udp source answer hash=... got=N`，这样才能把回包归属到目标哈希，而不是把
+登录时其他哈希的异步回包误算进来。单测 `TestForcedUDPSourcesOpcodeOnRealSocket`
+在真实 UDP socket 上断言 `0x9A`（18 B）与 `0x94`（22 B）的字节内容，并验证强制值
+能绕过「无能力位就不发」的默认分支。
+
+**`0x98` 真机**（`dist/ed2k-interop/udp98-real.log/.json`，Cyberchrist 18.1）：
+crypt ping 用 challenge `145054978` 拿到 key `1838661081`，随后强制发
+`0x98`，服务器回传 **10 个加密 `0x99`，解析出 10 条结果**：
+
+```text
+probe: forcing UDP search opcode 0x98
+server udp -> crypt ping to 57.128.161.24:6678 challenge=145054978
+server udp <- crypt ping answer challenge=145054978 key=1838661081 flags=0x17fb
+server udp -> glob search "debian" to 57.128.161.24:6670 opcode=0x98 flags=0x73b ok=true
+（10 × server udp search results got=1 added=1）
+```
+
+**`0x9A` 真机**（`dist/ed2k-interop/udp9a-real.log/.json`，同服务器）：
+crypt ping 用 challenge `2626736283` 拿到同一 key，强制发裸 hash 的 `0x9A`，
+服务器回传 **1 个加密 `0x9B`**，逐哈希日志确认目标是 `1565D4…C90`：
+
+```text
+probe: forcing UDP source opcode 0x9a
+server udp -> glob sources 1565D4FAE4B5F20EC77429622BC46C90 to 57.128.161.24:6670 opcode=0x9a ok=true flags=0x73b
+server udp source answer hash=1565D4FAE4B5F20EC77429622BC46C90 got=1 from=57.128.161.24:6670 encrypted=true
+```
+
+因此两种 legacy 报文本身都能被真实 eMule 系服务器解析并回传。边界与 `0x92` 相同：
+这是**强制 opcode** 验证格式，不是「找到一台会自动选择 legacy 的服务器」。
+
+### 4.6 抽样 9 台 UDP 能力服务器逐台验证
+
+`dist/ed2k-interop/server-capabilities.txt` 中 9 台宣告过非零 `ST_UDPFLAGS` 的服务器
+全部重跑：登录 → 等 `OP_SERVERIDENT` → 若有 `SRV_UDPFLG_UDPOBFUSCATION` 则 crypt ping
+装 key → 搜 `debian` → 用已知 ISO 哈希（`1565D4FAE4B5F20EC77429622BC46C90`，
+663748608 B）查源。证据在 `dist/ed2k-interop/udp-cap/*.json/.log`。
+
+| 服务器 | 实时 ident flags | crypt key | `0x99` 包/条目 | 目标哈希 `0x9B` 回包 | 结论 |
+|---|---|---|---|---|---|
+| 85.121.5.137:4232 | `0x00000000` | 否 | 10/10 | 0 | 搜索 OK，查源无回包 |
+| 85.137.248.210:56612 | `0x0030573b` | 否 | 8/73 | 0 | 搜索 OK，查源无回包 |
+| 91.208.162.55:4235 | `0x0010073b` | 是 | 10/10 | 0 | 搜索 OK，查源无回包 |
+| 91.208.162.87:4232 | `0x0010073b` | 是 | 10/10 | 1 | 搜索、查源均 OK |
+| 82.192.72.186:4661 | `0x0010073b` | 否 | 7/7 | 1 | 明文路径下搜索、查源均 OK |
+| 77.42.68.79:4232 | `0x00000000` | 否 | 10/10 | 0 | 搜索 OK，查源无回包 |
+| 91.208.162.182:4232 | `0x0010073b` | 是 | 10/10 | 0 | 搜索 OK，查源无回包 |
+| 57.128.161.24:6666 | `0x0000073b` | 是 | 10/10 | 1 | 搜索、查源均 OK |
+| 143.246.192.192:4232 | `0x0010073b` | 是 | 8/8 | 0 | 搜索 OK，查源无回包 |
+
+汇总口径：**9/9 登录成功、9/9 UDP 搜索收到并解析出结果、5/9 通过 crypt ping 装上了
+server key、3/9 对目标哈希回传了 `0x9B`**。探针的总 verdict 对「搜索 + 查源」取与，
+所以上表 6 台记为 FAIL，仅表示其中查源没有回包，不代表 UDP 链路不可用。
+
+两点需要留档：
+
+1. 85.121.5.137 与 77.42.68.79 的实时 `OP_SERVERIDENT` 这次报 `udpFlags=0`，
+   但 `server.met` 缓存的非零值让请求在 ident 到达前就选了 `0x90`，服务器仍然回了
+   结果。这验证了 §3.3 的预热策略；同时实时 ident 仍以实况为准更新显示值。
+2. `82.192.72.186` 没有 crypt key，搜索和查源都在**明文**下完成，说明加密信封不是
+   这 9 台服务器回包的必要条件；能否装 key 由 `SRV_UDPFLG_UDPOBFUSCATION` 与 `0x97`
+   应答共同决定。
+
+没拿到 `0x9B` 的 6 台不能据此判定实现不兼容：同一批请求里 `0x94` 的字节格式与在
+Cyberchrist / Sharing-Devils No.4 上成功的请求完全一致，差异更可能是目标哈希在该
+服务器的索引里没有可用源。这里只记录「未回包」，不外推结论。
 
 ## 5. 复跑命令
 
@@ -233,12 +314,31 @@ server udp search results got=1 added=1   （连续 10 条）
 # 协议层向量 + 真实回包黄金样本
 go test ./internal/ed2k/protocol/server/ -run 'IdChange|EMule|UDPFoundSources|UDPGlobSearch|ParseGlobServStatRes' -v
 
-# 真实 UDP socket 的加密往返 + 0x92 格式 + key 绑定
-go test ./internal/ed2k/ -run 'TestUDPSearchReqV2WireFormat|TestServerUDPEncryptedRoundTripAndEMuleAnswers|TestSetServerUDPKeyUsesPublicIP|TestCryptPingInstallsKeyThenEncryptsRequests' -v
+# 真实 UDP socket 的加密往返 + 0x92/0x9A 格式 + key 绑定
+go test ./internal/ed2k/ -run 'TestUDPSearchReqV2WireFormat|TestForcedUDPSourcesOpcodeOnRealSocket|TestServerUDPEncryptedRoundTripAndEMuleAnswers|TestSetServerUDPKeyUsesPublicIP|TestCryptPingInstallsKeyThenEncryptsRequests' -v
 
 # 真实公网服务器：等 crypt ping 装好 key，再强制 0x92 验证加密往返
 go run ./cmd/uded2kpeerprobe -server 57.128.161.24:6666 -search debian \
   -wait-udp-key -udp-search-opcode 0x92 -debug -out dist/ed2k-interop/udp92-encrypted.json
+
+# legacy 真机往返：0x98 搜索、0x9A 查源
+go run ./cmd/uded2kpeerprobe -server 57.128.161.24:6666 -search debian \
+  -udp-only -udp-search -udp-search-opcode 0x98 -wait-udp-key -udp-wait 8 \
+  -debug -out dist/ed2k-interop/udp98-real.json
+go run ./cmd/uded2kpeerprobe -server 57.128.161.24:6666 \
+  -udp-only -udp-search=false -udp-source -udp-source-opcode 0x9A \
+  -hash 1565D4FAE4B5F20EC77429622BC46C90 -size 663748608 \
+  -wait-udp-key -udp-wait 10 -debug -out dist/ed2k-interop/udp9a-real.json
+
+# 抽样 9 台 UDP 能力服务器逐台验证（逐台串行，避免端口冲突）
+awk -F'\t' '/udpFlags=0x/ && $0 !~ /udpFlags=0x00000000/ {print $1}' \
+  dist/ed2k-interop/server-capabilities.txt | while read -r srv; do
+  go run ./cmd/uded2kpeerprobe -server "$srv" -search debian -search-wait 8 \
+    -udp-only -udp-search -udp-source \
+    -hash 1565D4FAE4B5F20EC77429622BC46C90 -size 663748608 \
+    -wait-udp-key -udp-wait 6 -debug \
+    -out "dist/ed2k-interop/udp-cap/${srv//:/_}.json"
+done
 
 # 全量
 go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/build_docs.py --check
@@ -250,13 +350,16 @@ go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/b
 在协议字节层面与 eMule srchybrid 一致，并有独立实现对端交叉验证。真实公网服务器抓包证明：
 `0x90`→`0x99`、`0x94`→`0x9B` 可用；crypt ping 从 `OP_GLOBSERVSTATRES` 拿到 server key，
 其后 `0x92` 请求与 `0x99` 回包都以 RC4 信封传输并被正确解析（`run14` /
-`udp92-encrypted.pcapng`）。
+`udp92-encrypted.pcapng`）。本轮又补齐 `0x98`→`0x99`（10 条）与 `0x9A`→`0x9B`（1 个目标
+哈希回包）的强制 opcode 真机往返，并把抽样中 9 台服务器全部重跑：9/9 登录、
+9/9 UDP 搜索有回包、3/9 目标哈希查源有回包（§4.5 / §4.6）。
 
-**仍不能宣称**：找到一台会**自动选择** `0x92` 的服务器（抽样中具备 UDP 能力的服务器都同时
-宣告 `LARGEFILES`，自动走 `0x90`；`0x92` 是用覆盖开关验证报文格式本身）；`0x9A` legacy
-查源与 `0x98` legacy 搜索的真实服务器往返（只跑过 `0x94`/`0x90`）；`0x97` 之外其他下发
-key 的服务器实现。早前记录的「40 台抽样仅 1 台有 UDP 能力」是按 8 位零值匹配 grep 漏判，
-实际是 9 台（见 `dist/ed2k-interop/server-capabilities.txt`），但其中没有一台在
-`OP_SERVERIDENT` 里带 `ST_UDPKEY`。
+**仍不能宣称**：找到一台会**自动选择** `0x92` 或 `0x9A` 的服务器——抽样里的服务器要么
+同时宣告 `EXT_GETFILES`+`LARGEFILES` 自动走 `0x90`，要么宣告 `EXT_GETSOURCES2` 自动走
+`0x94`；`0x92`/`0x9A`/`0x98` 是用覆盖开关验证报文格式本身。也不能宣称 6 台查源未回包
+的服务器「不兼容」：只记录未回包，不外推原因。`0x97` 之外其他下发 key 的服务器实现
+仍未覆盖。早前记录的「40 台抽样仅 1 台有 UDP 能力」是按 8 位零值匹配 grep 漏判，
+实际是 9 台（见 `dist/ed2k-interop/server-capabilities.txt`），其中没有一台在
+`OP_SERVERIDENT` 里带 `ST_UDPKEY`；本轮 5/9 是通过 crypt ping 的 `0x97` 拿到 key。
 
 本报告的 PASS 项不改变 `12` §3.2 的 ED 门禁判定，也不翻转 P3 发布结论。
