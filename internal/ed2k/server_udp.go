@@ -25,6 +25,11 @@ type ServerUDP struct {
 	once      sync.Once
 	onResults func(protocol.Hash, []protocol.Endpoint)
 	onSearch  func([]serverproto.SharedFileEntry)
+	// onServerKey is called with a key learned from an OP_GLOBSERVSTATRES
+	// crypt-ping answer. eMule installs those with SetServerKeyUDP(), which
+	// binds the key to our current public IP without extra validation.
+	onServerKey      func(uint32)
+	pendingChallenge uint32
 }
 
 func NewServerUDP() *ServerUDP {
@@ -36,6 +41,49 @@ func (u *ServerUDP) SetUDPKey(key uint32) {
 	u.mu.Lock()
 	u.baseKey = key
 	u.mu.Unlock()
+}
+
+// HasUDPKey reports whether a server key is currently installed. Tests and
+// diagnostics use it to distinguish requests sent before and after the
+// crypt-ping answer installed the envelope key.
+func (u *ServerUDP) HasUDPKey() bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.baseKey != 0
+}
+
+// SetServerKeyHandler installs the callback that receives a key learned from
+// a crypt ping (OP_GLOBSERVSTATRES). It may be set after Start.
+func (u *ServerUDP) SetServerKeyHandler(fn func(uint32)) {
+	u.mu.Lock()
+	u.onServerKey = fn
+	u.mu.Unlock()
+}
+
+// SendCryptPing sends the obfuscated OP_GLOBSERVSTATREQ probe used by eMule
+// before a plain status request. The answer is encrypted with the challenge
+// (not the server key, which we do not have yet) and is the second source of
+// ST_UDPKEY material, alongside OP_SERVERIDENT.
+func (u *ServerUDP) SendCryptPing(addr *net.UDPAddr, challenge uint32, paddingLen int) bool {
+	wire, err := serverproto.CryptPingDatagram(challenge, paddingLen)
+	if err != nil {
+		return false
+	}
+	u.mu.Lock()
+	conn := u.conn
+	if conn == nil || addr == nil {
+		u.mu.Unlock()
+		return false
+	}
+	u.pendingChallenge = challenge
+	u.mu.Unlock()
+	_, err = conn.WriteToUDP(wire, addr)
+	if err != nil {
+		u.mu.Lock()
+		u.pendingChallenge = 0
+		u.mu.Unlock()
+	}
+	return err == nil
 }
 
 // UDPPort returns the bound port or 0 when not started.
@@ -110,10 +158,38 @@ func (u *ServerUDP) readLoop(conn *net.UDPConn,
 		u.mu.Lock()
 		baseKey := u.baseKey
 		u.mu.Unlock()
-		plain, ok := serverproto.DecryptServerDatagram(datagram, baseKey)
-		if !ok {
+		plain, decrypted := serverproto.DecryptServerDatagram(datagram, baseKey)
+		if !decrypted {
 			// Plaintext when no key, encrypted when we could decrypt.
 			plain = datagram
+			// A crypt-ping answer is keyed by the challenge we just sent,
+			// because the server key has not been installed yet. eMule does
+			// the same in CUDPSocket::ProcessServerPacket.
+			u.mu.Lock()
+			challenge := u.pendingChallenge
+			u.mu.Unlock()
+			if challenge != 0 {
+				if decoded, ok := serverproto.DecryptServerDatagram(datagram, challenge); ok {
+					plain = decoded
+				}
+			}
+		}
+		// Handle both the encrypted and the (fallback) plaintext form of the
+		// server status answer, which carries the UDP key at body offset 36.
+		if stat, ok := serverproto.ParseGlobServStatRes(plain); ok {
+			u.mu.Lock()
+			challenge, onServerKey := u.pendingChallenge, u.onServerKey
+			u.mu.Unlock()
+			if challenge != 0 && stat.Challenge == challenge {
+				u.mu.Lock()
+				u.pendingChallenge = 0
+				u.mu.Unlock()
+				debugPeerf("server udp <- crypt ping answer challenge=%d key=%d flags=0x%x",
+					stat.Challenge, stat.UDPKey, stat.UDPFlags)
+				if stat.UDPKey != 0 && onServerKey != nil {
+					onServerKey(stat.UDPKey)
+				}
+			}
 		}
 		if onResults != nil {
 			for hash, endpoints := range serverproto.ParseUDPFoundSources(plain) {

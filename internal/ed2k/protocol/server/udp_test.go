@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 
@@ -91,5 +92,44 @@ func TestParseUDPFoundSourcesRealServerAnswer(t *testing.T) {
 		if endpoint.IP() >= 0x01000000 {
 			t.Fatalf("%s expected to be a low ID", endpoint.String())
 		}
+	}
+}
+
+// OP_GLOBSERVSTATRES is the second key source: eMule reads the server UDP key
+// from body[36:40] only when the body is at least 40 bytes long.
+func TestParseGlobServStatRes(t *testing.T) {
+	body := make([]byte, 40)
+	binary.LittleEndian.PutUint32(body[0:4], 0x12345678)  // challenge
+	binary.LittleEndian.PutUint32(body[4:8], 51241)       // users
+	binary.LittleEndian.PutUint32(body[8:12], 998877)     // files
+	binary.LittleEndian.PutUint32(body[24:28], 0x73b)     // UDP flags
+	binary.LittleEndian.PutUint16(body[32:34], 4674)      // UDP obfuscation port
+	binary.LittleEndian.PutUint16(body[34:36], 4670)      // TCP obfuscation port
+	binary.LittleEndian.PutUint32(body[36:40], 0xA1B2C3D4) // UDP key
+
+	datagram := append([]byte{protocol.EdonkeyHeader, OpGlobServStatRes}, body...)
+	res, ok := ParseGlobServStatRes(datagram)
+	if !ok {
+		t.Fatal("valid OP_GLOBSERVSTATRES was rejected")
+	}
+	if res.Challenge != 0x12345678 || res.UDPKey != 0xA1B2C3D4 {
+		t.Fatalf("challenge/key = %#x/%#x", res.Challenge, res.UDPKey)
+	}
+	if res.Users != 51241 || res.Files != 998877 || res.UDPFlags != 0x73b {
+		t.Fatalf("users/files/flags = %d/%d/%#x", res.Users, res.Files, res.UDPFlags)
+	}
+	if res.UDPObfuscationPort != 4674 || res.TCPObfuscationPort != 4670 {
+		t.Fatalf("obfuscation ports = %d/%d", res.UDPObfuscationPort, res.TCPObfuscationPort)
+	}
+
+	// No key in a short answer: eMule leaves the previous key untouched.
+	short := append([]byte{protocol.EdonkeyHeader, OpGlobServStatRes}, body[:36]...)
+	res, ok = ParseGlobServStatRes(short)
+	if !ok || res.UDPKey != 0 {
+		t.Fatalf("short answer = %#x / ok=%t, want key 0", res.UDPKey, ok)
+	}
+	// Wrong opcode must not be mistaken for a status answer.
+	if _, ok := ParseGlobServStatRes([]byte{protocol.EdonkeyHeader, OpGlobFoundSources, 1, 2, 3, 4}); ok {
+		t.Fatal("0x9B accepted as OP_GLOBSERVSTATRES")
 	}
 }

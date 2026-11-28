@@ -1,6 +1,8 @@
 package goed2k
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -29,6 +31,7 @@ type Session struct {
 	serverConnections      map[string]*ServerConnection
 	serverConnectionPolicy map[string]*ServerConnectionPolicy
 	configuredServers      map[string]*net.TCPAddr
+	forcedUDPSearchOpcode  byte // 0 = choose from server capabilities; test override
 	clientID               int32
 	tcpFlags               int32
 	auxPort                int32
@@ -99,6 +102,11 @@ func NewSession(st Settings) *Session {
 	session.serverUDP.onSearch = func(entries []serverproto.SharedFileEntry) {
 		session.onUDPSearchResults(entries)
 	}
+	// The crypt-ping answer binds the key to our own public IP the same way
+	// eMule's CServer::SetServerKeyUDP() does, so no keyIP check is needed.
+	session.serverUDP.SetServerKeyHandler(func(key uint32) {
+		session.SetServerUDPKey(key, 0)
+	})
 	session.initUploadQueue()
 	return session
 }
@@ -582,6 +590,33 @@ func (s *Session) SendUDPSourcesRequest(hash protocol.Hash, size int64) bool {
 	return ok
 }
 
+// MaybeSendCryptPing performs the obfuscated UDP server-status probe eMule
+// uses when OP_SERVERIDENT did not carry ST_UDPKEY. The answer is encrypted
+// with our fresh challenge, so the server does not need to know any key yet.
+// eMule sends the probe to the server's TCP port + 12 (the obfuscated UDP
+// port), while ordinary datagrams go to TCP port + 4.
+func (s *Session) MaybeSendCryptPing() {
+	if s == nil || s.serverUDP == nil || s.serverConnection == nil {
+		return
+	}
+	addr := s.serverUDPAddr()
+	if addr == nil {
+		return
+	}
+	pingAddr := &net.UDPAddr{IP: addr.IP, Port: addr.Port + 8}
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return
+	}
+	challenge := binary.LittleEndian.Uint32(b[:])
+	if challenge == 0 {
+		challenge = 1
+	}
+	if s.serverUDP.SendCryptPing(pingAddr, challenge, 5) {
+		debugPeerf("server udp -> crypt ping to %s challenge=%d", pingAddr.String(), challenge)
+	}
+}
+
 // SetServerUDPKey installs the server's datagram obfuscation key. eMule only
 // uses it when the server bound the key to our public IP
 // (CServer::GetServerKeyUDP):
@@ -684,6 +719,19 @@ func (s *Session) SeedServerCapabilities(entries []serverproto.ServerMetEntry) i
 }
 
 // SendUDPSearchRequest sends OP_GLOBSEARCHREQ3 to the connected server.
+// SetForcedUDPSearchOpcode pins the UDP search opcode for interop probes.
+// Production code leaves it at zero and lets the server capabilities decide.
+func (s *Session) SetForcedUDPSearchOpcode(opcode byte) {
+	s.mu.Lock()
+	s.forcedUDPSearchOpcode = opcode
+	s.mu.Unlock()
+}
+
+// HasServerUDPKey reports whether the server-key RC4 envelope is active.
+func (s *Session) HasServerUDPKey() bool {
+	return s != nil && s.serverUDP != nil && s.serverUDP.HasUDPKey()
+}
+
 func (s *Session) SendUDPSearchRequest(req *serverproto.SearchRequest) bool {
 	if s == nil || s.serverUDP == nil || req == nil {
 		return false
@@ -693,7 +741,21 @@ func (s *Session) SendUDPSearchRequest(req *serverproto.SearchRequest) bool {
 		return false
 	}
 	flags := s.serverUDPFlags()
-	datagram, err := serverproto.UDPGlobSearchDatagram(req, flags)
+	s.mu.Lock()
+	forced := s.forcedUDPSearchOpcode
+	s.mu.Unlock()
+	var datagram []byte
+	var err error
+	switch forced {
+	case serverproto.OpGlobSearchReq:
+		datagram, err = serverproto.UDPGlobSearchReq(req)
+	case serverproto.OpGlobSearchReqV2:
+		datagram, err = serverproto.UDPGlobSearchReqV2(req)
+	case serverproto.OpGlobSearchReqV1:
+		datagram, err = serverproto.UDPGlobSearchReqV1(req)
+	default:
+		datagram, err = serverproto.UDPGlobSearchDatagram(req, flags)
+	}
 	if err != nil {
 		return false
 	}

@@ -273,3 +273,94 @@ func TestOnServerIDChangeStoresReportedPublicIP(t *testing.T) {
 		t.Fatalf("HIGH_ID publicIP = %#x, want %#x", got, publicIP)
 	}
 }
+
+// A server that sends no ST_UDPKEY in OP_SERVERIDENT still hands out its key
+// in OP_GLOBSERVSTATRES. Exercise that whole path over a real UDP socket:
+// crypt ping -> challenge-keyed answer -> key installed -> later requests
+// encrypted with the installed key.
+func TestCryptPingInstallsKeyThenEncryptsRequests(t *testing.T) {
+	fakeServer, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatalf("fake server: %v", err)
+	}
+	defer fakeServer.Close()
+	serverAddr := fakeServer.LocalAddr().(*net.UDPAddr)
+
+	u := NewServerUDP()
+	if err := u.Start(0); err != nil {
+		t.Fatalf("ServerUDP.Start: %v", err)
+	}
+	defer u.Close()
+	clientAddr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: u.UDPPort()}
+	if clientAddr.Port == 0 {
+		t.Fatal("ServerUDP did not bind a port")
+	}
+	keys := make(chan uint32, 4)
+	u.SetServerKeyHandler(func(key uint32) {
+		u.SetUDPKey(key) // mirrors Session.SetServerUDPKey -> ServerUDP.SetUDPKey
+		keys <- key
+	})
+
+	const challenge = uint32(0x12345678)
+	const serverKey = uint32(0xA1B2C3D4)
+	if !u.SendCryptPing(serverAddr, challenge, 5) {
+		t.Fatal("SendCryptPing failed")
+	}
+	buf := make([]byte, 8192)
+	_ = fakeServer.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n, _, err := fakeServer.ReadFromUDP(buf)
+	if err != nil {
+		t.Fatalf("fake server read ping: %v", err)
+	}
+	// eMule sends the crypt-ping body in cleartext (raw packets are never
+	// encrypted); only the answer is keyed by the challenge.
+	ping := buf[:n]
+	if len(ping) < 4 || binary.LittleEndian.Uint32(ping[:4]) != challenge {
+		t.Fatalf("crypt ping body = % X, want challenge %#x", ping, challenge)
+	}
+	if len(ping) != 9 { // <challenge 4><padding 5>
+		t.Fatalf("crypt ping body length = %d, want 9", len(ping))
+	}
+
+	// eMule OP_GLOBSERVSTATRES body: challenge/users/files/.../udpflags/
+	// lowidusers/obfuscation ports/udpkey. The key lives at body[36:40].
+	body := make([]byte, 40)
+	binary.LittleEndian.PutUint32(body[0:4], challenge)
+	binary.LittleEndian.PutUint32(body[4:8], 1234)      // users
+	binary.LittleEndian.PutUint32(body[8:12], 5678)     // files
+	binary.LittleEndian.PutUint32(body[24:28], 0x73b)   // udp flags
+	binary.LittleEndian.PutUint16(body[32:34], 4674)    // udp obfuscation port
+	binary.LittleEndian.PutUint16(body[34:36], 4670)    // tcp obfuscation port
+	binary.LittleEndian.PutUint32(body[36:40], serverKey)
+	answer := append([]byte{protocol.EdonkeyHeader, serverproto.OpGlobServStatRes}, body...)
+	if _, err := fakeServer.WriteToUDP(emuleServerWrap(t, answer, challenge, true), clientAddr); err != nil {
+		t.Fatalf("send crypt ping answer: %v", err)
+	}
+	select {
+	case key := <-keys:
+		if key != serverKey {
+			t.Fatalf("installed key = %#x, want %#x", key, serverKey)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("OP_GLOBSERVSTATRES key never reached the handler")
+	}
+
+	// The installed key must now be used for ordinary datagrams.
+	req := &serverproto.SearchRequest{Query: "debian"}
+	request, err := serverproto.UDPGlobSearchDatagram(req, serverproto.UDPFlagExtGetFiles)
+	if err != nil {
+		t.Fatalf("pack request: %v", err)
+	}
+	if !u.SendTo(serverAddr, request) {
+		t.Fatal("SendTo failed")
+	}
+	_ = fakeServer.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n, _, err = fakeServer.ReadFromUDP(buf)
+	if err != nil {
+		t.Fatalf("fake server read request: %v", err)
+	}
+	got := emuleClientUnwrap(t, buf[:n], serverKey)
+	if !bytesEqual(got, request) {
+		t.Fatalf("post-key request = % X, want % X", got, request)
+	}
+}

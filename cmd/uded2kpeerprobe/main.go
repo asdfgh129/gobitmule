@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -95,6 +96,8 @@ func run() int {
 	obfuscation := flag.Bool("obfuscation", false, "accept/offer CryptLayer obfuscation")
 	statePath := flag.String("state", "", "engine state file (persists UserHash + RSA identity)")
 	debug := flag.Bool("debug", false, "emit engine debug logs to stderr")
+	waitUDPKey := flag.Bool("wait-udp-key", false, "wait for the server's crypt-ping key before searching")
+	udpSearchOpcode := flag.String("udp-search-opcode", "", "force UDP search opcode (hex, e.g. 0x92) for interop testing")
 	out := flag.String("out", "", "write the JSON report to this path")
 	flag.Parse()
 
@@ -178,6 +181,22 @@ func run() int {
 	// hundred milliseconds after OP_IDCHANGE; collect it before sampling.
 	for i := 0; i < 20 && !anyServerIdent(c); i++ {
 		time.Sleep(150 * time.Millisecond)
+	}
+	if *udpSearchOpcode != "" {
+		value, err := strconv.ParseUint(strings.TrimPrefix(strings.ToLower(*udpSearchOpcode), "0x"), 16, 8)
+		if err != nil {
+			r.BlockReason = "bad -udp-search-opcode: " + err.Error()
+			printReport(r, *out)
+			return 2
+		}
+		c.Session().SetForcedUDPSearchOpcode(byte(value))
+		fmt.Fprintf(os.Stderr, "probe: forcing UDP search opcode 0x%02x\n", value)
+	}
+	if *waitUDPKey {
+		for i := 0; i < 40 && !c.Session().HasServerUDPKey(); i++ {
+			time.Sleep(250 * time.Millisecond)
+		}
+		fmt.Fprintf(os.Stderr, "probe: server UDP key installed=%t\n", c.Session().HasServerUDPKey())
 	}
 	r.Servers = collectServers(c)
 	if !anyHandshake(c) {

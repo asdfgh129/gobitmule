@@ -22,6 +22,8 @@ const (
 	OpGlobGetSources2  byte = 0x94 // <hash 16><filesize 4>
 	OpGlobGetSources   byte = 0x9A // <hash 16>
 	OpGlobFoundSources byte = 0x9B
+	OpGlobServStatReq  byte = 0x96
+	OpGlobServStatRes  byte = 0x97
 
 	// Server-encrypted datagram constants (eMule EncryptedDatagramSocket.cpp).
 	magicUDPSyncServer        = uint32(0x13EF24D5)
@@ -289,4 +291,81 @@ func DecryptServerDatagram(datagram []byte, baseKey uint32) (plain []byte, ok bo
 		return dec[5+pad:], true
 	}
 	return datagram, false
+}
+
+// GlobServStatRes is the UDP answer to a crypt ping. eMule's
+// CUDPSocket::ProcessServerPacket (OP_GLOBSERVSTATRES) reads the UDP key from
+// byte 36 of the *body* when the body is at least 40 bytes long, and installs
+// it with CServer::SetServerKeyUDP(). This is the second way a real server can
+// hand out its key; OP_SERVERIDENT's ST_UDPKEY is the first. Servers that send
+// no key in OP_SERVERIDENT are common, so skipping this path leaves the
+// envelope disabled forever.
+type GlobServStatRes struct {
+	Challenge           uint32
+	Users, Files        uint32
+	MaxUsers            uint32
+	SoftFiles, HardFile uint32
+	UDPFlags            uint32
+	LowIDUsers          uint32
+	UDPObfuscationPort  uint16
+	TCPObfuscationPort  uint16
+	UDPKey              uint32
+}
+
+// ParseGlobServStatRes decodes a decrypted OP_GLOBSERVSTATRES datagram. The
+// returned ok is false for any other opcode or for a truncated body.
+func ParseGlobServStatRes(datagram []byte) (*GlobServStatRes, bool) {
+	body, ok := stripUDPDatagram(datagram, OpGlobServStatRes)
+	if !ok || len(body) < 12 {
+		return nil, false
+	}
+	res := &GlobServStatRes{
+		Challenge: binary.LittleEndian.Uint32(body[0:4]),
+		Users:     binary.LittleEndian.Uint32(body[4:8]),
+		Files:     binary.LittleEndian.Uint32(body[8:12]),
+	}
+	if len(body) >= 16 {
+		res.MaxUsers = binary.LittleEndian.Uint32(body[12:16])
+	}
+	if len(body) >= 24 {
+		res.SoftFiles = binary.LittleEndian.Uint32(body[16:20])
+		res.HardFile = binary.LittleEndian.Uint32(body[20:24])
+	}
+	if len(body) >= 28 {
+		res.UDPFlags = binary.LittleEndian.Uint32(body[24:28])
+	}
+	if len(body) >= 32 {
+		res.LowIDUsers = binary.LittleEndian.Uint32(body[28:32])
+	}
+	if len(body) >= 36 {
+		res.UDPObfuscationPort = binary.LittleEndian.Uint16(body[32:34])
+		res.TCPObfuscationPort = binary.LittleEndian.Uint16(body[34:36])
+	}
+	if len(body) >= 40 {
+		res.UDPKey = binary.LittleEndian.Uint32(body[36:40])
+	}
+	return res, true
+}
+
+// CryptPingDatagram builds the probe eMule sends to TCP port + 12 before
+// falling back to a plain OP_GLOBSERVSTATREQ. The body is <challenge><random
+// padding> and is sent IN CLEARTEXT: CClientUDPSocket::SendPacket explicitly
+// does not encrypt raw packets, because no server key exists yet. The server
+// encrypts its answer with the challenge we just sent, which is how the
+// client can recognise it before installing the real key. Encrypting this
+// request makes the server treat the cipher bytes as the challenge and its
+// answer can never be decrypted.
+func CryptPingDatagram(challenge uint32, paddingLen int) ([]byte, error) {
+	if challenge == 0 {
+		return nil, errors.New("crypt ping needs a non-zero challenge")
+	}
+	if paddingLen < 0 || paddingLen > 15 {
+		return nil, errors.New("crypt ping padding must fit in 4 bits")
+	}
+	body := make([]byte, 4+paddingLen)
+	binary.LittleEndian.PutUint32(body[:4], challenge)
+	if _, err := rand.Read(body[4:]); err != nil {
+		return nil, err
+	}
+	return body, nil
 }

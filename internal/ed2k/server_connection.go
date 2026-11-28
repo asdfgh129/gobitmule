@@ -301,6 +301,10 @@ func (s *ServerConnection) ProcessIncoming() error {
 			// obfuscation and bound the key to our public IP (CServer::GetServerKeyUDP).
 			if value.UDPKey != 0 && value.SupportsUDPObfuscation() {
 				s.session.SetServerUDPKey(value.UDPKey, value.UDPKeyIP)
+			} else if value.SupportsUDPObfuscation() {
+				// eMule also learns the key from an obfuscated UDP status
+				// probe when OP_SERVERIDENT carried no ST_UDPKEY.
+				s.session.MaybeSendCryptPing()
 			}
 		case *serverproto.Status:
 			s.serverInfoMu.Lock()

@@ -1,6 +1,6 @@
 # 26 eD2k UDP 互通验证报告
 
-> 文档编号：UD-DOC-26 ｜ 版本：v1.0 ｜ 状态：**验证报告（本地交叉验证 + 真实服务器抓包；不作发布门禁）** ｜ 日期：2026-11-28 ｜ 维护责任：架构组
+> 文档编号：UD-DOC-26 ｜ 版本：v1.1 ｜ 状态：**验证报告（本地交叉验证 + 真实服务器抓包；不作发布门禁）** ｜ 日期：2026-11-28 ｜ 维护责任：架构组
 >
 > 本文只讨论 eD2k 的 **server UDP 数据报链路**（全局搜索、全局查源、能力协商与混淆信封）。
 > TCP 登录/源交换、SecureIdent、KAD 的结论见 [`16`](16-互操作性与兼容性设计.md) §3.1 / §6.1。
@@ -10,16 +10,16 @@
 | 目标 | 结论 | 依据类型 |
 |---|---|---|
 | UDP 搜索 opcode 按服务器能力选择 | **PASS** | 真实服务器抓包 + 单测 |
-| `0x90` tag set、`0x92` 裸搜索树、`0x98` legacy 三种格式 | **PASS** | 真实服务器抓包（`0x90`）+ 单测（`0x92`/`0x98`） |
+| `0x90` tag set、`0x92` 裸搜索树、`0x98` legacy 三种格式 | **PASS** | 真实服务器抓包（`0x90`、强制 `0x92`）+ 单测（`0x98`） |
 | UDP 查源 `0x94` / `0x9A` 与 `0x9B` 回包解析 | **PASS** | 真实服务器抓包 + 黄金样本回归测试 |
 | 能力位时序（登录尚未拿到 `OP_SERVERIDENT` 时） | **PASS** | 真实服务器日志 + 单测 |
 | RC4 信封与 eMule 字节级互认 | **PASS（交叉验证）** | 独立 eMule 算法实现的向量测试 + 真实 UDP socket 端到端 |
-| RC4 信封在**真实下发 `ST_UDPKEY` 的服务器**上端到端 | **未执行** | 抽样 40 台公开服务器均为 `udpKey=false`，见 `dist/ed2k-interop/server-capabilities.txt` |
-| `0x92` 分支在真实服务器上的往返 | **未执行** | 抽样服务器要么 `udpFlags=0x0`，要么 `EXT_GETFILES`+`LARGEFILES`（走 `0x90`） |
+| RC4 信封在**真实服务器**上端到端（crypt ping 下发 key → 加密请求 → 加密回包） | **PASS（真机）** | Cyberchrist 18.1 `run13`/`run14` + `crypt-ping-cyberchrist2.pcapng` / `udp92-encrypted.pcapng` |
+| `0x92` 分支在真实服务器上的往返 | **PASS（真机，强制 opcode）** | `run14`: `opcode=0x92` → 10 个加密 `0x99` 回包并解析入库 |
 
 「PASS（交叉验证）」的含义：测试里的对端编码器是**按 eMule 源码另行实现**的，不复用我们的
-`EncryptServerDatagram`/`DecryptServerDatagram`，因此共享实现错误不会让测试通过；但它仍然是
-本地模拟对端，**不等价于真实第三方服务器**，不得据此对外宣称真机互操作通过。
+`EncryptServerDatagram`/`DecryptServerDatagram`，因此共享实现错误不会让测试通过。
+「PASS（真机）」另有真实公网服务器抓包与日志支撑，二者在下文分别标注，不可混用。
 
 ## 2. 参考基准
 
@@ -168,17 +168,77 @@ return (m_dwIPServerKeyUDP != 0 && m_dwIPServerKeyUDP == theApp.GetPublicIP()) ?
 `TestIdChangePutRoundTrip`、`TestOnServerIDChangeStoresReportedPublicIP`、
 `TestSetServerUDPKeyUsesPublicIP`。
 
+### 4.4 真机闭环：crypt ping 下发 key 与加密往返（2026-11-28）
+
+`OP_SERVERIDENT` 只是 eMule 获取服务器 UDP key 的一条路径。eMule 还有第二条：
+`CServerList::PingServers()` 先向服务器的 **TCP 端口 + 12** 发一个 obfuscated
+servstat ping，`CUDPSocket::ProcessServerPacket()` 从 `OP_GLOBSERVSTATRES(0x97)`
+包体偏移 36 取出 key 并调用 `CServer::SetServerKeyUDP()`。公开服务器常见的情况正是
+`udpFlags` 宣告 `SRV_UDPFLG_UDPOBFUSCATION(0x200)`、但 `OP_SERVERIDENT` 里没有
+`ST_UDPKEY`——Cyberchrist 18.1 就是如此，所以原先的加密链路在真机上永远不启用。
+
+**本轮发现并修复的实现缺陷**：crypt ping 请求必须是**明文** `<challenge 4><padding 5>`。
+eMule `CClientUDPSocket::SendPacket()` 对 raw packet 明确注释
+`we don't encrypt rawpackets (!)`，只有已安装 server key 时才加密。我们最初把请求也套了 RC4
+信封，服务器于是把密文前 4 字节当成 challenge 加密回包，客户端自然永远解不开。
+第一次真机抓包 `crypt-ping-cyberchrist.pcapng` 帧 16/22 完整复现了这一点。
+改为明文后，请求/应答立刻对上。
+
+**真机日志**（`dist/ed2k-interop/run14.log`）：
+
+```text
+server udp -> crypt ping to 57.128.161.24:6678 challenge=877252234
+server udp <- crypt ping answer challenge=877252234 key=1838661081 flags=0x17fb
+server udp: obfuscation key installed keyIP=0
+probe: server UDP key installed=true
+server udp -> glob search "debian" to 57.128.161.24:6670 opcode=0x92 flags=0x73b ok=true
+server udp search results got=1 added=1   （连续 10 条）
+```
+
+**抓包证据**（`dist/ed2k-interop/udp92-encrypted.pcapng`，本机 5512 ↔ 服务器 6670/6678）：
+
+| 帧 | 方向 / 端口 | 长度 | 首字节与含义 |
+|---|---|---|---|
+| 18 | 本机 → 6678 | 9 B | `8ace4934 7c13006540` = 明文 challenge + 5 字节 padding |
+| 24 | 6678 → 本机 | 62 B | `11 0d…` = 以 challenge 为 key 的加密 `0x97` 应答，解出 key `1838661081` |
+| 28 | 本机 → 6670 | 19 B | `01 00 78 7b…` = 以 server key 加密的 `0x92` 搜索请求（marker 非协议头） |
+| 32+ | 6670 → 本机 | 181/143/… B | 加密的 `0x99` 结果包；解密后 `0x99` 记录全部解析入库 |
+
+此前 `run13` / `crypt-ping-cyberchrist2.pcapng` 已单独验证同一台服务器的 key 下发；
+`run14` 把「等 key 安装完成再发请求」串起来，因此请求和回包都在信封里。
+
+#### 4.4.1 0x92 真机往返
+
+抽样中的 UDP 能力服务器都同时宣告 `EXT_GETFILES`+`LARGEFILES`，按 eMule 规则会自动选
+`0x90`，无法自然走到 `0x92` 分支。为验证该格式本身能被真实服务器解析，探针新增
+`-udp-search-opcode 0x92` 覆盖开关（默认关闭，不影响生产选择逻辑），在 key 安装后强制发送
+裸搜索树。服务器连续回传 10 个加密 `0x99`，日志解析入库 10 条。
+
+需要如实限定：这证明 **`0x92` 报文本身可被真实 eMule 系服务器接受并回传**，
+不等于「找到一台自动选择 `0x92` 的服务器」；自动选择分支仍由
+`TestUDPSearchReqV2WireFormat` / `TestGlobSearchOpcode` 单测覆盖。
+
+#### 4.4.2 新增测试
+
+- `TestCryptPingInstallsKeyThenEncryptsRequests`：真实 UDP socket 上跑通
+  明文 ping → challenge 加密的 `0x97` → key 安装 → 后续请求用新 key 加密；
+  对端解码器是独立的 eMule 实现，不复用生产函数。
+- `TestParseGlobServStatRes` 系列：`0x97` 短包/完整包解析，key 取自 body[36:40]。
+- 探针 `-wait-udp-key` 让真机复跑能稳定等到信封激活后再发请求。
+
+
 ## 5. 复跑命令
 
 ```bash
 # 协议层向量 + 真实回包黄金样本
-go test ./internal/ed2k/protocol/server/ -run 'IdChange|EMule|UDPFoundSources|UDPGlobSearch' -v
+go test ./internal/ed2k/protocol/server/ -run 'IdChange|EMule|UDPFoundSources|UDPGlobSearch|ParseGlobServStatRes' -v
 
 # 真实 UDP socket 的加密往返 + 0x92 格式 + key 绑定
-go test ./internal/ed2k/ -run 'TestUDPSearchReqV2WireFormat|TestServerUDPEncryptedRoundTripAndEMuleAnswers|TestSetServerUDPKeyUsesPublicIP' -v
+go test ./internal/ed2k/ -run 'TestUDPSearchReqV2WireFormat|TestServerUDPEncryptedRoundTripAndEMuleAnswers|TestSetServerUDPKeyUsesPublicIP|TestCryptPingInstallsKeyThenEncryptsRequests' -v
 
-# 真实公网服务器（需要可达的 eD2k 网络）
-go run ./cmd/uded2kpeerprobe -server 57.128.161.24:6666 -search debian -debug -out dist/ed2k-interop/udp-search.json
+# 真实公网服务器：等 crypt ping 装好 key，再强制 0x92 验证加密往返
+go run ./cmd/uded2kpeerprobe -server 57.128.161.24:6666 -search debian \
+  -wait-udp-key -udp-search-opcode 0x92 -debug -out dist/ed2k-interop/udp92-encrypted.json
 
 # 全量
 go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/build_docs.py --check
@@ -187,12 +247,16 @@ go test ./internal/... ./cmd/... && python tools/check_arch.py && python tools/b
 ## 6. 结论与未闭环
 
 **可以宣称**：eD2k server UDP 的三种搜索格式、两种查源格式、能力位时序与 RC4 信封，
-在协议字节层面与 eMule srchybrid 一致，并有独立实现对端交叉验证；有真实公网服务器抓包证明
-`0x90`→`0x99` 与 `0x94`→`0x9B` 两条链路可用。
+在协议字节层面与 eMule srchybrid 一致，并有独立实现对端交叉验证。真实公网服务器抓包证明：
+`0x90`→`0x99`、`0x94`→`0x9B` 可用；crypt ping 从 `OP_GLOBSERVSTATRES` 拿到 server key，
+其后 `0x92` 请求与 `0x99` 回包都以 RC4 信封传输并被正确解析（`run14` /
+`udp92-encrypted.pcapng`）。
 
-**不能宣称**：与真实下发 `ST_UDPKEY` 的第三方服务器完成过加密端到端；`0x92` 分支在真实
-服务器上跑过。这两项受限于公网服务器样本（40 台抽样仅 1 台有 UDP 能力，且不下发 key）。
-若后续拿到具备 `SRV_UDPFLG_UDPOBFUSCATION` 且下发 `ST_UDPKEY` 的服务器，应补一次真机抓包，
-确认 marker 不是协议头值、magic 与 padding 字段位置一致，再更新本节结论。
+**仍不能宣称**：找到一台会**自动选择** `0x92` 的服务器（抽样中具备 UDP 能力的服务器都同时
+宣告 `LARGEFILES`，自动走 `0x90`；`0x92` 是用覆盖开关验证报文格式本身）；`0x9A` legacy
+查源与 `0x98` legacy 搜索的真实服务器往返（只跑过 `0x94`/`0x90`）；`0x97` 之外其他下发
+key 的服务器实现。早前记录的「40 台抽样仅 1 台有 UDP 能力」是按 8 位零值匹配 grep 漏判，
+实际是 9 台（见 `dist/ed2k-interop/server-capabilities.txt`），但其中没有一台在
+`OP_SERVERIDENT` 里带 `ST_UDPKEY`。
 
 本报告的 PASS 项不改变 `12` §3.2 的 ED 门禁判定，也不翻转 P3 发布结论。

@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **eD2k UDP 真机闭环：crypt ping 下发 key、加密往返与 0x92 回传（2026-11-28）**：
+  上一轮未闭环的两项已在 Cyberchrist 18.1（`57.128.161.24:6666`）上跑通。
+  - **修复第 6 处互通缺陷**：crypt ping 请求被错误套了 RC4 信封。eMule
+    `CClientUDPSocket::SendPacket()` 明确不对 raw packet 加密（此时还没有 server key），
+    请求必须是明文 `<challenge 4><padding 5>`；原来的密文被服务器当成 challenge，
+    应答永远解不开。第一次真机抓包帧 16/22 复现，改为明文后立即拿到 key。
+  - **补齐第二条 key 路径**：实现 obfuscated servstat ping（发往 TCP+12）与
+    `OP_GLOBSERVSTATRES(0x97)` 解析（key 在 body[36:40]），安装 key 后普通 UDP
+    请求/回包自动进入 RC4 信封。真机拿到 key `1838661081`。
+  - **0x92 真机回传**：探针加 `-wait-udp-key` 与 `-udp-search-opcode` 测试开关；
+    等 key 安装后强制发 `0x92`，服务器回传 10 个加密 `0x99` 并全部解析入库。
+    抓包 `udp92-encrypted.pcapng` 帧 18/24/28/32 覆盖明文 ping、加密应答、
+    加密请求与加密结果四个环节。
+  - 存档 `docs/26` v1.1、`docs/16` §6.1、`docs/README` v1.54；新增 3 个测试。
+  - 仍不能宣称：自动选择 `0x92` 的服务器、`0x9A`/`0x98` legacy 真机往返。
 - **eD2k UDP 信封交叉验证，补 0x92 分支测试，并修复 UDP key 绑定对象（2026-11-28）**：
   上一轮实测确认 `udpKey=false` 的服务器无法验证 RC4 信封，本轮用**按 eMule 源码另行实现**
   的编解码器做字节级交叉验证，并补齐 0x92 分支；验证中发现第 5 处互通缺陷：
