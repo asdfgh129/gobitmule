@@ -16,6 +16,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- **UDP 互通专项收口归档 + SX2 未回 0x84 根因修正（2026-11-28）**：
+  - `docs/26` 升 v1.4 并标记「已收口归档」：server UDP 字节级互通证据闭环，明确不再为
+    「找到自动选择 `0x92`/`0x9A` 的服务器」或「9/9 查源回包」继续投入；保留未闭环边界说明。
+  - `docs/16` §6.1.3 修正 SX2 结论：`OP_REQUESTSOURCES2`(0x83)/`OP_ANSWERSOURCES2`(0x84)
+    是 peer 间源交换（走 `OP_EMULEPROT` 0xC5），**不是服务器协议**；此前「多数服务器不回
+    0x84」的表述概念错误。逐字节核对 + `peers.pcapng` 抓包确认我方 0x83 报文为
+    `c5 14 00 00 00 83 04 00 00 <hash>`，与 aMule `DownloadClient.cpp` 组包一致，触发时机
+    也在 Hello/ExtHello/SecureIdent/FileStatus 全部完成之后。
+  - 根因定位：eMule/aMule 只在「本连接正在为该 hash 提供上传且自己持有可交换源列表」时
+    才组应答；aMule `CPartFile::CreateSrcInfoPacket()` 在 `m_SrcList.empty()` 时 `return NULL`，
+    `ClientTCPSocket.cpp` 因 `tosend==NULL` 不发包，另有 `GetLastSrcReqTime()` 时间窗限制。
+    真机连的是正在给我们提供下载的**完整源节点**（`FileStatusAnswer pieces=0 have=0`），
+    无 srcList 可交换，故静默——是协议设计使然，非互通缺陷。抓包 0x83×2、0x84×0，
+    但 0x54/0x46 正常传输，连接健康。
+  - 新增单测 `TestHandleRequestSources2WithoutSourcesSendsNothing`，固化「无源不发包」语义，
+    与 aMule/eMule 对齐；SX2 的报文发送与接收解析能力判为 PASS，未回 0x84 归为「应答前提未满足」。
+
+### Added
 - **eD2k UDP 抽样复跑：强制 `0x92` 9/9 回包，自动/`0x9A` 查源稳定为 3 台（2026-11-28）**：
   对 `server-capabilities.txt` 中 9 台服务器再跑两轮——仅自动查源重试、强制 `0x92`
   搜索 + 强制 `0x9A` 查源，证据在 `dist/ed2k-interop/udp-cap2/`。强制 `0x92` 在

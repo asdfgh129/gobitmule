@@ -103,6 +103,20 @@ func TestHandleAnswerSources2IgnoresAnotherFile(t *testing.T) {
 
 // An answer must contain only dialable high-ID sources, and must not hand the
 // requester its own address back.
+// aMule's CPartFile::CreateSrcInfoPacket returns NULL when m_SrcList is empty,
+// and eMule likewise sends no answer when it has no sources to offer. This is
+// the reason real eMule/aMule peers we download FROM never answer our 0x83:
+// they are complete sources with no srcList of their own, not downloaders of
+// the same file. Keep our answer path symmetric: no sources -> no packet.
+func TestHandleRequestSources2WithoutSourcesSendsNothing(t *testing.T) {
+	hash := protocol.MustHashFromString("E75AD307F1EC36B45DD100AB92A2F8C0")
+	_, _, pc := sxTestSetup(t, hash)
+	pc.HandleRequestSources2(&clientproto.RequestSources2{Version: 4, Hash: hash})
+	if len(pc.outgoing) != 0 {
+		t.Fatalf("a peer with no sources must not send an empty answer: %d packets", len(pc.outgoing))
+	}
+}
+
 func TestHandleRequestSources2OffersKnownSources(t *testing.T) {
 	hash := protocol.MustHashFromString("E75AD307F1EC36B45DD100AB92A2F8C0")
 	_, transfer, pc := sxTestSetup(t, hash)
